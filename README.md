@@ -1,0 +1,219 @@
+# gloss
+
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL meshes, and Markdown.
+Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
+[NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
+[NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
+[NTCharts3d](https://github.com/NimbleMarkets/ntcharts3d).
+
+## Build and run
+
+Requires Go **1.26.8+** and [Task](https://taskfile.dev/) for the development commands.
+Without Task, build with `go build -o bin/gloss ./cmd/gloss`. Go's automatic toolchain selection can download that
+version. Dependencies are pinned in `go.mod`; sibling checkouts aren't needed.
+
+```sh
+task build
+./bin/gloss photo.png drawing.svg report.pdf model.stl
+./bin/gloss examples/shapes.svg examples/tetrahedron.stl
+./bin/gloss --menu photo.png report.pdf model.stl
+./bin/gloss --preview photo.png report.pdf model.stl
+task install                     # installs gloss into your Go bin directory
+```
+
+Kitty graphics are selected automatically on supporting terminals, with colored
+half-block glyphs as a fallback. The program uses the alternate screen and
+restores the terminal on exit. Direct PNG transport works over SSH; no shared
+filesystem or external converter is needed. In tmux, enable passthrough with
+`set -g allow-passthrough on`.
+
+```sh
+gloss --page 12 report.pdf
+gloss --dpi 300 report.pdf        # higher PDF raster resolution
+gloss --render glyph photo.png   # universal terminal rendering
+gloss --render kitty photo.png   # override capability detection
+gloss --3d software model.stl    # bypass GPU initialization
+gloss --3d wireframe model.stl
+cat drawing.svg | gloss
+cat model.stl | gloss --type stl -
+gloss -- -filename.png
+```
+
+Options use `pflag` GNU syntax and may appear before or after filenames. Both
+`--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
+end option parsing. `--type image|svg|pdf|stl|markdown` overrides detection for all
+inputs. Content detection supports extensionless files. A `-` reads stdin once
+into a temporary file, removed on exit; keyboard input comes from the controlling
+terminal. Interactive output must be a terminal; image export works in scripts.
+`gloss --help` lists flags.
+
+Unsupported files, directories, and other non-regular entries are reported on
+stderr and skipped, so globs can include unrelated entries. Directories are not
+traversed. If none remain, gloss exits with an error. Supported files
+still enforce size limits; `--type` explicitly forces an input format.
+
+Common short options: `-h` help, `-V` version, `-m` menu, `-P` preview,
+`-p` page, `-d` DPI, `-r` render mode, `-t` type, `-o` output PNG,
+`-O` output directory, and `-s` maximum image edge.
+
+```sh
+gloss report.pdf -p3 -o page.png --vision-profile openai-high
+gloss photo.png drawing.svg model.stl -mP
+```
+
+## Controls
+
+| Key | Action |
+| --- | --- |
+| `q`, `Ctrl-C` | Quit |
+| `?`, `Esc` | Show help / dismiss help |
+| `m` | Open the file-selection menu |
+| `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
+| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page; next / previous file for other formats |
+| `Home` / `End`, `G` | First / last PDF page |
+| `+`, `-` | Zoom in / out |
+| Arrows, `h j k l` | Pan zoomed images; orbit STL |
+| `f`, `0` | Fit image / reset camera |
+| `g` | Toggle Kitty / glyph output when Kitty is supported |
+| `R` | Reload file from disk |
+| `r` | Toggle STL auto-rotation; reload other formats |
+| `o` | Toggle STL orthographic / perspective projection |
+| Drag / Shift-drag / wheel | STL orbit / pan / zoom |
+
+At a PDF boundary, page navigation stays on that page. Use `[` and `]` to change
+files. Loading and rendering run asynchronously; errors appear in the viewer
+with retry and next-file controls.
+
+The file menu preserves argument order and marks the active file with `*`.
+Use arrows or `j`/`k` to select, `Enter` to open, and `Esc` to cancel without
+changing the current page, zoom, or camera. `PageUp`/`PageDown` scroll through
+long lists; `Home`/`End` jump to the ends. Full paths distinguish duplicate names.
+Press `v` to toggle an independent preview pane. PDF previews show page 1 at
+reduced DPI; STL previews use software rendering. The pane appears in terminals
+at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
+`--preview` starts there with previews enabled.
+
+## Markdown
+
+Open `.md`, `.markdown`, or `.mdown` files, or pipe text with `--type markdown`.
+Glamour renders headings, lists, tables, and syntax-highlighted code. Local
+Markdown image references (including reference-style links) use the existing
+raster and SVG renderers, shown as block figures following their text line.
+Paths resolve relative to the Markdown file, or the working directory for stdin.
+Missing and remote images show placeholders; HTML image tags are not rendered.
+
+```sh
+gloss examples/readme.md
+gloss --preview examples/readme.md examples/shapes.svg
+cat README.md | gloss --type markdown -
+```
+
+Use `j`/`k`, arrows, or the mouse wheel to scroll; `Space`/`b` page down/up;
+`Ctrl-D`/`Ctrl-U` move half a page; `Home`/`End` jump to the ends. Press `s` to
+switch between rendered Markdown and source. File navigation remains `[`/`]`.
+Documents are limited to 2 MiB of UTF-8 and 32 image references, with a combined
+16-megapixel decoded image budget after resizing. Embedded images fit within
+1600 pixels. Markdown PNG export is not supported: send Markdown text directly
+to a model and export individual images when needed.
+
+## Images for vision models
+
+Export PNGs without opening a terminal UI. The default maximum edge is **1536
+pixels**; choose the size appropriate to your model and the detail you need.
+This is a configurable size budget, not a promise of identical model token costs.
+
+```sh
+gloss --output page.png --max-edge 1536 --page 3 report.pdf
+gloss --output diagram.png --max-edge 1024 drawing.svg
+gloss --output mesh.png --max-edge 1536 model.stl
+gloss --output page.png --vision-profile openai-high report.pdf
+gloss --output diagram.png --vision-profile claude-standard drawing.svg
+gloss --output-dir model-inputs --max-edge 768 photo.png drawing.svg report.pdf
+cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
+```
+
+Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
+transparency onto white, and contain no terminal chrome. Smaller raster sources
+are not enlarged. SVG and PDF are rasterized for the requested size (PDF remains
+subject to the 600-DPI and pixel-budget caps). STL exports are square, use the
+default NTCharts3d camera, and rasterize every face in software without the
+interactive fallback's triangle sampling. A single view does not reveal hidden
+surfaces.
+
+Model profiles also fit the rounded patch budget, which a maximum edge alone
+cannot enforce. These profiles implement sizing envelopes, not a measured
+accuracy optimum or exact billing calculation. Verified against official
+[OpenAI](https://developers.openai.com/api/docs/guides/images-vision) and
+[Claude](https://platform.claude.com/docs/en/build-with-claude/vision) documentation
+on 2026-09-29:
+
+| Profile | Maximum edge | Patch size / budget | Largest square |
+| --- | --- | --- | --- |
+| `openai-high` | 2048 | 32×32 / 2500 | 1600×1600 |
+| `claude-standard` | 1568 | 28×28 / 1568 | 1092×1092 |
+| `claude-high` | 2576 | 28×28 / 4784 | 1932×1932 |
+
+The OpenAI profile is a conservative common envelope for GPT-6 Astra and GPT-5.6
+with API `detail: high`; it does not set that API parameter. Claude high applies
+to models supporting the high-resolution tier (currently 4.7 and later).
+An explicit `--max-edge` can further reduce a profile's output. Smaller inputs
+remain smaller. Model/API rules can change; inspect the dimensions printed on
+stderr and consult the target model's documentation.
+
+PNG is useful for text, diagrams, and thin lines because it is lossless. For
+dense documents, retain an overview and supply detail crops where needed. For
+3D interpretation, several views reveal more than one larger image. Automatic
+detail crops, multi-view STL export, and JPEG output are not implemented yet.
+
+`--output` accepts one input; `--output-dir` exports all supplied inputs in order,
+with numbered filenames. Each PDF exports the selected `--page` (page 1 by
+default, clamped to the document's page range). Existing output files are never
+overwritten. `--output -` sends PNG bytes to redirected stdout, with diagnostics
+on stderr. Export works without a TTY and cannot be combined with menu flags.
+
+## Formats and current limits
+
+- PNG, JPEG, GIF, WebP, BMP, TIFF: first frame/page, up to 32 megapixels. Animated
+  playback, HEIC, and AVIF aren't supported.
+- SVG: NTCharts' pure-Go SVG renderer, rasterized to a 2400-pixel maximum edge.
+  SVG support follows the underlying oksvg renderer, not a full browser engine.
+- PDF: PDFium via embedded WebAssembly; no Poppler, MuPDF, CGO, or external
+  runtime installation. Pages render at 150 DPI by default (`--dpi 36..600`),
+  with a 32-megapixel raster budget and a 10,000-page limit. Password-protected
+  PDFs aren't supported. This version provides visual paging, without text search.
+- STL: ASCII and binary, flat-shaded triangles, up to 87,381 faces to stay within
+  NTCharts3d's vertex limit. Normals are recomputed from vertex winding. GPU
+  rendering falls back to software and then wireframe. Software is limited to
+  320×200 pixels and samples meshes above 20,000 triangles; wireframe samples
+  above 2,000 triangles, so large models can lose detail in fallback modes.
+- Input files and stdin are limited to 128 MiB. One active document and, when
+  enabled, one independent preview are kept open.
+  Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;
+  use a higher PDF DPI for more detail. There is no URL fetching or file watching.
+
+## Development
+
+```sh
+task test
+task ci                         # formatting, modules, race tests, vet, build
+go build -ldflags '-X main.version=0.1.0' -o bin/gloss ./cmd/gloss
+```
+
+Tests cover CLI validation, malformed files, STL geometry, PDF rendering and
+navigation, SVG rasterization, viewport cropping, terminal-safe labels, and
+stale asynchronous results. The example SVG and STL are small original fixtures.
+
+The layout follows NTCharts' conventions, with one module for this CLI:
+
+- `cmd/gloss`: CLI flags, stdin handling, and export orchestration.
+- `internal/app`: terminal pager, selection menu, and Markdown layout.
+- `internal/document`: bounded loaders, renderers, and vision image sizing.
+- `examples`: small runnable fixtures.
+- `scripts`: release packaging.
+
+`task --list` lists development commands. GitHub Actions runs `task ci` on Linux
+and macOS for pushes and pull requests. Pushing a `v*` tag runs checks, packages
+macOS/Linux amd64 and arm64 binaries, and publishes archives and SHA-256 checksums
+to a GitHub Release. Locally, run `task release VERSION=v0.1.0` to produce the
+same archives in `dist/` without publishing. Release binaries use software STL
+rendering when native GPU support is unavailable.

@@ -1,0 +1,61 @@
+version: '3'
+
+vars:
+  VERSION: '{{default "dev" .VERSION}}'
+
+tasks:
+  default:
+    cmds: [task: build]
+  list:
+    desc: List available tasks
+    cmds: [task --list]
+  build:
+    desc: Build bin/gloss
+    env:
+      GLOSS_VERSION: '{{.VERSION}}'
+    cmds:
+      - mkdir -p bin
+      - go build -mod=readonly -trimpath -ldflags "-X main.version=$GLOSS_VERSION" -o bin/gloss ./cmd/gloss
+  run:
+    desc: Run gloss (pass arguments after --)
+    cmds: ['go run ./cmd/gloss {{.CLI_ARGS}}']
+  install:
+    desc: Install gloss into the Go bin directory
+    cmds: [go install -mod=readonly ./cmd/gloss]
+  fmt:
+    desc: Format Go sources
+    cmds: [gofmt -w cmd internal]
+  fmt-check:
+    desc: Check Go formatting
+    cmds:
+      - 'test -z "$(gofmt -l cmd internal)"'
+  go-tidy:
+    desc: Tidy module dependencies
+    cmds: [go mod tidy]
+  go-tidy-check:
+    cmds: [go mod tidy -diff]
+  go-verify:
+    cmds: [go mod verify]
+  test:
+    desc: Run tests
+    cmds: [go test -mod=readonly ./...]
+  test-race:
+    desc: Run tests with race detection
+    cmds: [go test -mod=readonly -race ./...]
+  vet:
+    desc: Run Go static checks
+    cmds: [go vet -mod=readonly ./...]
+  ci:
+    desc: Run the same checks as GitHub Actions
+    cmds:
+      - task: fmt-check
+      - task: go-tidy-check
+      - task: go-verify
+      - task: test-race
+      - task: vet
+      - task: build
+  release:
+    desc: Package macOS/Linux binaries in dist (VERSION=vX.Y.Z)
+    env:
+      GLOSS_VERSION: '{{.VERSION}}'
+    cmds: ['sh scripts/release.sh "$GLOSS_VERSION"']

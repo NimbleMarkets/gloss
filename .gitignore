@@ -1,0 +1,6 @@
+/bin/
+/gloss
+*.test
+coverage.out
+/dist/
+/.task/
