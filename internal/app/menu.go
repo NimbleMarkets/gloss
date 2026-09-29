@@ -46,7 +46,7 @@ func (m *Model) updatePreview() tea.Cmd {
 		opts.Menu, opts.Preview, opts.Page, opts.Browse = false, false, 1, ""
 		opts.Pick, opts.Drops = false, nil
 		// Keep previews inexpensive and independent of the active camera.
-		opts.Render3D, opts.DPI = "software", min(opts.DPI, 96)
+		opts.DPI = min(opts.DPI, 96)
 		m.preview = New(opts)
 		m.preview.isPreview, m.preview.index = true, m.selection
 		_, resize := m.preview.Update(tea.WindowSizeMsg{Width: max(1, m.previewWidth()), Height: m.bodyHeight()})

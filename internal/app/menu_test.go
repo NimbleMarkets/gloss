@@ -207,3 +207,19 @@ func TestMenuSuspendsHiddenDocument(t *testing.T) {
 		t.Fatal("closing menu did not resume main document")
 	}
 }
+
+func TestPreviewDrawsMeshesAsTheViewerDoes(t *testing.T) {
+	// The GPU comes first in the preview too, and software is what
+	// NTCharts3d falls back to; a renderer asked for by name is kept.
+	for _, mode := range []string{"auto", "software", "wireframe"} {
+		m := New(Options{Files: []string{"a.stl", "b.stl"}, Render: "glyph", Render3D: mode, Menu: true, Preview: true, Page: 1, DPI: 150})
+		m.Update(tea.WindowSizeMsg{Width: 100, Height: 24})
+		if m.preview == nil || m.preview.opts.Render3D != mode {
+			t.Fatalf("--3d %s: the preview draws with %q", mode, m.preview.opts.Render3D)
+		}
+		if m.preview.opts.DPI != 96 {
+			t.Fatalf("previews of PDFs stay at reduced DPI: %d", m.preview.opts.DPI)
+		}
+		m.Close()
+	}
+}

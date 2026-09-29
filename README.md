@@ -113,7 +113,7 @@ Use arrows or `j`/`k` to select, `Enter` to open, and `Esc` to cancel without
 changing the current page, zoom, or camera. `PageUp`/`PageDown` scroll through
 long lists; `Home`/`End` jump to the ends. Full paths distinguish duplicate names.
 Press `v` to toggle an independent preview pane. PDF previews show page 1 at
-reduced DPI; STL previews use software rendering, and 3MF previews show the
+reduced DPI; mesh previews are drawn as the viewer draws them, and 3MF previews show the
 picture the file carries, when it has one: a slicer's rendering of the plate
 if there is one, otherwise the declared thumbnail. The pane appears in terminals
 at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
@@ -356,7 +356,8 @@ this replacement does not affect the native CLI. Samples are compiled into the
 app with `go:embed` and read through the same document loaders. No user files
 are fetched or uploaded. Browser PDF rendering uses the NTCharts PDFium bridge,
 which downloads pinned PDFium 2.14.2 assets from jsDelivr; other runtime assets
-are served alongside the site. STL uses the portable software renderer.
+are served alongside the site. Meshes are drawn with WebGPU where the browser
+has it, and by the software renderer where it does not.
 
 Embed the standalone terminal on another site:
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"slices"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/examples"
@@ -15,28 +16,35 @@ import (
 	"github.com/spf13/pflag"
 )
 
-func main() {
-	sample := pflag.String("sample", "", "initial embedded sample filename")
-	pflag.Parse()
+// options opens the gallery on its menu, or on one sample with the others
+// after it. It reports false for a sample the gallery does not hold.
+func options(sample string) (app.Options, bool) {
 	files := append([]string(nil), examples.Names...)
-	if *sample != "" {
-		found := false
-		for i, name := range files {
-			if name == *sample {
-				files = append(files[i:], files[:i]...)
-				found = true
-				break
-			}
+	if sample != "" {
+		i := slices.Index(files, sample)
+		if i < 0 {
+			return app.Options{}, false
 		}
-		if !found {
-			fmt.Fprintln(os.Stderr, "unknown sample:", *sample)
-			return
-		}
+		files = append(files[i:], files[:i]...)
 	}
 	camera := charts.DefaultCamera()
 	camera.Distance = 1.6 // Frame the wide block-letter sculpture more closely.
+	// Meshes are drawn with WebGPU where the browser has it; NTCharts3d
+	// falls back to software, and then wireframe, where it does not.
+	return app.Options{Save: saveExport, Files: files, STLCamera: &camera, Render: "auto", Render3D: "auto", Page: 1, DPI: 96, Menu: sample == "", Preview: sample == ""}, true
+}
+
+func main() {
+	sample := pflag.String("sample", "", "initial embedded sample filename")
+	pflag.Parse()
+	settings, ok := options(*sample)
+	if !ok {
+		fmt.Fprintln(os.Stderr, "unknown sample:", *sample)
+		return
+	}
 	dropped := &document.Overlay{Base: examples.Files}
-	m := app.New(app.Options{Save: saveExport, Files: files, FilesFS: dropped, STLCamera: &camera, Render: "auto", Render3D: "software", Page: 1, DPI: 96, Menu: *sample == "", Preview: *sample == ""})
+	settings.FilesFS = dropped
+	m := app.New(settings)
 	var opts []tea.ProgramOption
 	if runtime.GOOS == "js" {
 		opts = append(opts, tea.WithoutSignalHandler())
