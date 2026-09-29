@@ -19,6 +19,7 @@ import (
 	"github.com/NimbleMarkets/ntcharts-pdf/pdfview"
 	"github.com/NimbleMarkets/ntcharts-svg/svg"
 	_ "github.com/NimbleMarkets/ntcharts/v2/picture/decoders"
+	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/gen2brain/h265/heic"
 	"github.com/ledongthuc/pdf"
 )
@@ -109,6 +110,7 @@ type Result struct {
 	Image       image.Image
 	Mesh        *Mesh
 	Markdown    *Markdown
+	Camera      *charts.Camera // Export view of a mesh; nil uses the default.
 	Err         error
 }
 

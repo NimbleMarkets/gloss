@@ -44,3 +44,15 @@ func acceptDrops(send func(tea.Msg), files *document.Overlay) {
 		return len(paths)
 	}))
 }
+
+// saveExport hands an export to the page, which offers it as a download.
+func saveExport(name string, png []byte) (string, error) {
+	save := js.Global().Get("gloss_save")
+	if save.Type() != js.TypeFunction {
+		return "", fmt.Errorf("this page cannot save files")
+	}
+	data := js.Global().Get("Uint8Array").New(len(png))
+	js.CopyBytesToJS(data, png)
+	save.Invoke(name, data)
+	return name, nil
+}

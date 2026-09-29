@@ -1,5 +1,6 @@
 import { readWithProgress, downloadStatus } from './download.mjs';
 import { installDrop } from './drop.mjs';
+import { saveFile } from './save.mjs';
 
 const status = document.querySelector('#status');
 function message(text) {
@@ -24,6 +25,7 @@ installDrop(window, hint, (names, contents) => {
   window.gloss_drop(names, contents);
   focus();
 }, notice);
+window.gloss_save = (name, bytes) => saveFile(name, bytes);
 window.addEventListener('gloss-exit', () => message('You quit gloss. Restart to explore again.'));
 try {
   const { BoobaTerminal } = await import('./booba/booba.js');

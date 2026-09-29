@@ -33,7 +33,11 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 		if err != nil {
 			return nil, err
 		}
-		return renderMesh(r.Mesh, w), nil
+		camera := charts.DefaultCamera()
+		if r.Camera != nil {
+			camera = *r.Camera
+		}
+		return renderMesh(r.Mesh, w, camera), nil
 	}
 	if r.Image == nil || r.Image.Bounds().Empty() {
 		return nil, fmt.Errorf("document has no image")
@@ -52,10 +56,10 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 // Headless STL export uses NTCharts3d geometry, normalization, and camera.
 // Its interactive software backend caps resolution and samples large meshes;
 // here we rasterize every face at the requested size with a depth buffer.
-func renderMesh(mesh *Mesh, size int) image.Image {
+func renderMesh(mesh *Mesh, size int, camera charts.Camera) image.Image {
 	g, _ := mesh.Geometry(nil)
 	normalize, _, _ := g.Bounds.Normalization()
-	matrix := charts.DefaultCamera().Matrix(1).Mul(normalize)
+	matrix := camera.Matrix(1).Mul(normalize)
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
 	draw.Draw(img, img.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
 	depth := make([]float32, size*size)

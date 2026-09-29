@@ -28,10 +28,13 @@ type Options struct {
 	Page, DPI              int
 	Menu, Preview          bool
 	TUI                    bool // Start without files, waiting for a drop.
-	Output, OutputDir      string
-	MaxEdge                int
-	VisionProfile          string
-	MarkdownBase           string // Base directory for piped Markdown assets.
+	// Save stores an export and returns the name it was given. Nil writes to
+	// the working directory; the browser demo offers a download instead.
+	Save              func(name string, png []byte) (string, error)
+	Output, OutputDir string
+	MaxEdge           int
+	VisionProfile     string
+	MarkdownBase      string // Base directory for piped Markdown assets.
 }
 
 type Model struct {
@@ -223,6 +226,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.probeDrop(v.Paths)
 	case dropResult:
 		return m, m.addDropped(v)
+	case exportResult:
+		m.note = v.note()
+		return m, nil
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -317,6 +323,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.switchFile(-1)
 		case "R":
 			return m, m.load(true)
+		case "e":
+			return m, m.export()
 		case "n", "space", "pgdown":
 			if m.kind == "pdf" {
 				return m, m.movePage(m.page + 1)
@@ -443,6 +451,7 @@ func (m *Model) View() tea.View {
 			"+ / -          zoom\nh j k l / arrows  pan image / orbit STL\n" +
 			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
 			"R              reload file\n" +
+			"e              export as PNG\n" +
 			"Drop files on the terminal to add them\n\nSTL: drag to orbit, Shift-drag to pan, wheel to zoom\n" +
 			"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
 			"r              auto-rotate STL (reload other files)\no              orthographic / perspective\n"
@@ -521,7 +530,7 @@ func (m *Model) View() tea.View {
 		status += " · " + m.note
 	}
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
-	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom", w, "")
+	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export", w, "")
 	if m.markdown != nil {
 		hint = ansi.Truncate(" q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics", w, "")
 	}

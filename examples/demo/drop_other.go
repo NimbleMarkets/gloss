@@ -8,3 +8,6 @@ import (
 )
 
 func acceptDrops(func(tea.Msg), *document.Overlay) {}
+
+// Nil keeps the pager's default: exports are written to the working directory.
+var saveExport func(name string, png []byte) (string, error)

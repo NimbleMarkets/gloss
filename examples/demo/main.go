@@ -36,7 +36,7 @@ func main() {
 	camera := charts.DefaultCamera()
 	camera.Distance = 1.6 // Frame the wide block-letter sculpture more closely.
 	dropped := &document.Overlay{Base: examples.Files}
-	m := app.New(app.Options{Files: files, FilesFS: dropped, STLCamera: &camera, Render: "auto", Render3D: "software", Page: 1, DPI: 96, Menu: *sample == "", Preview: *sample == ""})
+	m := app.New(app.Options{Save: saveExport, Files: files, FilesFS: dropped, STLCamera: &camera, Render: "auto", Render3D: "software", Page: 1, DPI: 96, Menu: *sample == "", Preview: *sample == ""})
 	var opts []tea.ProgramOption
 	if runtime.GOOS == "js" {
 		opts = append(opts, tea.WithoutSignalHandler())

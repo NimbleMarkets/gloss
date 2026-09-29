@@ -88,6 +88,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `f`, `0` | Fit image / reset camera |
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
+| `e` | Export the current page as a PNG in the working directory |
 | `r` | Toggle STL auto-rotation; reload other formats |
 | `o` | Toggle STL orthographic / perspective projection |
 | Drag / Shift-drag / wheel | STL orbit / pan / zoom |
@@ -112,6 +113,12 @@ that does not read as paths is ignored. Dropped files follow the same format and
 size rules as arguments, and any that are skipped are reported on exit.
 `gloss --tui` opens the viewer with no file, as a drop target. In the
 browser demo, dropped files stay in the tab's memory until it reloads.
+
+Press `e` to export what you are viewing: the current image, SVG, or PDF page,
+or an STL from the camera's position. The PNG is rendered as `--output` would
+render it, honors `--max-edge`, and is named after the file
+(`report-page-3.png`). An existing file is never replaced; the name gains a
+number instead. The browser demo offers the PNG as a download.
 
 ## Markdown
 
