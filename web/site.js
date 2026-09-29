@@ -11,3 +11,5 @@ function openSample(value, restart = false) {
 }
 for (const button of buttons) button.addEventListener('click', () => openSample(button.dataset.sample));
 document.querySelector('#restart').addEventListener('click', () => openSample(sample, true));
+// A drop that misses the terminal must not replace the page with the file.
+for (const name of ['dragover', 'drop']) window.addEventListener(name, event => event.preventDefault());

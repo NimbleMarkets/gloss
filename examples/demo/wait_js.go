@@ -6,7 +6,7 @@ import "syscall/js"
 
 func holdRuntime() {
 	noop := js.FuncOf(func(js.Value, []js.Value) any { return "" })
-	for _, name := range []string{"bubbletea_read", "bubbletea_write", "bubbletea_resize"} {
+	for _, name := range []string{"bubbletea_read", "bubbletea_write", "bubbletea_resize", "gloss_drop"} {
 		js.Global().Set(name, noop)
 	}
 	js.Global().Call("dispatchEvent", js.Global().Get("Event").New("gloss-exit"))

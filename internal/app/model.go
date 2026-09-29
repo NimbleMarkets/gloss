@@ -27,6 +27,7 @@ type Options struct {
 	Type, Render, Render3D string
 	Page, DPI              int
 	Menu, Preview          bool
+	TUI                    bool // Start without files, waiting for a drop.
 	Output, OutputDir      string
 	MaxEdge                int
 	VisionProfile          string
@@ -59,6 +60,8 @@ type Model struct {
 	savedCamera              *charts.Camera
 	savedMarkdown            *markdownView
 	markdown                 *markdownView
+	note                     string   // Outcome of the last drop, shown until the next key.
+	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
 var nextModelID atomic.Int64
@@ -71,7 +74,7 @@ func New(opts Options) *Model {
 		picture.ForceKittyCapability(picture.KittyCapabilityUnsupported)
 	}
 	id := 100 + int(nextModelID.Add(1))*1000
-	m := &Model{opts: opts, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: opts.Menu || opts.Preview}
+	m := &Model{opts: opts, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
 	if opts.Render == "kitty" {
 		m.pic.Toggle()
 	}
@@ -102,6 +105,9 @@ func (m *Model) Close() error {
 func (m *Model) Err() error { return m.err }
 
 func (m *Model) load(reload bool) tea.Cmd {
+	if len(m.opts.Files) == 0 {
+		return nil
+	}
 	m.generation++
 	m.loading, m.err = true, nil
 	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload}
@@ -204,6 +210,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.chart.SetSize(m.width, m.bodyHeight()))
 		}
 		return m, cmd
+	case tea.PasteMsg:
+		// Terminals deliver dropped files as a bracketed paste of their paths.
+		if m.isPreview || m.opts.FilesFS != nil {
+			return m, nil
+		}
+		return m, m.probeDrop(document.ParseDrop(v.Content))
+	case DropMsg:
+		if m.isPreview {
+			return m, nil
+		}
+		return m, m.probeDrop(v.Paths)
+	case dropResult:
+		return m, m.addDropped(v)
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -259,6 +278,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case tea.KeyPressMsg:
+		m.note = ""
 		switch v.String() {
 		case "q", "ctrl+c":
 			return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
@@ -272,7 +292,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help = false
 			return m, nil
 		}
-		if m.help {
+		if m.help || len(m.opts.Files) == 0 {
 			return m, nil
 		}
 		if m.menu {
@@ -290,13 +310,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch v.String() {
 		case "m":
-			m.menu, m.selection, m.suspended = true, m.index, true
-			m.savedMarkdown = m.markdown
-			if m.chart != nil {
-				camera := m.chart.Camera()
-				m.savedCamera = &camera
-			}
-			return m, tea.Sequence(m.clearGraphics(), m.updatePreview())
+			return m, m.openMenu(m.index)
 		case "]", "tab":
 			return m, m.switchFile(1)
 		case "[", "shift+tab":
@@ -428,9 +442,12 @@ func (m *Model) View() tea.View {
 			"Home / End     first / last PDF page\n" +
 			"+ / -          zoom\nh j k l / arrows  pan image / orbit STL\n" +
 			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
-			"R              reload file\n\nSTL: drag to orbit, Shift-drag to pan, wheel to zoom\n" +
+			"R              reload file\n" +
+			"Drop files on the terminal to add them\n\nSTL: drag to orbit, Shift-drag to pan, wheel to zoom\n" +
 			"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
 			"r              auto-rotate STL (reload other files)\no              orthographic / perspective\n"
+	case len(m.opts.Files) == 0:
+		body = "Drop files here to open\n\nDrag them from a file manager, or paste their paths."
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {
@@ -450,15 +467,23 @@ func (m *Model) View() tea.View {
 	}
 	// Avoid wrapping filenames, errors, or help beyond the viewport. Do not
 	// truncate the graphics body: Kitty's zero-width escapes must survive.
-	if m.help || (!m.menu && (m.loading || m.err != nil)) {
+	empty := len(m.opts.Files) == 0
+	if m.help || empty || (!m.menu && (m.loading || m.err != nil)) {
 		lines := strings.Split(body, "\n")
 		for i := range lines {
 			lines[i] = ansi.Truncate(lines[i], w, "")
 		}
 		body = strings.Join(lines[:min(len(lines), h)], "\n")
 	}
-	body = lipgloss.NewStyle().Width(w).Height(h).Render(body)
-	name := safe(filepath.Base(m.opts.Files[m.index]))
+	frame := lipgloss.NewStyle().Width(w).Height(h)
+	if empty && !m.help {
+		frame = frame.Align(lipgloss.Center, lipgloss.Center)
+	}
+	body = frame.Render(body)
+	name := "no files"
+	if !empty {
+		name = safe(filepath.Base(m.opts.Files[m.index]))
+	}
 	if strings.HasPrefix(name, "gloss-stdin-") {
 		name = "stdin"
 	}
@@ -489,13 +514,26 @@ func (m *Model) View() tea.View {
 		detail = fmt.Sprintf("Markdown · %s · line %d/%d", mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
 	}
 	status := fmt.Sprintf(" %s  [%d/%d]  %s", name, m.index+1, len(m.opts.Files), detail)
+	if empty {
+		status = " No files yet"
+	}
+	if m.note != "" {
+		status += " · " + m.note
+	}
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
 	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom", w, "")
 	if m.markdown != nil {
 		hint = ansi.Truncate(" q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics", w, "")
 	}
+	if empty {
+		hint = ansi.Truncate(" q quit · ? help", w, "")
+	}
 	if m.menu {
-		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(fmt.Sprintf(" Files · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1), w, ""))
+		status = fmt.Sprintf(" Files · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)
+		if m.note != "" {
+			status += " · " + m.note
+		}
+		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
 		hint = ansi.Truncate(" ↑/↓ select · Enter open · Esc cancel · v preview · q quit", w, "")
 	}
 	content := body + "\n" + bar + "\n" + hint

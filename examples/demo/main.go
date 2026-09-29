@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/examples"
 	"github.com/NimbleMarkets/gloss/internal/app"
+	"github.com/NimbleMarkets/gloss/internal/document"
 	booba "github.com/NimbleMarkets/go-booba"
 	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/spf13/pflag"
@@ -34,13 +35,19 @@ func main() {
 	}
 	camera := charts.DefaultCamera()
 	camera.Distance = 1.6 // Frame the wide block-letter sculpture more closely.
-	m := app.New(app.Options{Files: files, FilesFS: examples.Files, STLCamera: &camera, Render: "auto", Render3D: "software", Page: 1, DPI: 96, Menu: *sample == "", Preview: *sample == ""})
+	dropped := &document.Overlay{Base: examples.Files}
+	m := app.New(app.Options{Files: files, FilesFS: dropped, STLCamera: &camera, Render: "auto", Render3D: "software", Page: 1, DPI: 96, Menu: *sample == "", Preview: *sample == ""})
 	var opts []tea.ProgramOption
 	if runtime.GOOS == "js" {
 		opts = append(opts, tea.WithoutSignalHandler())
 	}
-	err := booba.Run(m, opts...)
+	p := booba.NewProgram(m, opts...)
+	acceptDrops(p.Send, dropped)
+	_, err := p.Run()
 	_ = m.Close()
+	for _, line := range m.Skipped() {
+		fmt.Fprintln(os.Stderr, line)
+	}
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 	}

@@ -38,3 +38,19 @@ func TestGNUOptions(t *testing.T) {
 		t.Fatalf("profile default: %+v %v", opts, err)
 	}
 }
+
+func TestTUIStartsWithoutFiles(t *testing.T) {
+	opts, done, err := parse([]string{"--tui"}, &bytes.Buffer{})
+	if err != nil || done || !opts.TUI || len(opts.Files) != 0 {
+		t.Fatalf("parse = %+v, %v", opts, err)
+	}
+	opts, _, err = parse([]string{"a.svg", "--tui", "-m"}, &bytes.Buffer{})
+	if err != nil || !opts.TUI || !opts.Menu || len(opts.Files) != 1 {
+		t.Fatalf("with files: %+v %v", opts, err)
+	}
+	for _, args := range [][]string{{"--tui", "-o", "out.png", "a.svg"}, {"--tui", "-O", "out", "a.svg"}} {
+		if _, _, err := parse(args, &bytes.Buffer{}); err == nil {
+			t.Fatalf("accepted %v", args)
+		}
+	}
+}

@@ -65,6 +65,18 @@ func (m *Model) disposePreview() tea.Cmd {
 	return cleanup
 }
 
+// The active document is set aside, not unloaded: cancelling restores its
+// page, camera, and scroll position.
+func (m *Model) openMenu(selection int) tea.Cmd {
+	m.menu, m.selection, m.suspended = true, selection, true
+	m.savedMarkdown = m.markdown
+	if m.chart != nil {
+		camera := m.chart.Camera()
+		m.savedCamera = &camera
+	}
+	return tea.Sequence(m.clearGraphics(), m.updatePreview())
+}
+
 func (m *Model) closeMenu(open bool) tea.Cmd {
 	m.menu = false
 	cleanup := m.disposePreview()

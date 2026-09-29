@@ -16,7 +16,7 @@ test('active tabs preserve the session while Restart explicitly reloads it', asy
     querySelector: selector => ({ '#demo': frame, '#restart': restart, '#standalone': link })[selector],
     querySelectorAll: () => tabs,
   };
-  vm.runInNewContext(await readFile(new URL('./site.js', import.meta.url), 'utf8'), { document });
+  vm.runInNewContext(await readFile(new URL('./site.js', import.meta.url), 'utf8'), { document, window: { addEventListener() {} } });
   tabs[0].listeners.click();
   assert.equal(urls.length, 0);
   tabs[1].listeners.click();

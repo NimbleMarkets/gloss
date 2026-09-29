@@ -48,6 +48,7 @@ gloss --3d wireframe model.stl
 cat drawing.svg | gloss
 cat model.stl | gloss --type stl -
 gloss -- -filename.png
+gloss --tui                      # no file yet; drop files to view them
 ```
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
@@ -90,6 +91,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `r` | Toggle STL auto-rotation; reload other formats |
 | `o` | Toggle STL orthographic / perspective projection |
 | Drag / Shift-drag / wheel | STL orbit / pan / zoom |
+| Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
 
 At a PDF boundary, page navigation stays on that page. Use `[` and `]` to change
 files. Loading and rendering run asynchronously; errors appear in the viewer
@@ -103,6 +105,13 @@ Press `v` to toggle an independent preview pane. PDF previews show page 1 at
 reduced DPI; STL previews use software rendering. The pane appears in terminals
 at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
 `--preview` starts there with previews enabled.
+
+Drag files from a file manager onto the terminal to add them to the list.
+Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text
+that does not read as paths is ignored. Dropped files follow the same format and
+size rules as arguments, and any that are skipped are reported on exit.
+`gloss --tui` opens the viewer with no file, as a drop target. In the
+browser demo, dropped files stay in the tab's memory until it reloads.
 
 ## Markdown
 

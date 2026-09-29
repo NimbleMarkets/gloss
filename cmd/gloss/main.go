@@ -11,7 +11,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/NimbleMarkets/gloss/internal/document"
-	"github.com/NimbleMarkets/ntcharts-svg/svg"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/pflag"
 )
@@ -36,6 +35,7 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
+	f.BoolVar(&opts.TUI, "tui", false, "open the viewer without a file; drop files on it to view them")
 	f.StringVarP(&opts.Output, "output", "o", "", "export one input as PNG; '-' writes PNG to stdout")
 	f.StringVarP(&opts.OutputDir, "output-dir", "O", "", "export each input as a numbered PNG in this directory")
 	f.IntVarP(&opts.MaxEdge, "max-edge", "s", 1536, "maximum exported image edge in pixels (1–4096)")
@@ -101,6 +101,9 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	if (opts.Output != "" || opts.OutputDir != "") && (opts.Menu || opts.Preview) {
 		return opts, false, fmt.Errorf("export cannot be combined with --menu or --preview")
 	}
+	if (opts.Output != "" || opts.OutputDir != "") && opts.TUI {
+		return opts, false, fmt.Errorf("export cannot be combined with --tui")
+	}
 	return opts, false, nil
 }
 
@@ -117,7 +120,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(opts.Files) == 0 {
+	if len(opts.Files) == 0 && !(opts.TUI && stdinTTY) {
 		if stdinTTY {
 			_, _, _ = parse([]string{"--help"}, os.Stdout)
 			return nil
@@ -162,9 +165,11 @@ func run(args []string) error {
 			continue
 		}
 	}
-	opts.Files, err = supportedFiles(opts.Files, opts.Type, os.Stderr)
-	if err != nil {
-		return err
+	if len(opts.Files) > 0 {
+		opts.Files, err = supportedFiles(opts.Files, opts.Type, os.Stderr)
+		if err != nil {
+			return err
+		}
 	}
 
 	if exporting {
@@ -174,6 +179,10 @@ func run(args []string) error {
 	defer m.Close()
 	// Bubble Tea opens the controlling TTY automatically when stdin is a pipe.
 	_, err = tea.NewProgram(m).Run()
+	// Dropped files are reported once the alternate screen is gone.
+	for _, line := range m.Skipped() {
+		fmt.Fprintln(os.Stderr, line)
+	}
 	if err != nil {
 		return err
 	}
@@ -185,12 +194,8 @@ func supportedFiles(paths []string, forced string, stderr io.Writer) ([]string, 
 	files := make([]string, 0, len(paths))
 	for _, path := range paths {
 		_, err := document.Probe(path, forced)
-		if errors.Is(err, document.ErrUnsupported) {
-			fmt.Fprintf(stderr, "gloss: %s: unsupported format (skipped)\n", svg.SanitizeForTerminal(path))
-			continue
-		}
-		if errors.Is(err, document.ErrNotRegular) || errors.Is(err, document.ErrDirectory) {
-			fmt.Fprintf(stderr, "gloss: %s: %s (skipped)\n", svg.SanitizeForTerminal(path), err)
+		if errors.Is(err, document.ErrUnsupported) || errors.Is(err, document.ErrNotRegular) || errors.Is(err, document.ErrDirectory) {
+			fmt.Fprintln(stderr, document.Skipped(path, err))
 			continue
 		}
 		if err != nil {

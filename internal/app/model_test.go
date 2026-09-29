@@ -16,7 +16,7 @@ import (
 func press(s string) tea.KeyPressMsg { return tea.KeyPressMsg{Code: []rune(s)[0], Text: s} }
 
 func TestMouseOrbitDirection(t *testing.T) {
-	m := New(Options{Render: "glyph"})
+	m := New(Options{Files: []string{"model.stl"}, Render: "glyph"})
 	m.width, m.height = 80, 30
 	m.chart = charts.New(80, 28, charts.WithRenderMode(charts.Software))
 	defer m.Close()
