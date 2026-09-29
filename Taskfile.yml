@@ -74,6 +74,9 @@ tasks:
   build-wasm-site:
     desc: Build the self-contained sample gallery site into web/dist
     cmds: [sh scripts/build-site.sh]
+  web-check:
+    desc: Test download progress and demo navigation (Node 18+)
+    cmds: ['node --test web/*.test.mjs']
   serve-wasm-site:
     desc: Build and serve the demo at http://localhost:8000
     deps: [build-wasm-site]

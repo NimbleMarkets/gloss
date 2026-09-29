@@ -1,3 +1,5 @@
+import { readWithProgress, downloadStatus } from './download.mjs';
+
 const status = document.querySelector('#status');
 function message(text) {
   status.replaceChildren(document.createTextNode(text));
@@ -18,9 +20,15 @@ try {
   const names = new Set(['landscape.png','landscape.heic','shapes.svg','field-guide.pdf','gloss.stl','readme.md']);
   if (sample && !names.has(sample)) throw new Error('Unknown embedded sample.');
   go.argv = ['gloss-demo', ...(sample ? ['--sample', sample] : [])];
+  status.textContent = 'Connecting to download gloss…';
   const response = await fetch('app.wasm');
   if (!response.ok) throw new Error(`Demo download failed: HTTP ${response.status}`);
-  const { instance } = await WebAssembly.instantiate(await response.arrayBuffer(), go.importObject);
+  const bytes = await readWithProgress(response, (loaded, total) => {
+    status.textContent = downloadStatus(loaded, total);
+  });
+  status.textContent = 'Download complete. Compiling WebAssembly…';
+  const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
+  status.textContent = 'Starting the terminal…';
   const terminal = new BoobaTerminal('terminal');
   await terminal.init();
   go.run(instance).catch(error => message(`Unable to run gloss: ${error.message || error}`));

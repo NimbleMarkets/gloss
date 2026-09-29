@@ -240,6 +240,7 @@ task demo                         # embedded gallery in your terminal
 task demo -- --sample landscape.heic
 task serve-wasm-site               # http://localhost:8000
 task build-wasm-site               # static site in web/dist
+task web-check                     # browser helper tests; Node 18+
 ```
 
 `examples/demo` pins the same Bubble Tea WASM fork used by the NTCharts demos;
@@ -259,7 +260,9 @@ Embed the standalone terminal on another site:
 
 Omit `sample` to start in the file menu; accepted filenames are listed in
 `examples/assets.go`. The native keys work in the demo; quitting offers a
-restart button. Format buttons restart the embedded terminal at that sample.
+restart button. Choosing another format restarts the embedded terminal at that sample; clicking
+the active format preserves the session. Restart explicitly reloads it. The
+loading screen reports received bytes and compilation/startup stages.
 
 The Pages workflow builds for pull requests and deploys pushes to `main`.
 Set repository **Settings → Pages → Source → GitHub Actions** to enable hosting.
