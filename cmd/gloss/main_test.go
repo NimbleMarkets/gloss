@@ -106,3 +106,18 @@ func TestTypeAccepts3MF(t *testing.T) {
 		t.Fatalf("help does not mention 3MF:\n%s", help.String())
 	}
 }
+
+func TestMainScreenFlag(t *testing.T) {
+	for _, flag := range []string{"-X", "--no-alt-screen"} {
+		opts, _, err := parse([]string{flag, "a.svg"}, &bytes.Buffer{})
+		if err != nil || !opts.KeepScreen || len(opts.Files) != 1 {
+			t.Fatalf("%s: %+v %v", flag, opts, err)
+		}
+	}
+	if opts, _, err := parse([]string{"a.svg"}, &bytes.Buffer{}); err != nil || opts.KeepScreen {
+		t.Fatalf("default: %+v %v", opts, err)
+	}
+	if _, _, err := parse([]string{"-X", "-o", "out.png", "a.svg"}, &bytes.Buffer{}); err == nil {
+		t.Fatal("-X accepted with an export, which draws nothing")
+	}
+}

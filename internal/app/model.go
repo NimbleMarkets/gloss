@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/draw"
 	"io/fs"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"strings"
@@ -28,6 +29,8 @@ type Options struct {
 	Page, DPI              int
 	Menu, Preview          bool
 	Browse                 string // Folder to open the file browser in at the start.
+	KeepScreen             bool   // Draw on the main screen; the last view stays after quitting.
+	keptScreen             bool   // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
 	Save              func(name string, png []byte) (string, error)
@@ -68,6 +71,7 @@ type Model struct {
 	fields                   []document.Field
 	opener                   *opener
 	hideUnsupported          bool     // The browser's choice outlasts any one visit.
+	quitting                 bool     // The view being drawn is the one left behind.
 	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
@@ -79,6 +83,13 @@ func New(opts Options) *Model {
 		picture.ForceKittyCapability(picture.KittyCapabilitySupported)
 	case "glyph":
 		picture.ForceKittyCapability(picture.KittyCapabilityUnsupported)
+	}
+	if opts.KeepScreen && !opts.keptScreen {
+		// Pictures left in the scrollback are owned by the terminal, under
+		// their numbers. Start somewhere new, so that the next gloss does
+		// not draw over what the last one left.
+		opts.keptScreen = true
+		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := 100 + int(nextModelID.Add(1))*1000
 	m := &Model{opts: opts, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
@@ -114,6 +125,16 @@ func (m *Model) Close() error {
 }
 
 func (m *Model) Err() error { return m.err }
+
+// quit gives the terminal back. Graphics are taken down with the alternate
+// screen. On the main screen the document is left as it was last seen.
+func (m *Model) quit() tea.Cmd {
+	if !m.opts.KeepScreen {
+		return tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
+	}
+	m.quitting, m.help, m.opener = true, false, nil
+	return tea.Quit
+}
 
 func (m *Model) load(reload bool) tea.Cmd {
 	if len(m.opts.Files) == 0 {
@@ -208,7 +229,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.note = ""
 			switch v.String() {
 			case "ctrl+c":
-				return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
+				return m, m.quit()
 			case "esc":
 				m.opener = nil
 				return m, nil
@@ -320,7 +341,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch v.String() {
 		case "q", "ctrl+c":
-			return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
+			return m, m.quit()
 		case "?":
 			m.help = !m.help
 			return m, nil
@@ -637,11 +658,17 @@ func (m *Model) View() tea.View {
 		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-T "+unsupported+" · Esc cancel", w, "")
 	}
 	content := body + "\n" + bar + "\n" + hint
+	if m.quitting {
+		// Keys no longer answer. The frame keeps its height, or Bubble Tea
+		// draws it below the last one; and it ends on an empty row, because
+		// the last row is erased on the way out. The prompt lands there.
+		content, mouse = body+"\n"+bar+"\n", tea.MouseModeNone
+	}
 	if m.height < 3 || (!m.menu && m.chart != nil && m.height < 5) {
 		content = ansi.Truncate("gloss: enlarge terminal", w, "")
 	}
 	v := tea.NewView(content)
-	v.AltScreen, v.MouseMode = true, mouse
+	v.AltScreen, v.MouseMode = !m.opts.KeepScreen, mouse
 	return v
 }
 

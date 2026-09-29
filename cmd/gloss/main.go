@@ -36,6 +36,7 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
+	f.BoolVarP(&opts.KeepScreen, "no-alt-screen", "X", false, "draw on the main screen: scrollback is kept, and the last view stays after quitting")
 	f.StringVarP(&opts.Output, "output", "o", "", "export one input as PNG; '-' writes PNG to stdout")
 	f.StringVarP(&opts.OutputDir, "output-dir", "O", "", "export each input as a numbered PNG in this directory")
 	f.IntVarP(&opts.MaxEdge, "max-edge", "s", 1536, "maximum exported image edge in pixels (1–4096)")
@@ -100,6 +101,9 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	}
 	if (opts.Output != "" || opts.OutputDir != "") && (opts.Menu || opts.Preview) {
 		return opts, false, fmt.Errorf("export cannot be combined with --menu or --preview")
+	}
+	if (opts.Output != "" || opts.OutputDir != "") && opts.KeepScreen {
+		return opts, false, fmt.Errorf("export draws nothing; it cannot be combined with --no-alt-screen")
 	}
 	return opts, false, nil
 }

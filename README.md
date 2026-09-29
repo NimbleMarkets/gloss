@@ -34,7 +34,9 @@ task install                     # installs gloss into your Go bin directory
 
 Kitty graphics are selected automatically on supporting terminals, with colored
 half-block glyphs as a fallback. The program uses the alternate screen and
-restores the terminal on exit. Direct PNG transport works over SSH; no shared
+restores the terminal on exit. With `-X` (`--no-alt-screen`, as in `less`) it
+draws on the main screen instead: the scrollback is left alone, and the last
+view stays where it was drawn when you quit. Direct PNG transport works over SSH; no shared
 filesystem or external converter is needed. In tmux, enable passthrough with
 `set -g allow-passthrough on`.
 
@@ -48,6 +50,7 @@ gloss --3d wireframe model.stl
 cat drawing.svg | gloss
 cat model.stl | gloss --type stl -
 gloss -- -filename.png
+gloss -X photo.png               # keep the scrollback; the picture stays after q
 gloss                            # no file yet; drop files or press o to browse
 gloss ~/Pictures                 # browse a folder for a file to open
 ```
@@ -67,6 +70,7 @@ named: then it opens the file browser there. Supported files
 still enforce size limits; `--type` explicitly forces an input format.
 
 Common short options: `-h` help, `-V` version, `-m` menu, `-P` preview,
+`-X` main screen,
 `-p` page, `-d` DPI, `-r` render mode, `-t` type, `-o` output PNG,
 `-O` output directory, and `-s` maximum image edge.
 
