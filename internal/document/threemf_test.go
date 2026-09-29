@@ -129,7 +129,7 @@ func TestPlacement3MF(t *testing.T) {
 		t.Fatal(err)
 	}
 	g, _ := m.Mesh.Geometry(nil)
-	if m.Triangles != 8 || m.Objects != 2 || g.Bounds.Min.X != 0 || g.Bounds.Max.X != 11 || g.Bounds.Min.Z != 4 || g.Bounds.Max.Z != 6 {
+	if m.Triangles != 8 || m.Objects != 1 || g.Bounds.Min.X != 0 || g.Bounds.Max.X != 11 || g.Bounds.Min.Z != 4 || g.Bounds.Max.Z != 6 {
 		t.Fatalf("triangles=%d objects=%d bounds=%+v", m.Triangles, m.Objects, g.Bounds)
 	}
 	// A mirror turns each face over; its winding is turned back, so the
@@ -313,5 +313,101 @@ func TestExpanding3MFIsRefused(t *testing.T) {
 	}
 	if _, err := Parse3MF(b.Bytes()); err == nil || !strings.Contains(err.Error(), "128 MiB") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+const production3MF = `xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p"`
+
+func picture(t *testing.T, w, h int) string {
+	t.Helper()
+	var b bytes.Buffer
+	if err := png.Encode(&b, image.NewRGBA(image.Rect(0, 0, w, h))); err != nil {
+		t.Fatal(err)
+	}
+	return b.String()
+}
+
+// slicerProject is a project as Bambu Studio and its relatives save it: one
+// object of two parts, each in the filament its settings give it.
+func slicerProject(t *testing.T, parts map[string]string) []byte {
+	t.Helper()
+	all := map[string]string{
+		"3D/3dmodel.model": model3MF(production3MF, `<metadata name="License">Standard Digital File License</metadata>
+			<resources><object id="2" type="model"><components>
+				<component p:path="/3D/Objects/object_1.model" objectid="1"/>
+				<component p:path="/3D/Objects/object_1.model" objectid="3" transform="1 0 0 0 1 0 0 0 1 5 0 0"/>
+			</components></object></resources><build><item objectid="2"/></build>`),
+		"3D/Objects/object_1.model": model3MF(production3MF, `<resources><object id="1">`+tetrahedron+`</object><object id="3">`+tetrahedron+`</object></resources>`),
+		"Metadata/model_settings.config": `<?xml version="1.0"?><config><object id="2">
+			<metadata key="name" value="toy.stl"/><metadata key="extruder" value="2"/>
+			<part id="1" subtype="normal_part"><metadata key="name" value="body"/></part>
+			<part id="3" subtype="normal_part"><metadata key="extruder" value="1"/></part>
+		</object></config>`,
+		"Metadata/project_settings.config": `{"filament_colour": ["#FF0000", "#5E43B7"], "filament_type": ["PLA", "PLA"]}`,
+		"Metadata/thumbnail.png":           picture(t, 3, 5),
+		"Metadata/plate_1.png":             picture(t, 8, 6),
+	}
+	for name, content := range parts {
+		all[name] = content
+	}
+	return archive3MF(t, all)
+}
+
+func TestSlicerProject3MF(t *testing.T) {
+	m, err := Parse3MF(slicerProject(t, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, _ := m.Mesh.Geometry(nil)
+	purple, red := color.RGBA{R: 0x5e, G: 0x43, B: 0xb7, A: 255}, color.RGBA{R: 255, A: 255}
+	// The first part takes the object's filament; the second has its own.
+	if first, second := g.Vertices[0].Color, g.Vertices[12].Color; first != purple || second != red {
+		t.Errorf("parts are %v and %v, want %v and %v", first, second, purple, red)
+	}
+	// The object that only holds the parts is not one of them.
+	if m.Objects != 2 || m.Triangles != 8 {
+		t.Errorf("objects=%d triangles=%d", m.Objects, m.Triangles)
+	}
+	// The slicer's rendering of the plate stands in for the model better
+	// than the picture the package declares, which may be a photograph.
+	if m.Thumbnail == nil || m.Thumbnail.Bounds().Dx() != 8 {
+		t.Errorf("thumbnail %v", m.Thumbnail)
+	}
+	expect(t, m.fields(""), map[string]string{"License": "Standard Digital File License", "Objects": "2", "Thumbnail": "8 × 6"})
+}
+
+func TestSlicerSettingsGiveWayToTheModel(t *testing.T) {
+	// Colors the model itself declares are the standard, and win.
+	m, err := Parse3MF(slicerProject(t, map[string]string{
+		"3D/Objects/object_1.model": model3MF(production3MF, `<resources><basematerials id="9"><base name="green" displaycolor="#00FF00"/></basematerials>
+			<object id="1" pid="9" pindex="0">`+tetrahedron+`</object><object id="3">`+tetrahedron+`</object></resources>`),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, _ := m.Mesh.Geometry(nil)
+	if first, second := g.Vertices[0].Color, g.Vertices[12].Color; first != (color.RGBA{G: 255, A: 255}) || second != (color.RGBA{R: 255, A: 255}) {
+		t.Errorf("parts are %v and %v", first, second)
+	}
+}
+
+func TestDamagedSlicerSettingsAreIgnored(t *testing.T) {
+	for name, parts := range map[string]map[string]string{
+		"settings are not XML":     {"Metadata/model_settings.config": "<config><object id="},
+		"project is not JSON":      {"Metadata/project_settings.config": "{not json"},
+		"colors are not colors":    {"Metadata/project_settings.config": `{"filament_colour": ["mauve", 7]}`},
+		"colors are not a list":    {"Metadata/project_settings.config": `{"filament_colour": "#FF0000"}`},
+		"no such filament":         {"Metadata/model_settings.config": `<config><object id="2"><metadata key="extruder" value="9"/></object></config>`},
+		"filament is not a number": {"Metadata/model_settings.config": `<config><object id="2"><metadata key="extruder" value="-1"/><part id="1"><metadata key="extruder" value="x"/></part></object></config>`},
+		"plate is not a picture":   {"Metadata/plate_1.png": "not a png"},
+	} {
+		m, err := Parse3MF(slicerProject(t, parts))
+		if err != nil || m.Mesh == nil || m.Triangles != 8 || m.Thumbnail == nil {
+			t.Errorf("%s: %v %+v", name, err, m)
+			continue
+		}
+		if name == "plate is not a picture" && m.Thumbnail.Bounds().Dx() != 3 {
+			t.Errorf("%s: the declared thumbnail was not used instead: %v", name, m.Thumbnail.Bounds())
+		}
 	}
 }

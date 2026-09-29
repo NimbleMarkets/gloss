@@ -3,6 +3,8 @@ package document
 import (
 	"archive/zip"
 	"bytes"
+	"cmp"
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"html"
@@ -145,6 +147,84 @@ func (p *package3MF) part(name string) (*part3MF, error) {
 	return part, nil
 }
 
+// slicer3MF holds what Bambu Studio and its relatives keep beside the model:
+// the color of each filament, and which filament each object and part takes.
+// The standard has its own place for colors, which these slicers leave empty.
+type slicer3MF struct {
+	filaments []color.RGBA
+	extruders map[string]int // By "object" and "object/part"; filaments count from 1.
+}
+
+// color is that of the filament a part is printed in, where that is known.
+func (s slicer3MF) color(object, part string) color.RGBA {
+	extruder, ok := s.extruders[object+"/"+part]
+	if !ok {
+		extruder = s.extruders[object]
+	}
+	if extruder < 1 || extruder > len(s.filaments) {
+		return meshColor
+	}
+	return s.filaments[extruder-1]
+}
+
+// slicer reads those settings. They are a courtesy of one family of programs:
+// whatever is missing or malformed is passed over.
+func (p *package3MF) slicer() slicer3MF {
+	s := slicer3MF{extruders: map[string]int{}}
+	if data, err := p.read("Metadata/project_settings.config"); err == nil {
+		var project struct {
+			Colors []any `json:"filament_colour"`
+		}
+		if json.Unmarshal(data, &project) == nil {
+			for _, c := range project.Colors {
+				shade, ok := color3MF(fmt.Sprint(c))
+				if !ok {
+					shade = meshColor
+				}
+				s.filaments = append(s.filaments, shade)
+			}
+		}
+	}
+	data, err := p.read("Metadata/model_settings.config")
+	if err != nil {
+		return s
+	}
+	d := xml.NewDecoder(bytes.NewReader(data))
+	var object, part string
+	for {
+		token, err := d.Token()
+		if err != nil {
+			return s
+		}
+		switch e := token.(type) {
+		case xml.StartElement:
+			switch e.Name.Local {
+			case "object":
+				object, part = attribute(e, "id"), ""
+			case "part":
+				part = attribute(e, "id")
+			case "metadata":
+				extruder, err := strconv.Atoi(attribute(e, "value"))
+				if attribute(e, "key") != "extruder" || err != nil || object == "" {
+					continue
+				}
+				if part != "" {
+					s.extruders[object+"/"+part] = extruder
+				} else {
+					s.extruders[object] = extruder
+				}
+			}
+		case xml.EndElement:
+			switch e.Name.Local {
+			case "object":
+				object = ""
+			case "part":
+				part = ""
+			}
+		}
+	}
+}
+
 // relationships names the root model and the thumbnail, where the package
 // declares them.
 func (p *package3MF) relationships() (model, thumbnail string) {
@@ -223,8 +303,12 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	}
 	out := &Model3MF{Unit: model.unit, metadata: model.metadata}
 	objects := map[*object3MF]bool{}
-	var walk func(at placed3MF, from string, transform matrix3MF, depth int, emit func(*part3MF, *object3MF, matrix3MF) error) error
-	walk = func(at placed3MF, from string, transform matrix3MF, depth int, emit func(*part3MF, *object3MF, matrix3MF) error) error {
+	settings := p.slicer()
+	// emit is given each object the build places, where it is placed, and
+	// the color for faces that name none.
+	type emit func(*part3MF, *object3MF, matrix3MF, color.RGBA) error
+	var walk func(at placed3MF, from, top string, transform matrix3MF, depth int, emit emit) error
+	walk = func(at placed3MF, from, top string, transform matrix3MF, depth int, emit emit) error {
 		if depth > max3MFDepth {
 			return fmt.Errorf("3MF objects nest too deeply, or within themselves")
 		}
@@ -240,27 +324,30 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 			return fmt.Errorf("3MF places object %s, which it does not define", at.object)
 		}
 		transform = at.transform.then(transform)
-		if err := emit(part, object, transform); err != nil {
+		if err := emit(part, object, transform, settings.color(top, at.object)); err != nil {
 			return err
 		}
 		for _, c := range object.components {
-			if err := walk(c, from, transform, depth+1, emit); err != nil {
+			if err := walk(c, from, top, transform, depth+1, emit); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	each := func(emit func(*part3MF, *object3MF, matrix3MF) error) error {
+	each := func(emit emit) error {
 		for _, item := range build {
-			if err := walk(item, root, identity3MF, 0, emit); err != nil {
+			if err := walk(item, root, item.object, identity3MF, 0, emit); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
 	// Count before building: a model over the limit is measured, not stored.
-	err = each(func(_ *part3MF, o *object3MF, _ matrix3MF) error {
-		objects[o] = true
+	err = each(func(_ *part3MF, o *object3MF, _ matrix3MF, _ color.RGBA) error {
+		// An object that only holds others is not counted among them.
+		if len(o.triangles) > 0 {
+			objects[o] = true
+		}
 		if out.Triangles += len(o.triangles); out.Triangles > 64<<20 {
 			return fmt.Errorf("3MF has too many triangles to count")
 		}
@@ -276,7 +363,7 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	if out.Triangles > MaxTriangles {
 		mesh = nil
 	}
-	err = each(func(part *part3MF, o *object3MF, transform matrix3MF) error {
+	err = each(func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {
 		mirrored := transform.mirrors()
 		for _, t := range o.triangles {
 			var v [3]math3d.Vec3
@@ -288,7 +375,7 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 				v[1], v[2] = v[2], v[1]
 			}
 			if mesh != nil {
-				shade := meshColor
+				shade := plain
 				group, index := o.group, o.index
 				if t.group != "" {
 					group, index = t.group, t.index
@@ -314,7 +401,9 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	if out.Mesh = mesh; mesh != nil {
 		out.bounds, out.area = mesh.geometry.Bounds, mesh.area()
 	}
-	for _, name := range []string{picture, "Metadata/thumbnail.png", "Metadata/plate_1.png", "Auxiliaries/.thumbnails/thumbnail_3mf.png"} {
+	// A slicer's rendering of the plate stands in for the model better than
+	// the picture the package declares, which may be a photograph of a print.
+	for _, name := range []string{"Metadata/plate_1.png", picture, "Metadata/thumbnail.png", "Auxiliaries/.thumbnails/thumbnail_3mf.png"} {
 		if name == "" || p.files[strings.ToLower(strings.TrimPrefix(name, "/"))] == nil {
 			continue
 		}
@@ -504,7 +593,7 @@ func (m *Model3MF) fields(shown string) []Field {
 	}
 	return section("Model", Field{"Format", "3MF"}, Field{"Title", meta("Title")}, Field{"Designer", meta("Designer")}, Field{"Description", meta("Description")},
 		Field{"Application", meta("Application")}, Field{"Created", meta("CreationDate")}, Field{"Changed", meta("ModificationDate")},
-		Field{"License", meta("LicenseTerms")}, Field{"Copyright", meta("Copyright")},
+		Field{"License", cmp.Or(meta("LicenseTerms"), meta("License"))}, Field{"Copyright", meta("Copyright")},
 		Field{"Objects", grouped(m.Objects)}, Field{"Triangles", grouped(m.Triangles)},
 		Field{"Extent", strings.TrimSpace(number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z)) + " " + unit)},
 		Field{"Surface area", area}, Field{"Thumbnail", thumbnail}, Field{"Shown", shown})

@@ -112,7 +112,8 @@ changing the current page, zoom, or camera. `PageUp`/`PageDown` scroll through
 long lists; `Home`/`End` jump to the ends. Full paths distinguish duplicate names.
 Press `v` to toggle an independent preview pane. PDF previews show page 1 at
 reduced DPI; STL previews use software rendering, and 3MF previews show the
-thumbnail the file carries, when it has one. The pane appears in terminals
+picture the file carries, when it has one: a slicer's rendering of the plate
+if there is one, otherwise the declared thumbnail. The pane appears in terminals
 at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
 `--preview` starts there with previews enabled.
 
@@ -257,7 +258,9 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   above 2,000 triangles, so large models can lose detail in fallback modes.
 - 3MF: the core specification's meshes, components, and build transforms;
   colors from base materials and color groups; objects kept in separate parts
-  of the package, as slicers write them. Textures, beam lattices, slices, and
+  of the package, as slicers write them. Projects from Bambu Studio and its
+  relatives are drawn in their filament colors, which those programs keep in
+  settings of their own; colors painted onto faces are not read. Textures, beam lattices, slices, and
   encrypted content are not read. The same 87,381-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
   hold 4,096 entries and unpack to 128 MiB.
