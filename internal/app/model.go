@@ -66,6 +66,8 @@ type Model struct {
 	note                     string // Outcome of the last drop, shown until the next key.
 	info                     bool   // The details box floats over the document.
 	fields                   []document.Field
+	opener                   *opener
+	hideUnsupported          bool     // The browser's choice outlasts any one visit.
 	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
@@ -195,6 +197,25 @@ func (m *Model) movePage(page int) tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.opener != nil {
+		// The browser's filter takes every key: letters are text here.
+		switch v := msg.(type) {
+		case tea.KeyPressMsg:
+			m.note = ""
+			switch v.String() {
+			case "ctrl+c":
+				return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
+			case "esc":
+				m.opener = nil
+				return m, nil
+			case "ctrl+t":
+				return m, m.toggleUnsupported()
+			}
+			return m, m.browse(msg)
+		case tea.MouseMsg:
+			return m, nil
+		}
+	}
 	if mouse, ok := msg.(tea.MouseMsg); ok && m.menu {
 		if m.help {
 			return m, nil
@@ -210,6 +231,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, v.Width), max(1, v.Height)
+		m.opener.resize(m.width, m.bodyHeight())
 		cmd := tea.Batch(m.pic.SetSize(m.width, m.bodyHeight()), m.resizePreview(), m.layoutMarkdown())
 		if m.chart != nil {
 			return m, tea.Batch(cmd, m.chart.SetSize(m.width, m.bodyHeight()))
@@ -231,6 +253,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case exportResult:
 		m.note = v.note()
 		return m, nil
+	case openResult:
+		return m, m.opened(v)
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -287,6 +311,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyPressMsg:
 		m.note = ""
+		if k := v.String(); (k == "o" || k == "O") && !m.help {
+			return m, m.openBrowser()
+		}
 		switch v.String() {
 		case "q", "ctrl+c":
 			return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
@@ -332,6 +359,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.export()
 		case "i":
 			m.info = !m.info
+			return m, nil
+		case "5":
+			// NTCharts3d binds the projection to o, which opens the browser here.
+			if m.chart != nil {
+				_, cmd := m.chart.Update(tea.KeyPressMsg{Code: 'o', Text: "o"})
+				return m, cmd
+			}
 			return m, nil
 		case "n", "space", "pgdown":
 			if m.kind == "pdf" {
@@ -389,6 +423,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	var cmds []tea.Cmd
+	if m.opener != nil {
+		cmds = append(cmds, m.browse(msg))
+	}
 	// Picture messages carry image IDs and sequence numbers, so late frames
 	// from an earlier page cannot overwrite the current source.
 	cmds = append(cmds, m.pic.Update(msg))
@@ -450,22 +487,29 @@ func (m *Model) View() tea.View {
 	mouse := tea.MouseModeNone
 	switch {
 	case m.help:
+		// Kept to 22 lines, the room a 24-row terminal leaves.
 		body = "gloss — a visual pager\n\n" +
 			"q / Ctrl-C     quit\n? / Esc        help / dismiss\n" +
 			"] / [ / Tab    next / previous file\n" +
 			"m              file menu (v toggles preview)\n" +
+			"o              browse for a file to open\n" +
 			"n / p / Space  next / previous PDF page (or file)\n" +
 			"Home / End     first / last PDF page\n" +
 			"+ / -          zoom\nh j k l / arrows  pan image / orbit STL\n" +
 			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
 			"R              reload file\n" +
-			"e              export as PNG\n" +
-			"i              file details\n" +
-			"Drop files on the terminal to add them\n\nSTL: drag to orbit, Shift-drag to pan, wheel to zoom\n" +
-			"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
-			"r              auto-rotate STL (reload other files)\no              orthographic / perspective\n"
+			"e / i          export as PNG / file details\n" +
+			"r              auto-rotate STL (reload other files)\n\n" +
+			"Drop files on the terminal to add them\n" +
+			"STL: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
+			"Markdown: arrows/wheel scroll, Space/b page, s source\n"
+	case m.opener != nil:
+		body = m.opener.view()
 	case len(m.opts.Files) == 0:
 		body = "Drop files here to open\n\nDrag them from a file manager, or paste their paths."
+		if m.canBrowse() {
+			body = "Drop files here to open\n\nDrag them from a file manager, paste their paths, or press o to browse."
+		}
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {
@@ -486,7 +530,8 @@ func (m *Model) View() tea.View {
 	// Avoid wrapping filenames, errors, or help beyond the viewport. Do not
 	// truncate the graphics body: Kitty's zero-width escapes must survive.
 	empty := len(m.opts.Files) == 0
-	if m.help || empty || (!m.menu && (m.loading || m.err != nil)) {
+	browsing := m.opener != nil && !m.help
+	if m.help || empty || browsing || (!m.menu && (m.loading || m.err != nil)) {
 		lines := strings.Split(body, "\n")
 		for i := range lines {
 			lines[i] = ansi.Truncate(lines[i], w, "")
@@ -494,11 +539,11 @@ func (m *Model) View() tea.View {
 		body = strings.Join(lines[:min(len(lines), h)], "\n")
 	}
 	frame := lipgloss.NewStyle().Width(w).Height(h)
-	if empty && !m.help {
+	if empty && !m.help && !browsing {
 		frame = frame.Align(lipgloss.Center, lipgloss.Center)
 	}
 	body = frame.Render(body)
-	if m.info && !m.help && !m.menu && !empty {
+	if m.info && !m.help && !m.menu && !empty && !browsing {
 		// The mesh view keeps its own title on the first row.
 		top := 0
 		if m.chart != nil {
@@ -547,13 +592,17 @@ func (m *Model) View() tea.View {
 		status += " · " + m.note
 	}
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
-	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info", w, "")
+	keys := " q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info"
 	if m.markdown != nil {
-		hint = ansi.Truncate(" q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics", w, "")
+		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	}
 	if empty {
-		hint = ansi.Truncate(" q quit · ? help", w, "")
+		keys = " q quit · ? help"
 	}
+	if m.canBrowse() {
+		keys += " · o browse"
+	}
+	hint := ansi.Truncate(keys, w, "")
 	if m.menu {
 		status = fmt.Sprintf(" Files · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)
 		if m.note != "" {
@@ -561,6 +610,22 @@ func (m *Model) View() tea.View {
 		}
 		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
 		hint = ansi.Truncate(" ↑/↓ select · Enter open · Esc cancel · v preview · q quit", w, "")
+	}
+	if browsing {
+		// The end of a long path says where you are; the start rarely does.
+		dir, note := safe(m.opener.dir), ""
+		if m.note != "" {
+			note = " · " + m.note
+		}
+		if over := ansi.StringWidth(" Open · "+dir+note) - w; over > 0 && over+1 < ansi.StringWidth(dir) {
+			dir = "…" + ansi.TruncateLeft(dir, over+1, "")
+		}
+		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Open · "+dir+note, w, "…"))
+		unsupported := "hide unsupported"
+		if m.hideUnsupported {
+			unsupported = "show all"
+		}
+		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-T "+unsupported+" · Esc cancel", w, "")
 	}
 	content := body + "\n" + bar + "\n" + hint
 	if m.height < 3 || (!m.menu && m.chart != nil && m.height < 5) {

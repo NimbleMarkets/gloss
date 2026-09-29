@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"testing/fstest"
@@ -126,5 +127,24 @@ func TestSkippedWording(t *testing.T) {
 	_, err := Probe(filepath.Join(t.TempDir(), "gone.png"), "")
 	if got := Skipped("gone.png", err); got != "gloss: gone.png: no such file or directory (skipped)" {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestExtensionsAreTheOnesDetected(t *testing.T) {
+	if len(Extensions) == 0 {
+		t.Fatal("no extensions")
+	}
+	for _, ext := range Extensions {
+		if ext != strings.ToLower(ext) || !strings.HasPrefix(ext, ".") {
+			t.Errorf("%q must be a lower-case extension", ext)
+		}
+		if _, err := Detect("file"+ext, []byte("no telling"), ""); err != nil {
+			t.Errorf("%s: %v", ext, err)
+		}
+	}
+	for _, name := range []string{"file.dmg", "file.txt", "file", "file.go"} {
+		if _, err := Detect(name, []byte("no telling"), ""); !errors.Is(err, ErrUnsupported) || slices.Contains(Extensions, filepath.Ext(name)) {
+			t.Errorf("%s: %v", name, err)
+		}
 	}
 }

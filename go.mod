@@ -14,6 +14,7 @@ require (
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/gen2brain/h265 v0.2.3
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
+	github.com/pgavlin/picky v0.0.0-20260512143253-8d4cf90d74f3
 	github.com/spf13/pflag v1.0.10
 	github.com/yuin/goldmark v1.7.8
 	golang.org/x/image v0.46.0
@@ -26,6 +27,7 @@ require (
 	github.com/NimbleMarkets/oksvg v0.1.1 // indirect
 	github.com/NimbleMarkets/pixterm v0.0.0-20260501211346-dc18ac6c1a0f // indirect
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
+	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260928045949-bbf040aedf25 // indirect
@@ -36,6 +38,7 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
+	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-webgpu/goffi v0.6.3 // indirect
 	github.com/go-webgpu/webgpu v0.5.5 // indirect
 	github.com/gogpu/gpucontext v0.31.3 // indirect

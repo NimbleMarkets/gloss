@@ -48,7 +48,7 @@ gloss --3d wireframe model.stl
 cat drawing.svg | gloss
 cat model.stl | gloss --type stl -
 gloss -- -filename.png
-gloss --tui                      # no file yet; drop files to view them
+gloss --tui                      # no file yet; drop files or press o to browse
 ```
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
@@ -80,6 +80,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `q`, `Ctrl-C` | Quit |
 | `?`, `Esc` | Show help / dismiss help |
 | `m` | Open the file-selection menu |
+| `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
 | `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
@@ -91,7 +92,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `e` | Export the current page as a PNG in the working directory |
 | `i` | Show or hide a box of details about the current file |
 | `r` | Toggle STL auto-rotation; reload other formats |
-| `o` | Toggle STL orthographic / perspective projection |
+| `5` | Toggle STL orthographic / perspective projection |
 | Drag / Shift-drag / wheel | STL orbit / pan / zoom |
 | Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
 
@@ -114,6 +115,17 @@ that does not read as paths is ignored. Dropped files follow the same format and
 size rules as arguments, and any that are skipped are reported on exit.
 `gloss --tui` opens the viewer with no file, as a drop target. In the
 browser demo, dropped files stay in the tab's memory until it reloads.
+
+Press `o` to browse for a file instead, starting in the folder of the one you
+are viewing. Type to filter the list, or type a path such as `~/Pictures/` to
+go straight there; `Tab` completes, `Enter` opens a file or enters a folder,
+and `Esc` cancels. The chosen file joins the list like a dropped one.
+
+Files gloss cannot show are greyed and cannot be chosen; `Ctrl-T` hides them,
+and again shows them. They are judged by extension, so a file with none stays
+available: gloss may still recognize its content. With `--type`, nothing is
+greyed. The browser is [picky](https://github.com/pgavlin/picky); the embedded
+demo, which has no folders, does not offer it.
 
 Press `e` to export what you are viewing: the current image, SVG, or PDF page,
 or an STL from the camera's position. The PNG is rendered as `--output` would

@@ -27,6 +27,10 @@ import (
 const MaxFileBytes = 128 << 20
 const MaxPixels = 32 << 20
 
+// Extensions are the file extensions Detect accepts on their own. Content is
+// examined first, so a supported file need not carry one of them.
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+
 var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, or Markdown")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")

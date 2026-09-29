@@ -136,6 +136,11 @@ func shellWords(line string) ([]string, bool) {
 
 // Skipped words a passed-over input the same way for arguments and drops.
 func Skipped(path string, err error) string {
+	return fmt.Sprintf("gloss: %s: %s (skipped)", svg.SanitizeForTerminal(path), SkipReason(err))
+}
+
+// SkipReason says briefly why an input cannot be shown.
+func SkipReason(err error) string {
 	reason := err.Error()
 	var pathErr *fs.PathError
 	if errors.As(err, &pathErr) {
@@ -144,7 +149,7 @@ func Skipped(path string, err error) string {
 	if errors.Is(err, ErrUnsupported) {
 		reason = "unsupported format"
 	}
-	return fmt.Sprintf("gloss: %s: %s (skipped)", svg.SanitizeForTerminal(path), reason)
+	return reason
 }
 
 // ProbeFS is Probe for an embedded filesystem; nil probes the host.

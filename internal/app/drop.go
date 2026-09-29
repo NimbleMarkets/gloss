@@ -85,7 +85,7 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 	if first < 0 {
 		return nil
 	}
-	m.help = false
+	m.help, m.opener = false, nil
 	switch {
 	case added > 1 && m.menu:
 		m.selection = first
