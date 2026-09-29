@@ -30,12 +30,16 @@ func (m *Model) resizePreview() tea.Cmd {
 		_, cmd := m.preview.Update(tea.WindowSizeMsg{Width: w, Height: m.bodyHeight()})
 		return cmd
 	}
-	return nil
+	return m.disposePreview()
 }
 
 func (m *Model) updatePreview() tea.Cmd {
-	if !m.menu || !m.opts.Preview {
+	if m.previewWidth() == 0 {
 		return nil
+	}
+	var cleanup tea.Cmd
+	if m.preview != nil && m.preview.index != m.selection {
+		cleanup = m.disposePreview()
 	}
 	if m.preview == nil {
 		opts := m.opts
@@ -45,26 +49,71 @@ func (m *Model) updatePreview() tea.Cmd {
 		m.preview = New(opts)
 		m.preview.isPreview, m.preview.index = true, m.selection
 		_, resize := m.preview.Update(tea.WindowSizeMsg{Width: max(1, m.previewWidth()), Height: m.bodyHeight()})
-		return tea.Batch(resize, m.preview.Init())
-	}
-	if m.preview.index != m.selection {
-		return m.preview.switchFile(m.selection - m.preview.index)
+		return tea.Sequence(cleanup, tea.Batch(resize, m.preview.Init()))
 	}
 	return nil
 }
 
+func (m *Model) disposePreview() tea.Cmd {
+	m.previewDrag = false
+	if m.preview == nil {
+		return nil
+	}
+	cleanup := m.preview.clearGraphics()
+	_ = m.preview.Close()
+	m.preview = nil
+	return cleanup
+}
+
 func (m *Model) closeMenu(open bool) tea.Cmd {
 	m.menu = false
-	var cleanup tea.Cmd
-	if m.preview != nil {
-		cleanup = m.preview.pic.SetImage(nil)
-		_ = m.preview.Close()
-		m.preview = nil
-	}
+	cleanup := m.disposePreview()
+	suspended := m.suspended
+	m.suspended = false
 	if open && m.selection != m.index {
-		return tea.Batch(cleanup, m.switchFile(m.selection-m.index))
+		return tea.Sequence(cleanup, m.switchFile(m.selection-m.index))
+	}
+	if suspended {
+		return tea.Sequence(cleanup, m.load(false))
 	}
 	return cleanup
+}
+
+// The chart's zones are local to the right pane. Capture a drag so release
+// outside that pane still reaches the chart and ends the gesture.
+func (m *Model) previewMouse(msg tea.MouseMsg) tea.Cmd {
+	pw := m.previewWidth()
+	if m.preview == nil || pw == 0 {
+		return nil
+	}
+	mouse := msg.Mouse()
+	left := m.width - pw
+	inside := mouse.X >= left && mouse.X < m.width && mouse.Y >= 0 && mouse.Y < m.bodyHeight()
+	if !inside && !m.previewDrag {
+		return nil
+	}
+	switch msg.(type) {
+	case tea.MouseClickMsg:
+		m.previewDrag = inside && mouse.Button == tea.MouseLeft
+	case tea.MouseReleaseMsg:
+		m.previewDrag = false
+	}
+	mouse.X -= left
+	var translated tea.Msg
+	switch msg.(type) {
+	case tea.MouseClickMsg:
+		translated = tea.MouseClickMsg(mouse)
+	case tea.MouseMotionMsg:
+		translated = tea.MouseMotionMsg(mouse)
+	case tea.MouseReleaseMsg:
+		translated = tea.MouseReleaseMsg(mouse)
+	case tea.MouseWheelMsg:
+		translated = tea.MouseWheelMsg(mouse)
+	default:
+		return nil
+	}
+	_, cmd := m.preview.Update(translated)
+	return cmd
 }
 
 func (m *Model) menuKey(k string) tea.Cmd {
@@ -76,10 +125,7 @@ func (m *Model) menuKey(k string) tea.Cmd {
 	case "v":
 		m.opts.Preview = !m.opts.Preview
 		if !m.opts.Preview && m.preview != nil {
-			cmd := m.preview.pic.SetImage(nil)
-			_ = m.preview.Close()
-			m.preview = nil
-			return cmd
+			return m.disposePreview()
 		}
 		return m.updatePreview()
 	case "j", "down", "tab":

@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/draw"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -52,6 +53,11 @@ type Model struct {
 	preview                  *Model
 	isPreview                bool
 	kittyID                  int
+	chartID                  int
+	previewDrag              bool
+	suspended                bool
+	savedCamera              *charts.Camera
+	savedMarkdown            *markdownView
 	markdown                 *markdownView
 }
 
@@ -72,7 +78,13 @@ func New(opts Options) *Model {
 	return m
 }
 
-func (m *Model) Init() tea.Cmd { return tea.Batch(m.pic.Init(), m.load(false), m.updatePreview()) }
+func (m *Model) Init() tea.Cmd {
+	if m.menu {
+		m.suspended = true
+		return tea.Batch(m.pic.Init(), m.updatePreview())
+	}
+	return tea.Batch(m.pic.Init(), m.load(false))
+}
 
 func (m *Model) Close() error {
 	if m.markdown != nil {
@@ -115,11 +127,31 @@ func (m *Model) switchFile(delta int) tea.Cmd {
 	}
 	m.index, m.page, m.pages, m.kind = i, 1, 1, ""
 	m.source, m.zoom, m.panX, m.panY = nil, 0, 0, 0
-	if m.chart != nil {
-		_ = m.chart.Close()
-		m.chart = nil
+	m.savedCamera, m.savedMarkdown = nil, nil
+	return tea.Sequence(m.clearGraphics(), m.load(false))
+}
+
+// Close releases renderer resources; Kitty images must also be explicitly
+// deleted while the terminal is still running.
+func (m *Model) clearChart() tea.Cmd {
+	if m.chart == nil {
+		return nil
 	}
-	return tea.Batch(m.clearMarkdown(), m.pic.SetImage(nil), m.load(false))
+	kitty := m.chart.PictureMode() == picture.PictureKitty
+	_ = m.chart.Close()
+	m.chart = nil
+	if !kitty {
+		return nil
+	}
+	seq := fmt.Sprintf("\x1b_Ga=d,d=I,i=%d,q=2\x1b\\", m.chartID)
+	if os.Getenv("TMUX") != "" {
+		seq = ansi.TmuxPassthrough(seq)
+	}
+	return tea.Raw(seq)
+}
+
+func (m *Model) clearGraphics() tea.Cmd {
+	return tea.Batch(m.clearChart(), m.clearMarkdown(), m.pic.SetImage(nil))
 }
 
 func (m *Model) clearMarkdown() tea.Cmd {
@@ -152,6 +184,12 @@ func (m *Model) movePage(page int) tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if mouse, ok := msg.(tea.MouseMsg); ok && m.menu {
+		if m.help {
+			return m, nil
+		}
+		return m, m.previewMouse(mouse)
+	}
 	switch v := msg.(type) {
 	case previewResult:
 		if m.preview != nil && v.owner == m.preview.kittyID {
@@ -167,28 +205,25 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, cmd
 	case document.Result:
-		if v.Generation != m.generation {
+		if v.Generation != m.generation || m.suspended {
 			return m, nil
 		}
 		m.loading, m.err = false, v.Err
 		if v.Err != nil {
-			return m, tea.Batch(m.clearMarkdown(), m.pic.SetImage(nil))
+			return m, m.clearGraphics()
 		}
-		cleanup := m.clearMarkdown()
+		cleanup := tea.Batch(m.clearMarkdown(), m.clearChart())
 		m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
 		if v.Markdown != nil {
-			if m.chart != nil {
-				_ = m.chart.Close()
-				m.chart = nil
-			}
 			m.source = nil
-			m.markdown = newMarkdownView(v.Markdown, m.kittyID+10)
-			return m, tea.Batch(cleanup, m.pic.SetImage(nil), m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty), m.layoutMarkdown())
+			m.markdown = newMarkdownView(v.Markdown, 100+int(nextModelID.Add(1))*1000)
+			if m.savedMarkdown != nil {
+				m.markdown.raw, m.markdown.offset = m.savedMarkdown.raw, m.savedMarkdown.offset
+				m.savedMarkdown = nil
+			}
+			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty), m.layoutMarkdown()))
 		}
 		if v.Mesh != nil {
-			if m.chart != nil {
-				_ = m.chart.Close()
-			}
 			mode := charts.WebGPU
 			switch m.opts.Render3D {
 			case "software":
@@ -196,24 +231,24 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "wireframe":
 				mode = charts.Wireframe
 			}
-			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.kittyID+1), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(color.RGBA{R: 24, G: 26, B: 30, A: 255}))
+			m.chartID = 100 + int(nextModelID.Add(1))*1000
+			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(color.RGBA{R: 24, G: 26, B: 30, A: 255}))
 			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
 			m.chart.SetColorLegendVisible(false)
 			m.chart.SetSeries(v.Mesh)
-			if m.opts.STLCamera != nil {
+			if m.savedCamera != nil {
+				m.chart.SetCamera(*m.savedCamera)
+				m.savedCamera = nil
+			} else if m.opts.STLCamera != nil {
 				m.chart.SetCamera(*m.opts.STLCamera)
 			}
 			// Apply a capability already established before this chart existed.
 			_, _ = m.chart.Update(struct{}{})
 			m.triangles, m.err = v.Mesh.Triangles(), m.chart.Err()
-			return m, tea.Batch(cleanup, m.chart.Init())
-		}
-		if m.chart != nil {
-			_ = m.chart.Close()
-			m.chart = nil
+			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), m.chart.Init())
 		}
 		m.source = v.Image
-		return m, tea.Batch(cleanup, m.refreshImage())
+		return m, tea.Sequence(cleanup, m.refreshImage())
 	case tea.MouseWheelMsg:
 		if m.markdown != nil && !m.help && !m.menu {
 			if v.Button == tea.MouseWheelUp {
@@ -226,7 +261,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		switch v.String() {
 		case "q", "ctrl+c":
-			return m, tea.Sequence(tea.Batch(m.clearMarkdown(), m.pic.SetImage(nil)), tea.Quit)
+			return m, tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
 		case "?":
 			m.help = !m.help
 			return m, nil
@@ -255,8 +290,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		switch v.String() {
 		case "m":
-			m.menu, m.selection = true, m.index
-			return m, m.updatePreview()
+			m.menu, m.selection, m.suspended = true, m.index, true
+			m.savedMarkdown = m.markdown
+			if m.chart != nil {
+				camera := m.chart.Camera()
+				m.savedCamera = &camera
+			}
+			return m, tea.Sequence(m.clearGraphics(), m.updatePreview())
 		case "]", "tab":
 			return m, m.switchFile(1)
 		case "[", "shift+tab":
@@ -393,6 +433,9 @@ func (m *Model) View() tea.View {
 			"r              auto-rotate STL (reload other files)\no              orthographic / perspective\n"
 	case m.menu:
 		body = m.menuView()
+		if m.preview != nil && m.previewWidth() > 0 {
+			mouse = m.preview.View().MouseMode
+		}
 	case m.loading:
 		body = "Loading " + safe(filepath.Base(m.opts.Files[m.index])) + "…"
 	case m.err != nil:
