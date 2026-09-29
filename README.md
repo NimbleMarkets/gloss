@@ -89,7 +89,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
 | `e` | Export the current page as a PNG in the working directory |
-| `i` | Show or hide details of the current file |
+| `i` | Show or hide a box of details about the current file |
 | `r` | Toggle STL auto-rotation; reload other formats |
 | `o` | Toggle STL orthographic / perspective projection |
 | Drag / Shift-drag / wheel | STL orbit / pan / zoom |
@@ -132,8 +132,9 @@ and modification time, followed by:
 | STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
 | Markdown | Title, lines, words, headings, links, images |
 
-Only fields present in the file are listed. Arrows or `j`/`k` scroll a long
-panel; `i` or `Esc` closes it.
+Only fields present in the file are listed. The box sits in the top-right
+corner over the document, which stays in use beneath it: the details follow as
+you turn pages or change files. `i` or `Esc` closes it.
 
 ## Markdown
 
