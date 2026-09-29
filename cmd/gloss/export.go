@@ -13,6 +13,14 @@ import (
 	"github.com/NimbleMarkets/ntcharts-svg/svg"
 )
 
+func exportRequest(opts app.Options, path string, generation int) document.Request {
+	return document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(generation)}
+}
+
+// onCPU reports whether meshes are to be drawn without the GPU: --3d names
+// a renderer, and any but auto is one of the CPU's.
+func onCPU(opts app.Options) bool { return opts.Render3D != "auto" && opts.Render3D != "" }
+
 func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
 	loader := &document.Loader{}
 	defer loader.Close()
@@ -22,7 +30,8 @@ func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
 		}
 	}
 	for i, path := range opts.Files {
-		r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(i + 1)})
+		r := loader.Load(exportRequest(opts, path, i+1))
+		r.CPU = onCPU(opts)
 		img, err := document.ExportForVision(r, opts.MaxEdge, opts.VisionProfile)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)

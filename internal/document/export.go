@@ -37,6 +37,11 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 		if r.Camera != nil {
 			camera = *r.Camera
 		}
+		if !r.CPU {
+			if img, ok := gpuSnapshot(r.Mesh, w, camera); ok {
+				return img, nil
+			}
+		}
 		return renderMesh(r.Mesh, w, camera), nil
 	}
 	if r.Image == nil || r.Image.Bounds().Empty() {
@@ -53,9 +58,27 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 	return out, nil
 }
 
-// Headless STL export uses NTCharts3d geometry, normalization, and camera.
-// Its interactive software backend caps resolution and samples large meshes;
-// here we rasterize every face at the requested size with a depth buffer.
+// gpuSnapshot draws the mesh alone, on white, with NTCharts3d's GPU renderer.
+// It reports false where there is no GPU to draw with. It is a variable so
+// that tests can stand in for the hardware.
+var gpuSnapshot = func(mesh *Mesh, size int, camera charts.Camera) (image.Image, bool) {
+	chart := charts.New(1, 3, charts.WithAutoRotate(false), charts.WithBackground(color.White))
+	defer chart.Close()
+	chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
+	chart.SetColorLegendVisible(false)
+	chart.SetSeries(mesh)
+	chart.SetCamera(camera)
+	if chart.Err() != nil {
+		return nil, false
+	}
+	// NTCharts3d falls back to its software renderer. The one below is
+	// preferred to that: it was written for exports.
+	img, mode, err := chart.Snapshot(size, size)
+	return img, err == nil && mode == charts.WebGPU
+}
+
+// The CPU's export uses NTCharts3d geometry, normalization, and camera.
+// It rasterizes every face at the requested size with a depth buffer.
 func renderMesh(mesh *Mesh, size int, camera charts.Camera) image.Image {
 	g, _ := mesh.Geometry(nil)
 	normalize, _, _ := g.Bounds.Normalization()

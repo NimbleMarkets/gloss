@@ -47,7 +47,7 @@ func (m *Model) export() tea.Cmd {
 	if save == nil {
 		save = func(name string, data []byte) (string, error) { return saveFile(".", name, data) }
 	}
-	var view document.Result
+	view := document.Result{CPU: m.exportOnCPU()}
 	if m.chart != nil {
 		camera := m.chart.Camera()
 		view.Camera = &camera
@@ -55,7 +55,7 @@ func (m *Model) export() tea.Cmd {
 	m.note = "exporting…"
 	return func() tea.Msg {
 		r := m.loader.Load(q)
-		r.Camera = view.Camera
+		r.Camera, r.CPU = view.Camera, view.CPU
 		img, err := document.ExportForVision(r, edge, profile)
 		if err != nil {
 			return exportResult{err: err}
@@ -68,6 +68,9 @@ func (m *Model) export() tea.Cmd {
 		return exportResult{name: name, size: img.Bounds().Size(), err: err}
 	}
 }
+
+// exportOnCPU reports whether a renderer other than the GPU was asked for.
+func (m *Model) exportOnCPU() bool { return m.opts.Render3D != "auto" && m.opts.Render3D != "" }
 
 func exportName(path, kind string, page int) string {
 	base := filepath.Base(path)

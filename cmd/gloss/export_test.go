@@ -48,3 +48,18 @@ func TestExportFlagValidation(t *testing.T) {
 		}
 	}
 }
+
+func TestExportHonoursTheRendererAskedFor(t *testing.T) {
+	for mode, cpu := range map[string]bool{"auto": false, "software": true, "wireframe": true} {
+		opts, _, err := parse([]string{"--3d", mode, "-o", "out.png", "model.stl"}, &bytes.Buffer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := exportRequest(opts.Options, "model.stl", 1); got.MaxEdge != 1536 || got.Path != "model.stl" {
+			t.Fatalf("%+v", got)
+		}
+		if got := onCPU(opts.Options); got != cpu {
+			t.Errorf("--3d %s: on the CPU = %v, want %v", mode, got, cpu)
+		}
+	}
+}

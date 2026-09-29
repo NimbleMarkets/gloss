@@ -123,6 +123,7 @@ type Result struct {
 	Mesh        *Mesh
 	Markdown    *Markdown
 	Camera      *charts.Camera // Export view of a mesh; nil uses the default.
+	CPU         bool           // Export a mesh without trying the GPU.
 	Info        []Field        // What the file says about itself, for the info panel.
 	Err         error
 }

@@ -74,3 +74,5 @@ replace charm.land/bubbletea/v2 => github.com/neomantra/bubbletea/v2 v2.0.0-2026
 tool github.com/NimbleMarkets/go-booba/cmd/booba-assets
 
 tool github.com/NimbleMarkets/booba-shim/cmd/booba-shim-assets
+
+replace github.com/NimbleMarkets/ntcharts3d => ../../../ntcharts3d

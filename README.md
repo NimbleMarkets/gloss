@@ -244,10 +244,11 @@ cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
 Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
 transparency onto white, and contain no terminal chrome. Smaller raster sources
 are not enlarged. SVG and PDF are rasterized for the requested size (PDF remains
-subject to the 600-DPI and pixel-budget caps). STL exports are square, use the
-default NTCharts3d camera, and rasterize every face in software without the
-interactive fallback's triangle sampling. A single view does not reveal hidden
-surfaces.
+subject to the 600-DPI and pixel-budget caps). Mesh exports are square and use
+the default NTCharts3d camera, or the viewer's when saved with `e`. They are
+drawn on the GPU, and in software where there is none or where `--3d` names
+another renderer. Software draws every face, without the viewer's triangle
+sampling, and the same picture. A single view does not reveal hidden surfaces.
 
 Model profiles also fit the rounded patch budget, which a maximum edge alone
 cannot enforce. These profiles implement sizing envelopes, not a measured

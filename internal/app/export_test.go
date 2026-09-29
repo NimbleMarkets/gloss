@@ -186,3 +186,13 @@ func TestSaveFileNeverOverwrites(t *testing.T) {
 		t.Fatal("saving into a missing directory succeeded")
 	}
 }
+
+func TestExportUsesTheViewersRenderer(t *testing.T) {
+	// --3d software means software for what is saved, too.
+	for mode, cpu := range map[string]bool{"": false, "auto": false, "software": true, "wireframe": true} {
+		m := viewing(t, Options{Files: []string{samples + "gloss.stl"}, Render3D: mode}, "stl")
+		if got := m.exportOnCPU(); got != cpu {
+			t.Errorf("--3d %q: on the CPU = %v, want %v", mode, got, cpu)
+		}
+	}
+}
