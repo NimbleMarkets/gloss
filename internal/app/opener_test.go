@@ -360,3 +360,45 @@ func TestOpenerFitsTheTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestBrowseOptionStartsInThatFolder(t *testing.T) {
+	dir := folder(t)
+	m := New(Options{Browse: filepath.Join(dir, "trips"), Render: "glyph", Page: 1, DPI: 72})
+	t.Cleanup(func() { m.Close() })
+	pump(m, m.Init(), 0)
+	send(m, tea.WindowSizeMsg{Width: 240, Height: 30})
+	if m.opener == nil {
+		t.Fatal("the browser did not open")
+	}
+	if view := ansi.Strip(m.View().Content); !listed(m, "coast.png") || listed(m, "alpha.png") || !strings.Contains(view, filepath.Join(dir, "trips")) {
+		t.Fatalf("browser:\n%s", view)
+	}
+	send(m, escape)
+	if view := m.View().Content; m.opener != nil || !strings.Contains(view, "Drop files here to open") {
+		t.Fatalf("Esc must leave the empty viewer:\n%s", view)
+	}
+}
+
+func TestBrowseOptionOpensOverTheFirstFile(t *testing.T) {
+	dir := folder(t)
+	m := New(Options{Files: []string{filepath.Join(dir, "beta.svg")}, Browse: dir, Render: "glyph", Page: 1, DPI: 72})
+	t.Cleanup(func() { m.Close() })
+	pump(m, m.Init(), 0)
+	send(m, tea.WindowSizeMsg{Width: 240, Height: 30})
+	if m.opener == nil || !listed(m, "alpha.png") {
+		t.Fatalf("browser:\n%s", ansi.Strip(m.View().Content))
+	}
+	send(m, escape)
+	if m.opener != nil || m.index != 0 || m.kind != "svg" {
+		t.Fatalf("the file given was not loaded beneath the browser: kind=%q", m.kind)
+	}
+}
+
+func TestBrowseOptionNeedsAFilesystem(t *testing.T) {
+	m := New(Options{Files: append([]string(nil), examples.Names...), FilesFS: examples.Files, Browse: "/", Render: "glyph", Page: 1})
+	t.Cleanup(func() { m.Close() })
+	pump(m, m.Init(), 0)
+	if m.opener != nil {
+		t.Fatal("the embedded gallery has no folders to browse")
+	}
+}

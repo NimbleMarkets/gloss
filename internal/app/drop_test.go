@@ -249,8 +249,8 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 		t.Fatalf("keys acted on an empty session: menu=%v loading=%v zoom=%d", m.menu, m.loading, m.zoom)
 	}
 	m.Update(press("?"))
-	if view := m.View().Content; !strings.Contains(view, "a visual pager") {
-		t.Fatal("help is unavailable before the first file")
+	if view := m.View().Content; !strings.Contains(view, "a visual pager") || !strings.Contains(view, "gloss --help") {
+		t.Fatalf("help is unavailable before the first file, or does not say where the options are:\n%s", view)
 	}
 	m.Update(press("?"))
 	if !deliver(m, tea.PasteMsg{Content: t.TempDir()}) || len(m.opts.Files) != 0 || m.loading {

@@ -48,7 +48,8 @@ gloss --3d wireframe model.stl
 cat drawing.svg | gloss
 cat model.stl | gloss --type stl -
 gloss -- -filename.png
-gloss --tui                      # no file yet; drop files or press o to browse
+gloss                            # no file yet; drop files or press o to browse
+gloss ~/Pictures                 # browse a folder for a file to open
 ```
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
@@ -61,7 +62,8 @@ terminal. Interactive output must be a terminal; image export works in scripts.
 
 Unsupported files, directories, and other non-regular entries are reported on
 stderr and skipped, so globs can include unrelated entries. Directories are not
-traversed. If none remain, gloss exits with an error. Supported files
+traversed. If none remain, gloss exits with an error, unless a folder was
+named: then it opens the file browser there. Supported files
 still enforce size limits; `--type` explicitly forces an input format.
 
 Common short options: `-h` help, `-V` version, `-m` menu, `-P` preview,
@@ -113,13 +115,15 @@ Drag files from a file manager onto the terminal to add them to the list.
 Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text
 that does not read as paths is ignored. Dropped files follow the same format and
 size rules as arguments, and any that are skipped are reported on exit.
-`gloss --tui` opens the viewer with no file, as a drop target. In the
+`gloss` alone opens the viewer with no file, as a drop target. In the
 browser demo, dropped files stay in the tab's memory until it reloads.
 
 Press `o` to browse for a file instead, starting in the folder of the one you
 are viewing. Type to filter the list, or type a path such as `~/Pictures/` to
 go straight there; `Tab` completes, `Enter` opens a file or enters a folder,
 and `Esc` cancels. The chosen file joins the list like a dropped one.
+`gloss folder` starts in the browser at that folder. Beside files, folders are
+skipped, so globs stay safe.
 
 Files gloss cannot show are greyed and cannot be chosen; `Ctrl-T` hides them,
 and again shows them. They are judged by extension, so a file with none stays

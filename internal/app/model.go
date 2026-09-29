@@ -27,7 +27,7 @@ type Options struct {
 	Type, Render, Render3D string
 	Page, DPI              int
 	Menu, Preview          bool
-	TUI                    bool // Start without files, waiting for a drop.
+	Browse                 string // Folder to open the file browser in at the start.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
 	Save              func(name string, png []byte) (string, error)
@@ -89,11 +89,15 @@ func New(opts Options) *Model {
 }
 
 func (m *Model) Init() tea.Cmd {
+	var browse tea.Cmd
+	if m.opts.Browse != "" {
+		browse = m.browseFrom(m.opts.Browse)
+	}
 	if m.menu {
 		m.suspended = true
-		return tea.Batch(m.pic.Init(), m.updatePreview())
+		return tea.Batch(m.pic.Init(), m.updatePreview(), browse)
 	}
-	return tea.Batch(m.pic.Init(), m.load(false))
+	return tea.Batch(m.pic.Init(), m.load(false), browse)
 }
 
 func (m *Model) Close() error {
@@ -502,7 +506,8 @@ func (m *Model) View() tea.View {
 			"r              auto-rotate STL (reload other files)\n\n" +
 			"Drop files on the terminal to add them\n" +
 			"STL: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
-			"Markdown: arrows/wheel scroll, Space/b page, s source\n"
+			"Markdown: arrows/wheel scroll, Space/b page, s source\n\n" +
+			"gloss --help lists the command-line options\n"
 	case m.opener != nil:
 		body = m.opener.view()
 	case len(m.opts.Files) == 0:

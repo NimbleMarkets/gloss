@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -35,7 +36,6 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
-	f.BoolVar(&opts.TUI, "tui", false, "open the viewer without a file; drop files on it to view them")
 	f.StringVarP(&opts.Output, "output", "o", "", "export one input as PNG; '-' writes PNG to stdout")
 	f.StringVarP(&opts.OutputDir, "output-dir", "O", "", "export each input as a numbered PNG in this directory")
 	f.IntVarP(&opts.MaxEdge, "max-edge", "s", 1536, "maximum exported image edge in pixels (1–4096)")
@@ -43,7 +43,7 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	showVersion := f.BoolP("version", "V", false, "print version")
 	showHelp := f.BoolP("help", "h", false, "show help")
 	f.Usage = func() {
-		fmt.Fprint(out, "Usage: gloss [options] file...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL and Markdown.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
+		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL and Markdown.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "\nKeys: q quit · ? help · [/] files · n/p pages · +/- zoom · arrows pan/orbit")
 	}
@@ -101,9 +101,6 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	if (opts.Output != "" || opts.OutputDir != "") && (opts.Menu || opts.Preview) {
 		return opts, false, fmt.Errorf("export cannot be combined with --menu or --preview")
 	}
-	if (opts.Output != "" || opts.OutputDir != "") && opts.TUI {
-		return opts, false, fmt.Errorf("export cannot be combined with --tui")
-	}
 	return opts, false, nil
 }
 
@@ -120,11 +117,7 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(opts.Files) == 0 && !(opts.TUI && stdinTTY) {
-		if stdinTTY {
-			_, _, _ = parse([]string{"--help"}, os.Stdout)
-			return nil
-		}
+	if len(opts.Files) == 0 && !stdinTTY {
 		opts.Files = []string{"-"}
 	}
 	exporting := opts.Output != "" || opts.OutputDir != ""
@@ -132,7 +125,7 @@ func run(args []string) error {
 		return fmt.Errorf("redirect PNG stdout to a file or pipe")
 	}
 	if !exporting && !term.IsTerminal(os.Stdout.Fd()) {
-		return fmt.Errorf("output must be a terminal; run gloss directly in your terminal")
+		return fmt.Errorf("output must be a terminal; run gloss directly in your terminal, or see gloss --help")
 	}
 	stdinPath := ""
 	defer func() {
@@ -165,11 +158,9 @@ func run(args []string) error {
 			continue
 		}
 	}
-	if len(opts.Files) > 0 {
-		opts.Files, err = supportedFiles(opts.Files, opts.Type, os.Stderr)
-		if err != nil {
-			return err
-		}
+	opts.Browse, opts.Files, err = inputs(opts.Files, opts.Type, exporting, os.Stderr)
+	if err != nil {
+		return err
 	}
 
 	if exporting {
@@ -189,6 +180,40 @@ func run(args []string) error {
 	return m.Err()
 }
 
+var errNoInputs = errors.New("no supported input files")
+
+// inputs sorts the arguments into files to show and a folder to browse.
+// Given files, folders are skipped, as a glob needs. A folder is browsed only
+// when there is nothing else to show, and with no arguments at all the viewer
+// opens empty.
+func inputs(paths []string, forced string, exporting bool, stderr io.Writer) (string, []string, error) {
+	if exporting {
+		if len(paths) == 0 {
+			return "", nil, fmt.Errorf("no input: name a file to export")
+		}
+		files, err := supportedFiles(paths, forced, stderr)
+		return "", files, err
+	}
+	if len(paths) == 0 {
+		return "", nil, nil
+	}
+	var skipped bytes.Buffer
+	files, err := supportedFiles(paths, forced, &skipped)
+	if errors.Is(err, errNoInputs) {
+		for i, path := range paths {
+			if info, statErr := os.Stat(path); statErr == nil && info.IsDir() {
+				// Report the rest, but not the folder that is put to use.
+				if rest := slices.Delete(slices.Clone(paths), i, i+1); len(rest) > 0 {
+					_, _ = supportedFiles(rest, forced, stderr)
+				}
+				return path, nil, nil
+			}
+		}
+	}
+	_, _ = stderr.Write(skipped.Bytes())
+	return "", files, err
+}
+
 // Unsupported arguments are skipped so shell globs can contain unrelated files.
 func supportedFiles(paths []string, forced string, stderr io.Writer) ([]string, error) {
 	files := make([]string, 0, len(paths))
@@ -204,7 +229,7 @@ func supportedFiles(paths []string, forced string, stderr io.Writer) ([]string, 
 		files = append(files, path)
 	}
 	if len(files) == 0 {
-		return nil, fmt.Errorf("no supported input files")
+		return nil, errNoInputs
 	}
 	return files, nil
 }

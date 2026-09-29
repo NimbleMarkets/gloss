@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"slices"
+	"strings"
 	"testing"
 )
 
@@ -39,18 +41,57 @@ func TestGNUOptions(t *testing.T) {
 	}
 }
 
-func TestTUIStartsWithoutFiles(t *testing.T) {
-	opts, done, err := parse([]string{"--tui"}, &bytes.Buffer{})
-	if err != nil || done || !opts.TUI || len(opts.Files) != 0 {
-		t.Fatalf("parse = %+v, %v", opts, err)
+func TestBareGlossIsNotAnError(t *testing.T) {
+	opts, done, err := parse(nil, &bytes.Buffer{})
+	if err != nil || done || len(opts.Files) != 0 {
+		t.Fatalf("parse = %+v, done=%v, %v", opts, done, err)
 	}
-	opts, _, err = parse([]string{"a.svg", "--tui", "-m"}, &bytes.Buffer{})
-	if err != nil || !opts.TUI || !opts.Menu || len(opts.Files) != 1 {
-		t.Fatalf("with files: %+v %v", opts, err)
+	// The viewer needs no flag to start, so none is offered.
+	for _, flag := range []string{"--tui", "-f"} {
+		if _, _, err := parse([]string{flag}, &bytes.Buffer{}); err == nil {
+			t.Fatalf("%s is still accepted", flag)
+		}
 	}
-	for _, args := range [][]string{{"--tui", "-o", "out.png", "a.svg"}, {"--tui", "-O", "out", "a.svg"}} {
-		if _, _, err := parse(args, &bytes.Buffer{}); err == nil {
-			t.Fatalf("accepted %v", args)
+	var help bytes.Buffer
+	if _, done, _ := parse([]string{"--help"}, &help); !done || !strings.Contains(help.String(), "gloss [options] [file | folder]...") {
+		t.Fatalf("help:\n%s", help.String())
+	}
+}
+
+func TestInputs(t *testing.T) {
+	first, second := t.TempDir(), t.TempDir()
+	svg, md := "../../examples/shapes.svg", "../../examples/readme.md"
+	for _, tt := range []struct {
+		name            string
+		paths           []string
+		exporting       bool
+		dir             string
+		files           []string
+		skipped, failed string
+	}{
+		{name: "nothing opens the empty viewer"},
+		{name: "a file", paths: []string{svg}, files: []string{svg}},
+		{name: "a folder is browsed", paths: []string{first}, dir: first},
+		{name: "the first of several folders is browsed", paths: []string{first, second}, dir: first, skipped: second},
+		{name: "folders among files are skipped, as a glob needs", paths: []string{svg, first, md}, files: []string{svg, md}, skipped: first},
+		{name: "a folder beside something unsupported is browsed", paths: []string{"main.go", first}, dir: first, skipped: "main.go"},
+		{name: "something unsupported alone", paths: []string{"main.go"}, skipped: "main.go", failed: "no supported input files"},
+		{name: "a missing file", paths: []string{"missing.png"}, failed: "missing.png"},
+		{name: "a missing file beside a folder", paths: []string{first, "missing.png"}, skipped: first, failed: "missing.png"},
+		{name: "an export of nothing", exporting: true, failed: "no input"},
+		{name: "an export of a folder", paths: []string{first}, exporting: true, skipped: first, failed: "no supported input files"},
+		{name: "an export skips folders", paths: []string{first, svg}, exporting: true, files: []string{svg}, skipped: first},
+	} {
+		var stderr bytes.Buffer
+		dir, files, err := inputs(tt.paths, "", tt.exporting, &stderr)
+		if dir != tt.dir || !slices.Equal(files, tt.files) {
+			t.Errorf("%s: dir=%q files=%q", tt.name, dir, files)
+		}
+		if (err == nil) != (tt.failed == "") || (err != nil && !strings.Contains(err.Error(), tt.failed)) {
+			t.Errorf("%s: err=%v, want %q", tt.name, err, tt.failed)
+		}
+		if got := strings.Count(stderr.String(), "(skipped)"); (tt.skipped == "" && got != 0) || (tt.skipped != "" && (got != 1 || !strings.Contains(stderr.String(), tt.skipped+":"))) {
+			t.Errorf("%s: stderr=%q, want %q skipped", tt.name, stderr.String(), tt.skipped)
 		}
 	}
 }
