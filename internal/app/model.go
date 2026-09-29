@@ -121,7 +121,7 @@ func (m *Model) load(reload bool) tea.Cmd {
 	}
 	m.generation++
 	m.loading, m.err = true, nil
-	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload}
+	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview}
 	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
 		q.BaseDir = m.opts.MarkdownBase
 	}
@@ -499,13 +499,13 @@ func (m *Model) View() tea.View {
 			"o              browse for a file to open\n" +
 			"n / p / Space  next / previous PDF page (or file)\n" +
 			"Home / End     first / last PDF page\n" +
-			"+ / -          zoom\nh j k l / arrows  pan image / orbit STL\n" +
+			"+ / -          zoom\nh j k l / arrows  pan image / orbit mesh\n" +
 			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
 			"R              reload file\n" +
 			"e / i          export as PNG / file details\n" +
-			"r              auto-rotate STL (reload other files)\n\n" +
+			"r              auto-rotate mesh (reload other files)\n\n" +
 			"Drop files on the terminal to add them\n" +
-			"STL: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
+			"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
 			"Markdown: arrows/wheel scroll, Space/b page, s source\n\n" +
 			"gloss --help lists the command-line options\n"
 	case m.opener != nil:
@@ -579,8 +579,12 @@ func (m *Model) View() tea.View {
 	if m.kind == "pdf" {
 		detail += fmt.Sprintf(" · page %d/%d", m.page, m.pages)
 	}
-	if m.kind == "stl" {
-		detail = fmt.Sprintf("STL · %d triangles · %s", m.triangles, mode)
+	switch {
+	case m.chart != nil:
+		detail = fmt.Sprintf("%s · %d triangles · %s", strings.ToUpper(m.kind), m.triangles, mode)
+	case m.kind == "3mf":
+		// Too large to draw, or a preview: the picture the file carries.
+		detail = fmt.Sprintf("3MF · thumbnail · %s · %dx", mode, 1<<m.zoom)
 	}
 	if m.markdown != nil {
 		mode := "rendered"

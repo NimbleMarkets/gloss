@@ -95,3 +95,14 @@ func TestInputs(t *testing.T) {
 		}
 	}
 }
+
+func TestTypeAccepts3MF(t *testing.T) {
+	opts, _, err := parse([]string{"--type", "3mf", "part"}, &bytes.Buffer{})
+	if err != nil || opts.Type != "3mf" {
+		t.Fatalf("%+v %v", opts, err)
+	}
+	var help bytes.Buffer
+	if _, _, _ = parse([]string{"--help"}, &help); strings.Count(help.String(), "3MF")+strings.Count(help.String(), "3mf") < 2 {
+		t.Fatalf("help does not mention 3MF:\n%s", help.String())
+	}
+}

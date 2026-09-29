@@ -24,6 +24,22 @@ func (m *Mesh) Name() string                                     { return "STL" 
 func (m *Mesh) Geometry(charts.Palette) (charts.Geometry, error) { return m.geometry, nil }
 func (m *Mesh) Triangles() int                                   { return len(m.geometry.Indices) / 3 }
 
+// meshColor is given to faces whose file names none.
+var meshColor = color.RGBA{R: 100, G: 180, B: 230, A: 255}
+
+func triangleArea(v [3]math3d.Vec3) float64 {
+	n := v[1].Sub(v[0]).Cross(v[2].Sub(v[0]))
+	return math.Sqrt(float64(n.X)*float64(n.X)+float64(n.Y)*float64(n.Y)+float64(n.Z)*float64(n.Z)) / 2
+}
+
+func (m *Mesh) area() float64 {
+	total, g := 0.0, m.geometry
+	for i := 0; i+2 < len(g.Indices); i += 3 {
+		total += triangleArea([3]math3d.Vec3{g.Vertices[g.Indices[i]].Position, g.Vertices[g.Indices[i+1]].Position, g.Vertices[g.Indices[i+2]].Position})
+	}
+	return total
+}
+
 func ParseSTL(data []byte) (*Mesh, error) {
 	m := &Mesh{}
 	// Binary headers may begin with "solid". The exact record length is
@@ -40,7 +56,7 @@ func ParseSTL(data []byte) (*Mesh, error) {
 					p := data[off+12+j*12:]
 					v[j] = math3d.Vec3{X: math.Float32frombits(binary.LittleEndian.Uint32(p)), Y: math.Float32frombits(binary.LittleEndian.Uint32(p[4:])), Z: math.Float32frombits(binary.LittleEndian.Uint32(p[8:]))}
 				}
-				if err := m.add(v); err != nil {
+				if err := m.add(v, meshColor); err != nil {
 					return nil, err
 				}
 			}
@@ -108,7 +124,7 @@ func ParseSTL(data []byte) (*Mesh, error) {
 		if err := expect("endfacet"); err != nil {
 			return nil, err
 		}
-		if err := m.add(v); err != nil {
+		if err := m.add(v, meshColor); err != nil {
 			return nil, err
 		}
 	}
@@ -118,7 +134,7 @@ func ParseSTL(data []byte) (*Mesh, error) {
 	return m, nil
 }
 
-func (m *Mesh) add(v [3]math3d.Vec3) error {
+func (m *Mesh) add(v [3]math3d.Vec3, shade color.RGBA) error {
 	if m.Triangles() >= MaxTriangles {
 		return fmt.Errorf("STL exceeds %d triangles", MaxTriangles)
 	}
@@ -133,7 +149,7 @@ func (m *Mesh) add(v [3]math3d.Vec3) error {
 	n := v[1].Sub(v[0]).Cross(v[2].Sub(v[0])).Normalize()
 	for _, p := range v {
 		m.geometry.Indices = append(m.geometry.Indices, uint32(len(m.geometry.Vertices)))
-		m.geometry.Vertices = append(m.geometry.Vertices, charts.Vertex{Position: p, Normal: n, Color: color.RGBA{R: 100, G: 180, B: 230, A: 255}})
+		m.geometry.Vertices = append(m.geometry.Vertices, charts.Vertex{Position: p, Normal: n, Color: shade})
 		m.geometry.Bounds.Include(p)
 	}
 	return nil

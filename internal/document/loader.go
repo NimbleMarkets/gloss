@@ -2,6 +2,7 @@
 package document
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/binary"
 	"encoding/xml"
@@ -29,9 +30,9 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
-var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, or Markdown")
+var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, or Markdown")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
 
@@ -74,6 +75,12 @@ func Probe(path, forced string) (string, error) {
 	if err != nil && rasterSignature(header) {
 		kind, err = "image", nil
 	}
+	// A ZIP archive lists its contents at its end, beyond the prefix.
+	if err != nil && bytes.HasPrefix(header, []byte("PK\x03\x04")) {
+		if archive, zipErr := zip.NewReader(f, info.Size()); zipErr == nil && is3MF(archive) {
+			kind, err = "3mf", nil
+		}
+	}
 	if err != nil {
 		return "", err
 	}
@@ -104,6 +111,7 @@ type Request struct {
 	Generation uint64
 	Reload     bool
 	MaxEdge    int    // Export raster target; zero keeps interactive defaults.
+	Preview    bool   // A small, quick rendering is wanted: a thumbnail will do.
 	BaseDir    string // Relative Markdown assets; empty uses the source directory.
 }
 
@@ -234,6 +242,25 @@ func (l *Loader) Load(q Request) (out Result) {
 	case "stl":
 		out.Mesh, out.Err = ParseSTL(data)
 		details = func() []Field { return meshFields(data, out.Mesh) }
+	case "3mf":
+		model, err := Parse3MF(data)
+		if err != nil {
+			out.Err = err
+			details = func() []Field { return section("Model", Field{"Format", "3MF"}) }
+			return out
+		}
+		shown := ""
+		switch {
+		case q.Preview && model.Thumbnail != nil:
+			out.Image, shown = model.Thumbnail, "embedded thumbnail"
+		case model.Mesh != nil:
+			out.Mesh = model.Mesh
+		case model.Thumbnail != nil:
+			out.Image, shown = model.Thumbnail, fmt.Sprintf("embedded thumbnail; the limit for a mesh is %s triangles", grouped(MaxTriangles))
+		default:
+			out.Err = fmt.Errorf("3MF has %s triangles; the limit is %s", grouped(model.Triangles), grouped(MaxTriangles))
+		}
+		details = func() []Field { return model.fields(shown) }
 	default:
 		out.Image, out.Err = decodeRaster(data)
 		details = func() []Field { return imageFields(data) }
@@ -343,6 +370,11 @@ func Detect(path string, data []byte, forced string) (string, error) {
 	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("%PDF-")) {
 		return "pdf", nil
 	}
+	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
+		if archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data))); err == nil && is3MF(archive) {
+			return "3mf", nil
+		}
+	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
 		return format, nil
 	}
@@ -374,6 +406,8 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "svg", nil
 	case ".stl":
 		return "stl", nil
+	case ".3mf":
+		return "3mf", nil
 	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
 		return "image", nil
 	}

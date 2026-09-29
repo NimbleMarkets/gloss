@@ -52,15 +52,20 @@ func describe(read func() []Field) (fields []Field) {
 	return read()
 }
 
+// grouped writes a count with its thousands set apart.
+func grouped(n int) string {
+	s := strconv.Itoa(n)
+	for i := len(s) - 3; i > 0; i -= 3 {
+		s = s[:i] + "," + s[i:]
+	}
+	return s
+}
+
 func byteSize(n int) string {
 	if n == 1 {
 		return "1 byte"
 	}
-	exact := strconv.Itoa(n)
-	for i := len(exact) - 3; i > 0; i -= 3 {
-		exact = exact[:i] + "," + exact[i:]
-	}
-	exact += " bytes"
+	exact := grouped(n) + " bytes"
 	for _, unit := range []struct {
 		name string
 		size float64
@@ -269,17 +274,10 @@ func meshFields(data []byte, mesh *Mesh) []Field {
 		}
 		return r
 	}, name)
-	g := mesh.geometry
-	extent := g.Bounds.Max.Sub(g.Bounds.Min)
-	area := 0.0
-	for i := 0; i+2 < len(g.Indices); i += 3 {
-		a, b, c := g.Vertices[g.Indices[i]].Position, g.Vertices[g.Indices[i+1]].Position, g.Vertices[g.Indices[i+2]].Position
-		n := b.Sub(a).Cross(c.Sub(a))
-		area += math.Sqrt(float64(n.X)*float64(n.X)+float64(n.Y)*float64(n.Y)+float64(n.Z)*float64(n.Z)) / 2
-	}
+	extent := mesh.geometry.Bounds.Max.Sub(mesh.geometry.Bounds.Min)
 	// STL records no unit of length.
-	return section("Mesh", Field{"Format", format}, Field{"Name", name}, Field{"Triangles", strconv.Itoa(mesh.Triangles())},
-		Field{"Extent", number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z))}, Field{"Surface area", number(area)})
+	return section("Mesh", Field{"Format", format}, Field{"Name", name}, Field{"Triangles", grouped(mesh.Triangles())},
+		Field{"Extent", number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z))}, Field{"Surface area", number(mesh.area())})
 }
 
 func markdownFields(markdown *Markdown) []Field {

@@ -142,7 +142,10 @@ func TestExtensionsAreTheOnesDetected(t *testing.T) {
 			t.Errorf("%s: %v", ext, err)
 		}
 	}
-	for _, name := range []string{"file.dmg", "file.txt", "file", "file.go"} {
+	if !slices.Contains(Extensions, ".3mf") {
+		t.Error("3MF is missing")
+	}
+	for _, name := range []string{"file.dmg", "file.txt", "file", "file.go", "file.zip"} {
 		if _, err := Detect(name, []byte("no telling"), ""); !errors.Is(err, ErrUnsupported) || slices.Contains(Extensions, filepath.Ext(name)) {
 			t.Errorf("%s: %v", name, err)
 		}

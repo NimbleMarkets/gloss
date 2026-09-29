@@ -1,6 +1,6 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL meshes, and Markdown.
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, and Markdown.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -54,7 +54,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -87,15 +87,15 @@ gloss photo.png drawing.svg model.stl -mP
 | `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
 | `+`, `-` | Zoom in / out |
-| Arrows, `h j k l` | Pan zoomed images; orbit STL |
+| Arrows, `h j k l` | Pan zoomed images; orbit meshes |
 | `f`, `0` | Fit image / reset camera |
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
 | `e` | Export the current page as a PNG in the working directory |
 | `i` | Show or hide a box of details about the current file |
-| `r` | Toggle STL auto-rotation; reload other formats |
-| `5` | Toggle STL orthographic / perspective projection |
-| Drag / Shift-drag / wheel | STL orbit / pan / zoom |
+| `r` | Toggle mesh auto-rotation; reload other formats |
+| `5` | Toggle mesh orthographic / perspective projection |
+| Drag / Shift-drag / wheel | Mesh (STL, 3MF) orbit / pan / zoom |
 | Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
 
 At a PDF boundary, page navigation stays on that page. Use `[` and `]` to change
@@ -107,7 +107,8 @@ Use arrows or `j`/`k` to select, `Enter` to open, and `Esc` to cancel without
 changing the current page, zoom, or camera. `PageUp`/`PageDown` scroll through
 long lists; `Home`/`End` jump to the ends. Full paths distinguish duplicate names.
 Press `v` to toggle an independent preview pane. PDF previews show page 1 at
-reduced DPI; STL previews use software rendering. The pane appears in terminals
+reduced DPI; STL previews use software rendering, and 3MF previews show the
+thumbnail the file carries, when it has one. The pane appears in terminals
 at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
 `--preview` starts there with previews enabled.
 
@@ -132,7 +133,7 @@ greyed. The browser is [picky](https://github.com/pgavlin/picky); the embedded
 demo, which has no folders, does not offer it.
 
 Press `e` to export what you are viewing: the current image, SVG, or PDF page,
-or an STL from the camera's position. The PNG is rendered as `--output` would
+or a mesh from the camera's position. The PNG is rendered as `--output` would
 render it, honors `--max-edge`, and is named after the file
 (`report-page-3.png`). An existing file is never replaced; the name gains a
 number instead. The browser demo offers the PNG as a download.
@@ -146,6 +147,7 @@ and modification time, followed by:
 | SVG | Declared size, view box, title, description, element count |
 | PDF | Version, page count, size of the current page, title, author, subject, keywords, creator, producer, dates |
 | STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
+| 3MF | Title, designer, description, application, dates, license, object and triangle counts, extent and surface area in the file's unit, thumbnail size |
 | Markdown | Title, lines, words, headings, links, images |
 
 Only fields present in the file are listed. The box sits in the top-right
@@ -249,6 +251,12 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   rendering falls back to software and then wireframe. Software is limited to
   320×200 pixels and samples meshes above 20,000 triangles; wireframe samples
   above 2,000 triangles, so large models can lose detail in fallback modes.
+- 3MF: the core specification's meshes, components, and build transforms;
+  colors from base materials and color groups; objects kept in separate parts
+  of the package, as slicers write them. Textures, beam lattices, slices, and
+  encrypted content are not read. The same 87,381-face limit applies: a larger
+  model is shown by its embedded thumbnail, and described by `i`. A package may
+  hold 4,096 entries and unpack to 128 MiB.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;
