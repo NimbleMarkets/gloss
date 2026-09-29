@@ -33,13 +33,42 @@ func main() {
 		}
 	}
 	write("examples/landscape.png", func(b *bytes.Buffer) error { return png.Encode(b, img) })
-	write("examples/landscape.heic", func(b *bytes.Buffer) error { return heic.Encode(b, img, heic.EncodeOptions{Quality: 85}) })
+	write("examples/landscape.heic", func(b *bytes.Buffer) error { return heic.Encode(b, desert(), heic.EncodeOptions{Quality: 85}) })
 	if err := os.WriteFile("examples/field-guide.pdf", pdf(), 0644); err != nil {
 		panic(err)
 	}
 	if err := os.WriteFile("examples/gloss.stl", blockWord(), 0644); err != nil {
 		panic(err)
 	}
+}
+
+// A warm desert scene contrasts with the PNG's blue hills at dusk.
+func desert() image.Image {
+	img := image.NewNRGBA(image.Rect(0, 0, 640, 400))
+	for y := 0; y < 400; y++ {
+		for x := 0; x < 640; x++ {
+			c := color.NRGBA{35, 155, 163, 255}
+			if math.Hypot(float64(x-155), float64(y-115)) < 65 {
+				c = color.NRGBA{255, 226, 158, 255}
+			}
+			for k, sand := range []color.NRGBA{{239, 176, 107, 255}, {215, 115, 69, 255}, {156, 66, 49, 255}} {
+				ridge := 245 + float64(k*55) + 35*math.Sin(float64(x)/130+float64(k)*2)
+				if float64(y) > ridge {
+					c = sand
+				}
+			}
+			// Saguaro silhouette with two raised arms.
+			if (x >= 458 && x < 482 && y >= 155 && y < 337) ||
+				(x >= 420 && x < 443 && y >= 188 && y < 252) ||
+				(x >= 420 && x < 470 && y >= 232 && y < 252) ||
+				(x >= 500 && x < 522 && y >= 172 && y < 224) ||
+				(x >= 470 && x < 522 && y >= 204 && y < 224) {
+				c = color.NRGBA{23, 70, 64, 255}
+			}
+			img.SetNRGBA(x, y, c)
+		}
+	}
+	return img
 }
 
 // Each pixel in an original 5x7 alphabet becomes a closed raised block.

@@ -9,11 +9,11 @@ Use `j` / `k` to scroll and `s` to toggle source. Press `m` for the file menu.
 
 ## Raster images
 
-The same original landscape in PNG and HEIC, decoded locally:
+Two original landscapes, decoded locally: blue hills at dusk in PNG and a sunny desert in HEIC.
 
 ![Layered hills at dusk](landscape.png)
 
-![Layered hills in HEIC](landscape.heic)
+![Sunlit dunes and a cactus in HEIC](landscape.heic)
 
 ## A small table
 

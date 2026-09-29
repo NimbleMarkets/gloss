@@ -1,7 +1,6 @@
 package document
 
 import (
-	"bytes"
 	"image"
 	"os"
 	"path/filepath"
@@ -78,28 +77,25 @@ func TestHEICDetectionAndExport(t *testing.T) {
 	if _, err := decodeRaster(data[:100]); err == nil {
 		t.Fatal("truncated HEIC accepted")
 	}
-	// Compare against the original PNG, allowing for lossy HEIC compression.
-	original, _ := examples.Files.ReadFile("landscape.png")
-	png, _, _ := image.Decode(bytes.NewReader(original))
+	// Check known colors in the desert fixture, allowing for lossy compression.
 	got, err := decodeRaster(data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var total uint64
-	for y := 0; y < 400; y += 8 {
-		for x := 0; x < 640; x += 8 {
-			a, b, c, _ := png.At(x, y).RGBA()
-			d, e, f, _ := got.At(x, y).RGBA()
-			for _, pair := range [][2]uint32{{a, d}, {b, e}, {c, f}} {
-				if pair[0] > pair[1] {
-					total += uint64(pair[0] - pair[1])
-				} else {
-					total += uint64(pair[1] - pair[0])
-				}
+	for _, sample := range []struct {
+		x, y int
+		rgb  [3]uint32
+	}{
+		{40, 40, [3]uint32{35, 155, 163}},    // turquoise sky
+		{155, 115, [3]uint32{255, 226, 158}}, // sun
+		{470, 280, [3]uint32{23, 70, 64}},    // cactus
+	} {
+		r, g, b, _ := got.At(sample.x, sample.y).RGBA()
+		for i, value := range []uint32{r, g, b} {
+			delta := int(value>>8) - int(sample.rgb[i])
+			if delta < -12 || delta > 12 {
+				t.Fatalf("HEIC color at (%d,%d): got %v", sample.x, sample.y, []uint32{r >> 8, g >> 8, b >> 8})
 			}
 		}
-	}
-	if total/(80*50*3) > 2000 {
-		t.Fatalf("HEIC color error too large: %d", total)
 	}
 }
