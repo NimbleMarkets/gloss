@@ -5,13 +5,48 @@ import (
 	"image/color"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
+	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/charmbracelet/x/ansi"
 )
 
 func press(s string) tea.KeyPressMsg { return tea.KeyPressMsg{Code: []rune(s)[0], Text: s} }
+
+func TestMouseOrbitDirection(t *testing.T) {
+	m := New(Options{Render: "glyph"})
+	m.width, m.height = 80, 30
+	m.chart = charts.New(80, 28, charts.WithRenderMode(charts.Software))
+	defer m.Close()
+	m.chart.View() // NTCharts registers its mouse zone asynchronously.
+	before := m.chart.Camera()
+	for i := 0; i < 100; i++ {
+		m.Update(tea.MouseClickMsg{X: 20, Y: 10, Button: tea.MouseLeft})
+		m.Update(tea.MouseMotionMsg{X: 23, Y: 12, Button: tea.MouseLeft})
+		m.Update(tea.MouseReleaseMsg{X: 23, Y: 12, Button: tea.MouseLeft})
+		if m.chart.Camera().Beta != before.Beta {
+			break
+		}
+		time.Sleep(time.Millisecond)
+	}
+	after := m.chart.Camera()
+	if after.Beta != before.Beta-6 || after.Alpha != before.Alpha+4 {
+		t.Fatalf("orbit: before=%+v after=%+v", before, after)
+	}
+	m.Update(tea.MouseClickMsg{X: 20, Y: 10, Button: tea.MouseLeft, Mod: tea.ModShift})
+	m.Update(tea.MouseMotionMsg{X: 23, Y: 10, Button: tea.MouseLeft, Mod: tea.ModShift})
+	m.Update(tea.MouseReleaseMsg{X: 23, Y: 10, Button: tea.MouseLeft, Mod: tea.ModShift})
+	pan := m.chart.Camera()
+	if pan.Beta != after.Beta || pan.Target == after.Target {
+		t.Fatal("shift-drag must pan without orbiting")
+	}
+	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	if m.chart.Camera().Beta != pan.Beta+5 {
+		t.Fatal("keyboard orbit direction changed")
+	}
+}
 
 func TestCropPanningAndNonzeroOrigin(t *testing.T) {
 	src := image.NewRGBA(image.Rect(10, 20, 110, 100))

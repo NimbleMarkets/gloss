@@ -3,6 +3,7 @@ package document
 import (
 	"fmt"
 	"image"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -37,6 +38,10 @@ func MarkdownTree(source []byte) ast.Node {
 }
 
 func loadMarkdown(path string, data []byte, baseDir string) (*Markdown, error) {
+	return loadMarkdownFrom(path, data, baseDir, nil)
+}
+
+func loadMarkdownFrom(path string, data []byte, baseDir string, files fs.FS) (*Markdown, error) {
 	if len(data) > MaxMarkdownBytes {
 		return nil, fmt.Errorf("Markdown exceeds 2 MiB")
 	}
@@ -75,14 +80,14 @@ func loadMarkdown(path string, data []byte, baseDir string) (*Markdown, error) {
 		asset, cached := cache[dest]
 		if !cached {
 			asset.Destination = dest
-			resolved, err := localMarkdownPath(baseDir, dest)
+			resolved, err := localMarkdownPathFrom(baseDir, dest, files)
 			asset.Err = err
 			if err == nil && pixels >= maxMarkdownImagePixels {
 				asset.Err = fmt.Errorf("document image budget reached")
 			}
 			if asset.Err == nil {
 				// Reuse the same bounded image/SVG decoders as standalone files.
-				data, err := ReadFile(resolved)
+				data, err := readFileFrom(files, resolved)
 				asset.Err = err
 				if err == nil {
 					kind, err := Detect(resolved, data, "")
@@ -91,7 +96,7 @@ func loadMarkdown(path string, data []byte, baseDir string) (*Markdown, error) {
 						switch kind {
 						case "svg":
 							asset.Image, asset.Err = renderSVG(resolved, data, 1600)
-						case "image", "png", "jpeg", "gif", "webp", "bmp", "tiff":
+						case "heic", "image", "png", "jpeg", "gif", "webp", "bmp", "tiff":
 							asset.Image, asset.Err = decodeRaster(data)
 						default:
 							asset.Err = fmt.Errorf("embedded format %s is not an image or SVG", kind)
@@ -121,6 +126,10 @@ func loadMarkdown(path string, data []byte, baseDir string) (*Markdown, error) {
 }
 
 func localMarkdownPath(base, destination string) (string, error) {
+	return localMarkdownPathFrom(base, destination, nil)
+}
+
+func localMarkdownPathFrom(base, destination string, files fs.FS) (string, error) {
 	u, err := url.Parse(destination)
 	if err != nil {
 		return "", fmt.Errorf("invalid image path: %w", err)
@@ -135,12 +144,20 @@ func localMarkdownPath(base, destination string) (string, error) {
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(base, path)
 	}
-	info, err := os.Stat(path)
+	var info fs.FileInfo
+	if files == nil {
+		info, err = os.Stat(path)
+	} else {
+		info, err = fs.Stat(files, filepath.ToSlash(path))
+	}
 	if err != nil {
 		return "", err
 	}
 	if !info.Mode().IsRegular() {
 		return "", fmt.Errorf("image is not a regular file")
+	}
+	if files != nil {
+		path = filepath.ToSlash(path)
 	}
 	return path, nil
 }

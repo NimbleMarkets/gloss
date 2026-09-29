@@ -6,6 +6,17 @@ Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
 [NTCharts3d](https://github.com/NimbleMarkets/ntcharts3d).
 
+## Live demo
+
+[**Try gloss in your browser →**](https://nimblemarkets.github.io/gloss/)
+
+[![Embedded landscape sample — open the live gloss demo](examples/landscape.png)](https://nimblemarkets.github.io/gloss/)
+
+The live terminal runs the actual Go pager using WebAssembly and Booba, with
+embedded PNG, HEIC, SVG, two-page PDF, block-built GLOSS sculpture (STL), and Markdown samples. Choose a format
+or use the menu and preview pane. Click the terminal to focus its keyboard.
+GitHub READMEs cannot run interactive iframes; the image above opens the Pages demo.
+
 ## Build and run
 
 Requires Go **1.26.8+** and [Task](https://taskfile.dev/) for the development commands.
@@ -174,7 +185,11 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
 ## Formats and current limits
 
 - PNG, JPEG, GIF, WebP, BMP, TIFF: first frame/page, up to 32 megapixels. Animated
-  playback, HEIC, and AVIF aren't supported.
+  playback and AVIF aren't supported.
+- HEIC/HEIF: primary still image, up to 32 megapixels, with container rotation
+  and mirroring. Uses the [pure-Go h265 decoder](https://github.com/gen2brain/h265),
+  without CGO or external converters. Unsupported HEVC features report decoder
+  errors. HEIC works in Markdown, previews, PNG exports, and the browser demo.
 - SVG: NTCharts' pure-Go SVG renderer, rasterized to a 2400-pixel maximum edge.
   SVG support follows the underlying oksvg renderer, not a full browser engine.
 - PDF: PDFium via embedded WebAssembly; no Poppler, MuPDF, CGO, or external
@@ -203,7 +218,7 @@ Tests cover CLI validation, malformed files, STL geometry, PDF rendering and
 navigation, SVG rasterization, viewport cropping, terminal-safe labels, and
 stale asynchronous results. The example SVG and STL are small original fixtures.
 
-The layout follows NTCharts' conventions, with one module for this CLI:
+The layout follows NTCharts' conventions, with one module for the CLI and a separate browser-demo module:
 
 - `cmd/gloss`: CLI flags, stdin handling, and export orchestration.
 - `internal/app`: terminal pager, selection menu, and Markdown layout.
@@ -217,3 +232,35 @@ macOS/Linux amd64 and arm64 binaries, and publishes archives and SHA-256 checksu
 to a GitHub Release. Locally, run `task release VERSION=v0.1.0` to produce the
 same archives in `dist/` without publishing. Release binaries use software STL
 rendering when native GPU support is unavailable.
+
+### Building and embedding the demo
+
+```sh
+task demo                         # embedded gallery in your terminal
+task demo -- --sample landscape.heic
+task serve-wasm-site               # http://localhost:8000
+task build-wasm-site               # static site in web/dist
+```
+
+`examples/demo` pins the same Bubble Tea WASM fork used by the NTCharts demos;
+this replacement does not affect the native CLI. Samples are compiled into the
+app with `go:embed` and read through the same document loaders. No user files
+are fetched or uploaded. Browser PDF rendering uses the NTCharts PDFium bridge,
+which downloads pinned PDFium 2.14.2 assets from jsDelivr; other runtime assets
+are served alongside the site. STL uses the portable software renderer.
+
+Embed the standalone terminal on another site:
+
+```html
+<iframe src="https://nimblemarkets.github.io/gloss/demo.html?sample=field-guide.pdf"
+        title="gloss live terminal" width="100%" height="560"
+        style="border:0" loading="lazy"></iframe>
+```
+
+Omit `sample` to start in the file menu; accepted filenames are listed in
+`examples/assets.go`. The native keys work in the demo; quitting offers a
+restart button. Format buttons restart the embedded terminal at that sample.
+
+The Pages workflow builds for pull requests and deploys pushes to `main`.
+Set repository **Settings → Pages → Source → GitHub Actions** to enable hosting.
+The fixtures are original; `task gen-assets` regenerates PNG, HEIC, PDF, and the block-letter STL.

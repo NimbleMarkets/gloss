@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Try gloss, a visual terminal pager for images, HEIC, SVG, PDF, STL and Markdown. Runs entirely in your browser.">
+  <title>gloss — less, with pictures.</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header><a class="wordmark" href="./">gloss<span>▧</span></a><nav><a href="https://github.com/NimbleMarkets/gloss">Source ↗</a><a href="https://github.com/NimbleMarkets/gloss#build-and-run">Install ↗</a></nav></header>
+  <main>
+    <div class="intro"><div><p class="eyebrow">A VISUAL PAGER FOR YOUR TERMINAL</p><h1>less, with pictures.</h1><p class="lede">One command. Images, documents, vectors, and meshes.<br>Take the real pager for a spin below.</p></div><code class="command">$ gloss --preview *</code></div>
+    <section class="demo" aria-label="Interactive gloss demo">
+      <div class="toolbar"><div class="tabs" role="group" aria-label="Choose an embedded sample">
+        <button data-sample="" aria-pressed="true">All files</button>
+        <button data-sample="landscape.png" aria-pressed="false">PNG</button>
+        <button data-sample="landscape.heic" aria-pressed="false">HEIC</button>
+        <button data-sample="shapes.svg" aria-pressed="false">SVG</button>
+        <button data-sample="field-guide.pdf" aria-pressed="false">PDF</button>
+        <button data-sample="gloss.stl" aria-pressed="false">STL</button>
+        <button data-sample="readme.md" aria-pressed="false">Markdown</button>
+      </div><button id="restart" title="Restart the selected demo">Restart ↻</button></div>
+      <iframe id="demo" title="gloss interactive terminal" src="demo.html" allow="clipboard-read; clipboard-write"></iframe>
+      <div class="keys"><span><kbd>Enter</kbd> open</span><span><kbd>[</kbd> <kbd>]</kbd> files</span><span><kbd>m</kbd> menu</span><span><kbd>n</kbd> <kbd>p</kbd> PDF pages</span><span><kbd>s</kbd> Markdown source</span><span><kbd>?</kbd> all controls</span></div>
+    </section>
+    <div class="notes"><p>Click inside the terminal to use the keyboard. All six samples are embedded in the app. Nothing is uploaded.</p><a id="standalone" href="demo.html" target="_blank" rel="noopener">Open full window ↗</a></div>
+    <section class="details"><article><span>01 / VIEW</span><h2>Keep your place.</h2><p>Move between files, page through a PDF, or browse the selection menu with an independent preview.</p></article><article><span>02 / EXPLORE</span><h2>Look a little closer.</h2><p>Zoom images and vectors. Orbit the STL with the arrow keys. Scroll Markdown with its embedded pictures.</p></article><article><span>03 / EXPORT</span><h2>Ready for another reader.</h2><p>The native CLI exports clean PNGs with configurable resolution and sizing profiles for vision models.</p></article></section>
+  </main>
+  <footer><span>Built with <a href="https://github.com/NimbleMarkets/ntcharts">NTCharts</a>, <a href="https://github.com/NimbleMarkets/ntcharts3d">NTCharts3d</a> &amp; <a href="https://github.com/NimbleMarkets/go-booba">Booba</a>.</span><span>Go → WebAssembly → your browser</span></footer>
+  <script type="module" src="site.js"></script>
+</body>
+</html>

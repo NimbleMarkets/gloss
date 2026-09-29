@@ -24,11 +24,11 @@ tasks:
     cmds: [go install -mod=readonly ./cmd/gloss]
   fmt:
     desc: Format Go sources
-    cmds: [gofmt -w cmd internal]
+    cmds: [gofmt -w cmd internal examples scripts/gen-assets]
   fmt-check:
     desc: Check Go formatting
     cmds:
-      - 'test -z "$(gofmt -l cmd internal)"'
+      - 'test -z "$(gofmt -l cmd internal examples scripts/gen-assets)"'
   go-tidy:
     desc: Tidy module dependencies
     cmds: [go mod tidy]
@@ -59,3 +59,25 @@ tasks:
     env:
       GLOSS_VERSION: '{{.VERSION}}'
     cmds: ['sh scripts/release.sh "$GLOSS_VERSION"']
+  demo:
+    desc: Run the embedded sample gallery in your terminal
+    dir: examples/demo
+    cmds: ['go run . {{.CLI_ARGS}}']
+  demo-check:
+    desc: Check the browser demo module
+    dir: examples/demo
+    cmds:
+      - go mod tidy -diff
+      - go mod verify
+      - go test -mod=readonly ./...
+      - go vet -mod=readonly ./...
+  build-wasm-site:
+    desc: Build the self-contained sample gallery site into web/dist
+    cmds: [sh scripts/build-site.sh]
+  serve-wasm-site:
+    desc: Build and serve the demo at http://localhost:8000
+    deps: [build-wasm-site]
+    cmds: [python3 -m http.server 8000 --directory web/dist --bind 127.0.0.1]
+  gen-assets:
+    desc: Regenerate the original PNG, HEIC, and PDF fixtures
+    cmds: [go run ./scripts/gen-assets]

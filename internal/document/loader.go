@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"image"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 	"github.com/NimbleMarkets/ntcharts-pdf/pdfview"
 	"github.com/NimbleMarkets/ntcharts-svg/svg"
 	_ "github.com/NimbleMarkets/ntcharts/v2/picture/decoders"
+	"github.com/gen2brain/h265/heic"
 	"github.com/ledongthuc/pdf"
 )
 
@@ -77,6 +79,12 @@ func Probe(path, forced string) (string, error) {
 }
 
 func rasterSignature(b []byte) bool {
+	if len(b) >= 12 && string(b[4:8]) == "ftyp" {
+		switch string(b[8:12]) {
+		case "heic", "heix", "heim", "heis", "hevc", "hevx", "hevm", "hevs":
+			return true
+		}
+	}
 	for _, magic := range []string{"\x89PNG\r\n\x1a\n", "\xff\xd8\xff", "GIF87a", "GIF89a", "BM", "II\x2a\x00", "MM\x00\x2a"} {
 		if bytes.HasPrefix(b, []byte(magic)) {
 			return true
@@ -107,6 +115,7 @@ type Result struct {
 // Loader serializes PDF access and shutdown. Commands that complete out of
 // order cannot replace a newer document; Close also covers in-flight loads.
 type Loader struct {
+	Files      fs.FS // Optional read-only embedded assets; nil uses the host filesystem.
 	mu         sync.Mutex
 	closed     bool
 	generation uint64
@@ -154,12 +163,13 @@ func (l *Loader) Load(q Request) (out Result) {
 	if l.pdf != nil {
 		return l.renderPDF(q)
 	}
-	_, err := Probe(q.Path, q.Type)
-	if err != nil {
-		out.Err = err
-		return out
+	if l.Files == nil {
+		if _, err := Probe(q.Path, q.Type); err != nil {
+			out.Err = err
+			return out
+		}
 	}
-	data, err := ReadFile(q.Path)
+	data, err := readFileFrom(l.Files, q.Path)
 	if err != nil {
 		out.Err = err
 		return out
@@ -172,7 +182,7 @@ func (l *Loader) Load(q Request) (out Result) {
 	out.Kind, out.Page, out.Pages = kind, 1, 1
 	switch kind {
 	case "markdown":
-		out.Markdown, out.Err = loadMarkdown(q.Path, data, q.BaseDir)
+		out.Markdown, out.Err = loadMarkdownFrom(q.Path, data, q.BaseDir, l.Files)
 	case "pdf":
 		reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 		if err != nil {
@@ -207,12 +217,15 @@ func (l *Loader) Load(q Request) (out Result) {
 }
 
 func decodeRaster(data []byte) (image.Image, error) {
-	cfg, _, err := image.DecodeConfig(bytes.NewReader(data))
+	cfg, format, err := image.DecodeConfig(bytes.NewReader(data))
 	if err != nil {
 		return nil, err
 	}
 	if cfg.Width <= 0 || cfg.Height <= 0 || cfg.Width > MaxPixels/cfg.Height {
 		return nil, fmt.Errorf("image exceeds %d pixels", MaxPixels)
+	}
+	if format == "heic" {
+		return heic.Decode(bytes.NewReader(data), heic.Options{AutoRotate: true, FrameSizeLimit: MaxPixels, Threads: 2})
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
 	return img, err
@@ -248,8 +261,16 @@ func (l *Loader) renderPDF(q Request) Result {
 	return Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages, Image: img, Err: err}
 }
 
-func ReadFile(path string) ([]byte, error) {
-	f, err := os.Open(path)
+func ReadFile(path string) ([]byte, error) { return readFileFrom(nil, path) }
+
+func readFileFrom(files fs.FS, path string) ([]byte, error) {
+	var f fs.File
+	var err error
+	if files == nil {
+		f, err = os.Open(path)
+	} else {
+		f, err = files.Open(path)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +345,7 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "svg", nil
 	case ".stl":
 		return "stl", nil
-	case ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
+	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
 		return "image", nil
 	}
 	return "", ErrUnsupported

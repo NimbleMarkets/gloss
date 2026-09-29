@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"image/draw"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -19,6 +20,8 @@ import (
 )
 
 type Options struct {
+	STLCamera              *charts.Camera // Optional initial/reset view for an embedded gallery.
+	FilesFS                fs.FS          // Optional embedded files for the browser demo.
 	Files                  []string
 	Type, Render, Render3D string
 	Page, DPI              int
@@ -62,7 +65,7 @@ func New(opts Options) *Model {
 		picture.ForceKittyCapability(picture.KittyCapabilityUnsupported)
 	}
 	id := 100 + int(nextModelID.Add(1))*1000
-	m := &Model{opts: opts, loader: &document.Loader{}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: opts.Menu || opts.Preview}
+	m := &Model{opts: opts, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: opts.Menu || opts.Preview}
 	if opts.Render == "kitty" {
 		m.pic.Toggle()
 	}
@@ -197,6 +200,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
 			m.chart.SetColorLegendVisible(false)
 			m.chart.SetSeries(v.Mesh)
+			if m.opts.STLCamera != nil {
+				m.chart.SetCamera(*m.opts.STLCamera)
+			}
 			// Apply a capability already established before this chart existed.
 			_, _ = m.chart.Update(struct{}{})
 			m.triangles, m.err = v.Mesh.Triangles(), m.chart.Err()
@@ -282,6 +288,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "0", "f":
 			if m.chart != nil {
+				if m.opts.STLCamera != nil {
+					return m, m.chart.SetCamera(*m.opts.STLCamera)
+				}
 				return m, m.chart.SetCamera(charts.DefaultCamera())
 			}
 			m.zoom, m.panX, m.panY = 0, 0, 0
@@ -321,8 +330,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	_, mouseMessage := msg.(tea.MouseMsg)
 	if m.chart != nil && !((m.help || m.menu) && mouseMessage) {
+		before := m.chart.Camera()
 		_, cmd := m.chart.Update(msg)
 		cmds = append(cmds, cmd)
+		// NTCharts orbits the camera toward horizontal drags. In a model
+		// viewer, drag the object instead. Preserve picking, pan, and keys.
+		if motion, ok := msg.(tea.MouseMotionMsg); ok && motion.Mod&tea.ModShift == 0 {
+			after := m.chart.Camera()
+			if after.Beta != before.Beta {
+				after.Beta = 2*before.Beta - after.Beta
+				cmds = append(cmds, m.chart.SetCamera(after))
+			}
+		}
 	}
 	if m.preview != nil && !mouseMessage {
 		_, cmd := m.preview.Update(msg)

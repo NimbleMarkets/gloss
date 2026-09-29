@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+mkdir -p web/dist
+cp web/index.html web/demo.html web/style.css web/site.js web/runtime.js web/dist/
+cp THIRD_PARTY_NOTICES.md web/dist/
+cd examples/demo
+GOOS=js GOARCH=wasm CGO_ENABLED=0 go build -mod=readonly -trimpath -ldflags='-s -w' -o ../../web/dist/app.wasm .
+go tool booba-assets ../../web/dist
+go tool booba-shim-assets ../../web/dist --shim=pdfium
+# Use the runtime from the exact Go toolchain that compiled the application.
+cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" ../../web/dist/wasm_exec.js
+touch ../../web/dist/.nojekyll

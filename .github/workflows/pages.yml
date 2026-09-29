@@ -1,0 +1,45 @@
+name: Build and deploy demo site
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: |
+            go.sum
+            examples/demo/go.sum
+      - uses: go-task/setup-task@v2
+        with:
+          version: '3.x'
+      - run: task demo-check build-wasm-site
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/dist
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v6
+      - id: deployment
+        uses: actions/deploy-pages@v5
