@@ -1,0 +1,7 @@
+*.pdf binary
+*.png binary
+*.heic binary
+examples/gloss.stl linguist-generated=true
+examples/field-guide.pdf linguist-generated=true
+examples/landscape.png linguist-generated=true
+examples/landscape.heic linguist-generated=true
