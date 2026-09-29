@@ -63,7 +63,10 @@ type Model struct {
 	savedCamera              *charts.Camera
 	savedMarkdown            *markdownView
 	markdown                 *markdownView
-	note                     string   // Outcome of the last drop, shown until the next key.
+	note                     string // Outcome of the last drop, shown until the next key.
+	info                     bool
+	infoOffset               int
+	fields                   []document.Field
 	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
@@ -136,7 +139,7 @@ func (m *Model) switchFile(delta int) tea.Cmd {
 	}
 	m.index, m.page, m.pages, m.kind = i, 1, 1, ""
 	m.source, m.zoom, m.panX, m.panY = nil, 0, 0, 0
-	m.savedCamera, m.savedMarkdown = nil, nil
+	m.savedCamera, m.savedMarkdown, m.fields = nil, nil, nil
 	return tea.Sequence(m.clearGraphics(), m.load(false))
 }
 
@@ -233,7 +236,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
 		}
-		m.loading, m.err = false, v.Err
+		m.loading, m.err, m.fields = false, v.Err, v.Info
 		if v.Err != nil {
 			return m, m.clearGraphics()
 		}
@@ -275,7 +278,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.source = v.Image
 		return m, tea.Sequence(cleanup, m.refreshImage())
 	case tea.MouseWheelMsg:
-		if m.markdown != nil && !m.help && !m.menu {
+		if m.markdown != nil && !m.help && !m.menu && !m.info {
 			if v.Button == tea.MouseWheelUp {
 				m.markdown.scroll(-3)
 			} else if v.Button == tea.MouseWheelDown {
@@ -295,10 +298,17 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if !m.help && m.menu {
 				return m, m.closeMenu(false)
 			}
+			if !m.help {
+				m.info = false
+			}
 			m.help = false
 			return m, nil
 		}
 		if m.help || len(m.opts.Files) == 0 {
+			return m, nil
+		}
+		if m.info {
+			m.infoKey(v.String())
 			return m, nil
 		}
 		if m.menu {
@@ -325,6 +335,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.load(true)
 		case "e":
 			return m, m.export()
+		case "i":
+			m.info, m.infoOffset = true, 0
+			return m, nil
 		case "n", "space", "pgdown":
 			if m.kind == "pdf" {
 				return m, m.movePage(m.page + 1)
@@ -391,7 +404,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.markdown.update(msg), m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty))
 	}
 	_, mouseMessage := msg.(tea.MouseMsg)
-	if m.chart != nil && !((m.help || m.menu) && mouseMessage) {
+	if m.chart != nil && !((m.help || m.menu || m.info) && mouseMessage) {
 		before := m.chart.Camera()
 		_, cmd := m.chart.Update(msg)
 		cmds = append(cmds, cmd)
@@ -452,11 +465,14 @@ func (m *Model) View() tea.View {
 			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
 			"R              reload file\n" +
 			"e              export as PNG\n" +
+			"i              file details\n" +
 			"Drop files on the terminal to add them\n\nSTL: drag to orbit, Shift-drag to pan, wheel to zoom\n" +
 			"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
 			"r              auto-rotate STL (reload other files)\no              orthographic / perspective\n"
 	case len(m.opts.Files) == 0:
 		body = "Drop files here to open\n\nDrag them from a file manager, or paste their paths."
+	case m.info:
+		body = m.infoView()
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {
@@ -477,7 +493,7 @@ func (m *Model) View() tea.View {
 	// Avoid wrapping filenames, errors, or help beyond the viewport. Do not
 	// truncate the graphics body: Kitty's zero-width escapes must survive.
 	empty := len(m.opts.Files) == 0
-	if m.help || empty || (!m.menu && (m.loading || m.err != nil)) {
+	if m.help || empty || m.info || (!m.menu && (m.loading || m.err != nil)) {
 		lines := strings.Split(body, "\n")
 		for i := range lines {
 			lines[i] = ansi.Truncate(lines[i], w, "")
@@ -530,12 +546,15 @@ func (m *Model) View() tea.View {
 		status += " · " + m.note
 	}
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
-	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export", w, "")
+	hint := ansi.Truncate(" q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info", w, "")
 	if m.markdown != nil {
 		hint = ansi.Truncate(" q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics", w, "")
 	}
 	if empty {
 		hint = ansi.Truncate(" q quit · ? help", w, "")
+	}
+	if m.info && !m.help && !empty {
+		hint = ansi.Truncate(" i close · ↑/↓ scroll · ? help · q quit", w, "")
 	}
 	if m.menu {
 		status = fmt.Sprintf(" Files · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)

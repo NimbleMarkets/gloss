@@ -89,6 +89,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
 | `e` | Export the current page as a PNG in the working directory |
+| `i` | Show or hide details of the current file |
 | `r` | Toggle STL auto-rotation; reload other formats |
 | `o` | Toggle STL orthographic / perspective projection |
 | Drag / Shift-drag / wheel | STL orbit / pan / zoom |
@@ -119,6 +120,20 @@ or an STL from the camera's position. The PNG is rendered as `--output` would
 render it, honors `--max-edge`, and is named after the file
 (`report-page-3.png`). An existing file is never replaced; the name gains a
 number instead. The browser demo offers the PNG as a download.
+
+Press `i` for what a file says about itself. Every format shows its path, size,
+and modification time, followed by:
+
+| Format | Details |
+| --- | --- |
+| Images | Format, pixel dimensions, color model; from Exif in JPEG, TIFF, and HEIC: camera, lens, date taken, exposure, orientation, location, software, artist, copyright |
+| SVG | Declared size, view box, title, description, element count |
+| PDF | Version, page count, size of the current page, title, author, subject, keywords, creator, producer, dates |
+| STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
+| Markdown | Title, lines, words, headings, links, images |
+
+Only fields present in the file are listed. Arrows or `j`/`k` scroll a long
+panel; `i` or `Esc` closes it.
 
 ## Markdown
 

@@ -111,6 +111,7 @@ type Result struct {
 	Mesh        *Mesh
 	Markdown    *Markdown
 	Camera      *charts.Camera // Export view of a mesh; nil uses the default.
+	Info        []Field        // What the file says about itself, for the info panel.
 	Err         error
 }
 
@@ -124,6 +125,8 @@ type Loader struct {
 	path       string
 	pdf        pdfview.Renderer
 	pdfReader  *pdf.Reader
+	pdfVersion string
+	file       []Field
 	pages      int
 }
 
@@ -136,7 +139,7 @@ func (l *Loader) Close() error {
 
 func (l *Loader) closePDF() error {
 	l.path, l.pages = "", 0
-	l.pdfReader = nil
+	l.pdfReader, l.pdfVersion, l.file = nil, "", nil
 	if l.pdf == nil {
 		return nil
 	}
@@ -182,10 +185,23 @@ func (l *Loader) Load(q Request) (out Result) {
 		return out
 	}
 	out.Kind, out.Page, out.Pages = kind, 1, 1
+	file := fileFields(l.Files, q.Path, len(data))
+	var details func() []Field
+	// A file that cannot be shown is still described: its size or dimensions
+	// are often the reason.
+	defer func() {
+		if out.Info == nil && details != nil {
+			out.Info = append(file, describe(details)...)
+		}
+	}()
 	switch kind {
 	case "markdown":
 		out.Markdown, out.Err = loadMarkdownFrom(q.Path, data, q.BaseDir, l.Files)
+		details = func() []Field { return markdownFields(out.Markdown) }
 	case "pdf":
+		details = func() []Field {
+			return section("Document", Field{"Format", strings.TrimSpace("PDF " + pdfVersion(data))})
+		}
 		reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 		if err != nil {
 			out.Err = err
@@ -202,7 +218,7 @@ func (l *Loader) Load(q Request) (out Result) {
 			return out
 		}
 		l.pdf, l.path, l.pages = renderer, q.Path, pages
-		l.pdfReader = reader
+		l.pdfReader, l.pdfVersion, l.file = reader, pdfVersion(data), file
 		return l.renderPDF(q)
 	case "svg":
 		edge := 2400
@@ -210,10 +226,13 @@ func (l *Loader) Load(q Request) (out Result) {
 			edge = q.MaxEdge
 		}
 		out.Image, out.Err = renderSVG(q.Path, data, edge)
+		details = func() []Field { return svgFields(data) }
 	case "stl":
 		out.Mesh, out.Err = ParseSTL(data)
+		details = func() []Field { return meshFields(data, out.Mesh) }
 	default:
 		out.Image, out.Err = decodeRaster(data)
+		details = func() []Field { return imageFields(data) }
 	}
 	return out
 }
@@ -260,7 +279,11 @@ func (l *Loader) renderPDF(q Request) Result {
 		}
 	}
 	img, err := l.pdf.RenderPage(page, max(36, min(dpi, 600)))
-	return Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages, Image: img, Err: err}
+	out := Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages, Image: img, Err: err}
+	if reader, version, pages := l.pdfReader, l.pdfVersion, l.pages; err == nil && reader != nil {
+		out.Info = append(append([]Field(nil), l.file...), describe(func() []Field { return pdfFields(reader, version, pages, page) })...)
+	}
+	return out
 }
 
 func ReadFile(path string) ([]byte, error) { return readFileFrom(nil, path) }
