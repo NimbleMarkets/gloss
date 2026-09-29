@@ -30,7 +30,11 @@ type Options struct {
 	Menu, Preview          bool
 	Browse                 string // Folder to open the file browser in at the start.
 	KeepScreen             bool   // Draw on the main screen; the last view stays after quitting.
-	keptScreen             bool   // Set once picture numbers have been moved; previews inherit it.
+	Pick                   bool   // The caller waits for files: Enter sends them, and ends the viewer.
+	// Drops delivers files handed over from outside the terminal, as the
+	// page serving the viewer does with what is dropped on it.
+	Drops      <-chan []string
+	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
 	Save              func(name string, png []byte) (string, error)
@@ -72,6 +76,8 @@ type Model struct {
 	opener                   *opener
 	hideUnsupported          bool     // The browser's choice outlasts any one visit.
 	quitting                 bool     // The view being drawn is the one left behind.
+	added                    []string // What the user has handed over, by full path.
+	picked                   []string
 	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
@@ -106,9 +112,9 @@ func (m *Model) Init() tea.Cmd {
 	}
 	if m.menu {
 		m.suspended = true
-		return tea.Batch(m.pic.Init(), m.updatePreview(), browse)
+		return tea.Batch(m.pic.Init(), m.updatePreview(), browse, m.awaitDrops())
 	}
-	return tea.Batch(m.pic.Init(), m.load(false), browse)
+	return tea.Batch(m.pic.Init(), m.load(false), browse, m.awaitDrops())
 }
 
 func (m *Model) Close() error {
@@ -273,6 +279,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, m.probeDrop(v.Paths)
+	case outsideDrop:
+		return m, tea.Batch(m.probeDrop(v.paths), m.awaitDrops())
 	case dropResult:
 		return m, m.addDropped(v)
 	case exportResult:
@@ -382,6 +390,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.load(true)
 		case "e":
 			return m, m.export()
+		case "enter":
+			if m.opts.Pick {
+				return m, m.pick()
+			}
 		case "i":
 			m.info = !m.info
 			return m, nil
@@ -536,6 +548,9 @@ func (m *Model) View() tea.View {
 		if m.canBrowse() {
 			body = "Drop files here to open\n\nDrag them from a file manager, paste their paths, or press o to browse."
 		}
+		if m.opts.Pick {
+			body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
+		}
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {
@@ -631,6 +646,10 @@ func (m *Model) View() tea.View {
 	}
 	if m.canBrowse() {
 		keys += " · o browse"
+	}
+	if what := m.picking(); what != "" {
+		// Say what will be sent before it is.
+		keys = " Enter send " + what + " · q cancel ·" + strings.TrimPrefix(keys, " q quit ·")
 	}
 	hint := ansi.Truncate(keys, w, "")
 	if m.menu {

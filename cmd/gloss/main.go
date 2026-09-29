@@ -3,11 +3,15 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"os/signal"
 	"slices"
+	"syscall"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/app"
@@ -21,12 +25,19 @@ var version = "dev"
 func main() {
 	if err := run(os.Args[1:]); err != nil {
 		fmt.Fprintf(os.Stderr, "gloss: %v\n", err)
-		os.Exit(1)
+		os.Exit(exitCode(err))
 	}
 }
 
-func parse(args []string, out io.Writer) (app.Options, bool, error) {
-	var opts app.Options
+// options are the viewer's, and those of showing it somewhere else.
+type options struct {
+	app.Options
+	Serve, NoOpen bool
+	Timeout       time.Duration
+}
+
+func parse(args []string, out io.Writer) (options, bool, error) {
+	var opts options
 	f := pflag.NewFlagSet("gloss", pflag.ContinueOnError)
 	f.SetOutput(out)
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
@@ -36,6 +47,10 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
+	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
+	f.BoolVar(&opts.Serve, "serve", false, "show the viewer on a web page, from a temporary server on this machine")
+	f.BoolVar(&opts.NoOpen, "no-open", false, "with --serve, print the page's address without opening a browser")
+	f.DurationVar(&opts.Timeout, "timeout", 0, "with --serve or --pick, give up after this long (as 90s or 10m)")
 	f.BoolVarP(&opts.KeepScreen, "no-alt-screen", "X", false, "draw on the main screen: scrollback is kept, and the last view stays after quitting")
 	f.StringVarP(&opts.Output, "output", "o", "", "export one input as PNG; '-' writes PNG to stdout")
 	f.StringVarP(&opts.OutputDir, "output-dir", "O", "", "export each input as a numbered PNG in this directory")
@@ -105,6 +120,18 @@ func parse(args []string, out io.Writer) (app.Options, bool, error) {
 	if (opts.Output != "" || opts.OutputDir != "") && opts.KeepScreen {
 		return opts, false, fmt.Errorf("export draws nothing; it cannot be combined with --no-alt-screen")
 	}
+	if (opts.Output != "" || opts.OutputDir != "") && (opts.Serve || opts.Pick) {
+		return opts, false, fmt.Errorf("export cannot be combined with --serve or --pick")
+	}
+	if opts.Serve && opts.KeepScreen {
+		return opts, false, fmt.Errorf("--serve draws on a page; it cannot be combined with --no-alt-screen")
+	}
+	if opts.NoOpen && !opts.Serve {
+		return opts, false, fmt.Errorf("--no-open requires --serve")
+	}
+	if opts.Timeout < 0 || (opts.Timeout > 0 && !opts.Serve && !opts.Pick) {
+		return opts, false, fmt.Errorf("--timeout must be positive, and requires --serve or --pick")
+	}
 	return opts, false, nil
 }
 
@@ -121,14 +148,22 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(opts.Files) == 0 && !stdinTTY {
-		opts.Files = []string{"-"}
-	}
+	opts.Files = arguments(opts, stdinTTY)
 	exporting := opts.Output != "" || opts.OutputDir != ""
 	if opts.Output == "-" && term.IsTerminal(os.Stdout.Fd()) {
 		return fmt.Errorf("redirect PNG stdout to a file or pipe")
 	}
-	if !exporting && !term.IsTerminal(os.Stdout.Fd()) {
+	// A page needs no terminal. A pick keeps standard output for its answer,
+	// and draws on the terminal itself.
+	var screen *os.File
+	switch {
+	case exporting || opts.Serve || term.IsTerminal(os.Stdout.Fd()):
+	case opts.Pick:
+		if screen, err = os.OpenFile("/dev/tty", os.O_WRONLY, 0); err != nil {
+			return fmt.Errorf("--pick found no terminal to draw on; use --serve to show a page instead")
+		}
+		defer screen.Close()
+	default:
 		return fmt.Errorf("output must be a terminal; run gloss directly in your terminal, or see gloss --help")
 	}
 	stdinPath := ""
@@ -168,20 +203,104 @@ func run(args []string) error {
 	}
 
 	if exporting {
-		return exportFiles(opts, os.Stdout, os.Stderr)
+		return exportFiles(opts.Options, os.Stdout, os.Stderr)
 	}
-	m := app.New(opts)
+	if opts.Serve {
+		return served(opts, os.Stdout, os.Stderr)
+	}
+	m := app.New(opts.Options)
 	defer m.Close()
+	var drawn []tea.ProgramOption
+	if screen != nil {
+		drawn = append(drawn, tea.WithOutput(screen))
+	}
+	ended := make(chan error, 1)
 	// Bubble Tea opens the controlling TTY automatically when stdin is a pipe.
-	_, err = tea.NewProgram(m).Run()
-	// Dropped files are reported once the alternate screen is gone.
-	for _, line := range m.Skipped() {
-		fmt.Fprintln(os.Stderr, line)
+	program := tea.NewProgram(m, drawn...)
+	go func() {
+		_, err := program.Run()
+		ended <- err
+	}()
+	var late <-chan time.Time
+	if opts.Timeout > 0 {
+		late = time.After(opts.Timeout)
+	}
+	select {
+	case err = <-ended:
+	case <-late:
+		program.Kill()
+		<-ended
+		return errTimeout
 	}
 	if err != nil {
 		return err
 	}
-	return m.Err()
+	return finish(m, opts, os.Stdout, os.Stderr)
+}
+
+// arguments are the files named, or standard input when a document is piped
+// in and none is. A program that starts gloss to ask for a file pipes in
+// nothing: there, standard input is read only if it is named.
+func arguments(opts options, terminal bool) []string {
+	if len(opts.Files) == 0 && !terminal && !opts.Serve && !opts.Pick {
+		return []string{"-"}
+	}
+	return opts.Files
+}
+
+// served shows the viewer on a page, and waits for it to be done with.
+func served(opts options, stdout, stderr io.Writer) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	s, err := serve(ctx, opts.Options)
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	fmt.Fprintf(stderr, "gloss: viewer at %s\n", s.URL)
+	if !opts.NoOpen {
+		if err := browse(s.URL); err != nil {
+			fmt.Fprintf(stderr, "gloss: no browser could be opened (%v); open the address yourself\n", err)
+		}
+	}
+	go func() {
+		<-ctx.Done()
+		s.Close()
+		s.ended.Do(func() { close(s.done) })
+	}()
+	m, err := s.Wait(opts.Timeout)
+	if err == nil && m == nil {
+		err = errCancelled
+	}
+	if err == nil {
+		defer m.Close()
+		err = finish(m, opts, stdout, stderr)
+	}
+	if err != nil || !opts.Pick {
+		s.Discard()
+	}
+	return err
+}
+
+// finish reports what came of the viewer once the screen is given back:
+// what was skipped, and the paths a pick was waiting for.
+func finish(m *app.Model, opts options, stdout, stderr io.Writer) error {
+	for _, line := range m.Skipped() {
+		fmt.Fprintln(stderr, line)
+	}
+	if err := m.Err(); err != nil && !opts.Pick {
+		return err
+	}
+	if !opts.Pick {
+		return nil
+	}
+	if len(m.Picked()) == 0 {
+		return errCancelled
+	}
+	for _, path := range m.Picked() {
+		fmt.Fprintln(stdout, path)
+	}
+	return nil
 }
 
 var errNoInputs = errors.New("no supported input files")

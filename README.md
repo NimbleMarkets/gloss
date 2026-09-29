@@ -51,6 +51,8 @@ cat drawing.svg | gloss
 cat model.stl | gloss --type stl -
 gloss -- -filename.png
 gloss -X photo.png               # keep the scrollback; the picture stays after q
+gloss --serve report.pdf         # show the viewer on a web page instead
+gloss --serve --pick             # ask the user for a file; print its path
 gloss                            # no file yet; drop files or press o to browse
 gloss ~/Pictures                 # browse a folder for a file to open
 ```
@@ -158,6 +160,47 @@ and modification time, followed by:
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
 you turn pages or change files. `i` or `Esc` closes it.
+
+## Asking for a file
+
+A program that cannot show a terminal, such as an agent working for you, can
+still ask you for a file, or show you one:
+
+```sh
+gloss --serve --pick             # prints the paths you send, one to a line
+gloss --serve report.pdf         # shows you the file; prints nothing
+gloss --pick                     # the same question, asked in the terminal
+```
+
+`--serve` starts a temporary server on this machine, opens the viewer on a page
+in your browser, and ends when you quit the viewer or close the tab. The page is
+the native viewer, not the demo: `o` browses your own folders, and a pasted path
+is read from your disk. Files dropped on the page are handed to gloss.
+
+`--pick` waits for you to hand files over by dropping them, pasting their
+paths, or choosing them with `o`. The viewer shows what you gave and says what
+`Enter` will send; `Enter` sends it and quits, and `q` sends nothing. With files
+named on the command line and none handed over, `Enter` sends the one on screen.
+Standard output carries only the answer, as full paths. In a terminal the viewer
+draws on the terminal itself, so the answer can be piped.
+
+| Exit status | Meaning |
+| --- | --- |
+| 0 | Paths were printed |
+| 1 | An error |
+| 2 | Nothing was chosen |
+| 124 | `--timeout` ran out |
+
+Files dropped on a page are written to a folder of their own under the system's
+temporary directory, readable by you alone. If they are the answer to a pick
+they are left there for the program that asked, which should delete them when
+it is done. Otherwise they are removed when gloss exits.
+
+The server listens on 127.0.0.1 only, on a port chosen at random. The page's
+address carries a token, without which nothing is served, so other programs and
+other pages cannot reach the viewer or drop files on it. `--no-open` prints the
+address without opening a browser; `--timeout 10m` gives up after that long.
+With `--serve` or `--pick`, standard input is read only when `-` is named.
 
 ## Markdown
 
@@ -283,7 +326,9 @@ stale asynchronous results. The example SVG and STL are small original fixtures.
 
 The layout follows NTCharts' conventions, with one module for the CLI and a separate browser-demo module:
 
-- `cmd/gloss`: CLI flags, stdin handling, and export orchestration.
+- `cmd/gloss`: CLI flags, stdin handling, export orchestration, and the
+  temporary server behind `--serve`.
+- `web`: the demo site, and the page `--serve` shows.
 - `internal/app`: terminal pager, selection menu, and Markdown layout.
 - `internal/document`: bounded loaders, renderers, and vision image sizing.
 - `examples`: small runnable fixtures.

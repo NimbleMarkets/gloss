@@ -6,12 +6,14 @@ require (
 	charm.land/bubbletea/v2 v2.0.10
 	charm.land/glamour/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/NimbleMarkets/go-booba v0.7.0
 	github.com/NimbleMarkets/ntcharts-pdf v0.3.0
 	github.com/NimbleMarkets/ntcharts-svg v0.3.0
 	github.com/NimbleMarkets/ntcharts/v2 v2.4.0
 	github.com/NimbleMarkets/ntcharts3d v0.1.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/term v0.2.2
+	github.com/coder/websocket v1.8.15
 	github.com/gen2brain/h265 v0.2.3
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
 	github.com/pgavlin/picky v0.0.0-20260512143253-8d4cf90d74f3
@@ -31,13 +33,17 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.3 // indirect
 	github.com/charmbracelet/ultraviolet v0.0.0-20260928045949-bbf040aedf25 // indirect
+	github.com/charmbracelet/x/conpty v0.2.0 // indirect
 	github.com/charmbracelet/x/exp/slice v0.0.0-20250327172914-2fdc97757edf // indirect
 	github.com/charmbracelet/x/termios v0.1.1 // indirect
 	github.com/charmbracelet/x/windows v0.2.2 // indirect
+	github.com/charmbracelet/x/xpty v0.1.4 // indirect
 	github.com/clipperhouse/displaywidth v0.11.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
+	github.com/creack/pty v1.1.24 // indirect
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
+	github.com/dunglas/httpsfv v1.1.2 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-webgpu/goffi v0.6.3 // indirect
 	github.com/go-webgpu/webgpu v0.5.5 // indirect
@@ -54,11 +60,15 @@ require (
 	github.com/mattn/go-runewidth v0.0.30 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
+	github.com/quic-go/qpack v0.6.0 // indirect
+	github.com/quic-go/quic-go v0.63.0 // indirect
+	github.com/quic-go/webtransport-go v0.13.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect
 	github.com/yuin/goldmark-emoji v1.0.5 // indirect
+	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect

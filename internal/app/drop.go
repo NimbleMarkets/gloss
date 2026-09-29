@@ -61,6 +61,7 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 	m.skipped = append(m.skipped, r.skipped...)
 	first, added := -1, 0
 	for _, path := range r.files {
+		m.handOver(path)
 		i := m.fileIndex(path)
 		if i < 0 {
 			m.opts.Files = append(m.opts.Files, path)
@@ -99,4 +100,66 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 		return m.load(true)
 	}
 	return m.switchFile(first - m.index)
+}
+
+type outsideDrop struct{ paths []string }
+
+// awaitDrops waits for the next files from outside; each arrival renews it.
+func (m *Model) awaitDrops() tea.Cmd {
+	drops := m.opts.Drops
+	if drops == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		paths, ok := <-drops
+		if !ok {
+			return nil
+		}
+		return outsideDrop{paths}
+	}
+}
+
+// handOver notes a file the user gave, whether or not it was already listed.
+func (m *Model) handOver(path string) {
+	if full, err := filepath.Abs(path); err == nil && m.opts.FilesFS == nil {
+		path = full
+	}
+	for _, have := range m.added {
+		if have == path {
+			return
+		}
+	}
+	m.added = append(m.added, path)
+}
+
+// Picked lists the files sent to the caller; nil if the user sent none.
+func (m *Model) Picked() []string { return m.picked }
+
+// picking says what Enter would send, or "" when it would send nothing.
+func (m *Model) picking() string {
+	switch {
+	case !m.opts.Pick || len(m.opts.Files) == 0:
+		return ""
+	case len(m.added) > 1:
+		return fmt.Sprintf("%d files", len(m.added))
+	case len(m.added) == 1:
+		return safe(filepath.Base(m.added[0]))
+	}
+	return safe(filepath.Base(m.opts.Files[m.index]))
+}
+
+// pick sends what the user handed over. Files the caller offered are
+// choices: with nothing handed over, the one on screen is the answer.
+func (m *Model) pick() tea.Cmd {
+	if m.picking() == "" {
+		return nil
+	}
+	if m.picked = append([]string(nil), m.added...); len(m.picked) == 0 {
+		path := m.opts.Files[m.index]
+		if full, err := filepath.Abs(path); err == nil && m.opts.FilesFS == nil {
+			path = full
+		}
+		m.picked = []string{path}
+	}
+	return m.quit()
 }

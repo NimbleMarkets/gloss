@@ -44,6 +44,7 @@ func (m *Model) updatePreview() tea.Cmd {
 	if m.preview == nil {
 		opts := m.opts
 		opts.Menu, opts.Preview, opts.Page, opts.Browse = false, false, 1, ""
+		opts.Pick, opts.Drops = false, nil
 		// Keep previews inexpensive and independent of the active camera.
 		opts.Render3D, opts.DPI = "software", min(opts.DPI, 96)
 		m.preview = New(opts)
