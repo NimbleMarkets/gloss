@@ -1,6 +1,7 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, and Markdown.
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, and Word and
+Excel files.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -59,7 +60,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -90,8 +91,9 @@ gloss photo.png drawing.svg model.stl -mP
 | `m` | Open the file-selection menu |
 | `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
-| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page; next / previous file for other formats |
+| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page or sheet; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
+| Arrows, `h j k l` | Scroll a spreadsheet by row and column |
 | `+`, `-` | Zoom in / out |
 | Arrows, `h j k l` | Pan zoomed images; orbit meshes |
 | `f`, `0` | Fit image / reset camera |
@@ -156,6 +158,8 @@ and modification time, followed by:
 | STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
 | 3MF | Title, designer, description, application, dates, license, object and triangle counts, extent and surface area in the file's unit, thumbnail size |
 | Markdown | Title, lines, words, headings, links, images |
+| Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
+| Excel | Sheets with their size, title, author, dates, application |
 
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
@@ -352,6 +356,15 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   encrypted content are not read. The same 932,067-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
   hold 4,096 entries and unpack to 128 MiB.
+- Word (`.docx`, `.docm`): turned into Markdown and shown as such, so `s` shows
+  the Markdown. Headings, lists, tables, links, pictures, and bold, italic, and
+  struck text are kept; page layout, headers and footers, footnotes, comments,
+  and text boxes are not. A document longer than 2 MiB of Markdown is cut.
+- Excel (`.xlsx`, `.xlsm`): each sheet is a grid that scrolls by row and column,
+  with `n` and `p` turning between sheets. Cells show their values, formulas
+  by their last result, and dates and times where a cell's style says so. Up to
+  100,000 rows and 1,024 columns of a sheet are read; the rest are counted.
+  Formatting, merged cells, charts, and pictures are not shown.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;

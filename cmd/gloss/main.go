@@ -1,4 +1,5 @@
-// gloss is a terminal pager for images, SVGs, PDFs, and STL and 3MF meshes.
+// gloss is a terminal pager for images, SVGs, PDFs, STL and 3MF meshes, and
+// Markdown, Word, and Excel files.
 package main
 
 import (
@@ -44,7 +45,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.SetOutput(out)
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
-	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, markdown (or md)")
+	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, markdown (or md)")
 	f.IntVarP(&opts.Page, "page", "p", 1, "initial PDF page (1-based)")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
@@ -66,7 +67,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	showVersion := f.BoolP("version", "V", false, "print version")
 	showHelp := f.BoolP("help", "h", false, "show help")
 	f.Usage = func() {
-		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL, 3MF and Markdown.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
+		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word and Excel.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "\nKeys: q quit · ? help · [/] files · n/p pages · +/- zoom · arrows pan/orbit")
 	}
@@ -90,8 +91,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if opts.Type == "md" {
 		opts.Type = "markdown"
 	}
-	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "markdown"}, opts.Type) {
-		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, or markdown")
+	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "markdown"}, opts.Type) {
+		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, or markdown")
 	}
 	if opts.Page < 1 {
 		return opts, false, fmt.Errorf("--page must be at least 1")

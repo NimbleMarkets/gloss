@@ -30,9 +30,9 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
-var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, or Markdown")
+var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, Word, or Excel")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
 
@@ -77,8 +77,8 @@ func Probe(path, forced string) (string, error) {
 	}
 	// A ZIP archive lists its contents at its end, beyond the prefix.
 	if err != nil && bytes.HasPrefix(header, []byte("PK\x03\x04")) {
-		if archive, zipErr := zip.NewReader(f, info.Size()); zipErr == nil && is3MF(archive) {
-			kind, err = "3mf", nil
+		if archive, zipErr := zip.NewReader(f, info.Size()); zipErr == nil && opcKind(archive) != "" {
+			kind, err = opcKind(archive), nil
 		}
 	}
 	if err != nil {
@@ -122,6 +122,7 @@ type Result struct {
 	Image       image.Image
 	Mesh        *Mesh
 	Markdown    *Markdown
+	Sheet       *Sheet         // One sheet of a workbook; Page and Pages count sheets.
 	Camera      *charts.Camera // Export view of a mesh, as the viewer has it; nil uses Views.
 	Views       []View         // Export views of a mesh: several make a sheet. None uses the default camera.
 	CPU         bool           // Export a mesh without trying the GPU.
@@ -142,6 +143,7 @@ type Loader struct {
 	pdfVersion string
 	file       []Field
 	pages      int
+	book       *Workbook // Kept, like the PDF, for turning between sheets.
 }
 
 func (l *Loader) Close() error {
@@ -153,7 +155,7 @@ func (l *Loader) Close() error {
 
 func (l *Loader) closePDF() error {
 	l.path, l.pages = "", 0
-	l.pdfReader, l.pdfVersion, l.file = nil, "", nil
+	l.pdfReader, l.pdfVersion, l.file, l.book = nil, "", nil, nil
 	if l.pdf == nil {
 		return nil
 	}
@@ -181,6 +183,9 @@ func (l *Loader) Load(q Request) (out Result) {
 	}
 	if l.pdf != nil {
 		return l.renderPDF(q)
+	}
+	if l.book != nil {
+		return l.turnSheet(q)
 	}
 	if l.Files == nil {
 		if _, err := Probe(q.Path, q.Type); err != nil {
@@ -244,6 +249,25 @@ func (l *Loader) Load(q Request) (out Result) {
 	case "stl":
 		out.Mesh, out.Err = ParseSTL(data)
 		details = func() []Field { return meshFields(data, out.Mesh) }
+	case "docx":
+		details = func() []Field { return section("Document", Field{"Format", "Word document"}) }
+		doc, err := OpenWord(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		// Pictures are in the package, beside the document.
+		out.Markdown, out.Err = loadMarkdownFrom("word/document.md", doc.Markdown, "word", doc.pkg.archive)
+		details = doc.fields
+	case "xlsx":
+		details = func() []Field { return section("Workbook", Field{"Format", "Excel workbook"}) }
+		book, err := OpenWorkbook(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		l.book, l.path, l.file = book, q.Path, file
+		return l.turnSheet(q)
 	case "3mf":
 		model, err := Parse3MF(data)
 		if err != nil {
@@ -319,6 +343,15 @@ func (l *Loader) renderPDF(q Request) Result {
 	return out
 }
 
+// turnSheet shows one sheet of the open workbook, as renderPDF shows a page.
+func (l *Loader) turnSheet(q Request) Result {
+	page := max(1, min(q.Page, len(l.book.Names())))
+	sheet, err := l.book.Sheet(page - 1)
+	out := Result{Generation: q.Generation, Kind: "xlsx", Page: page, Pages: len(l.book.Names()), Sheet: sheet, Err: err}
+	out.Info = append(append([]Field(nil), l.file...), describe(l.book.fields)...)
+	return out
+}
+
 func ReadFile(path string) ([]byte, error) { return readFileFrom(nil, path) }
 
 func readFileFrom(files fs.FS, path string) ([]byte, error) {
@@ -373,8 +406,8 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "pdf", nil
 	}
 	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
-		if archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data))); err == nil && is3MF(archive) {
-			return "3mf", nil
+		if archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data))); err == nil && opcKind(archive) != "" {
+			return opcKind(archive), nil
 		}
 	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
@@ -410,6 +443,10 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "stl", nil
 	case ".3mf":
 		return "3mf", nil
+	case ".xlsx", ".xlsm":
+		return "xlsx", nil
+	case ".docx", ".docm":
+		return "docx", nil
 	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
 		return "image", nil
 	}

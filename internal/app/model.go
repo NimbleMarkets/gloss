@@ -71,6 +71,7 @@ type Model struct {
 	savedCamera              *charts.Camera
 	savedMarkdown            *markdownView
 	markdown                 *markdownView
+	sheet                    *sheetView
 	note                     string // Outcome of the last drop, shown until the next key.
 	info                     bool   // The details box floats over the document.
 	fields                   []document.Field
@@ -197,6 +198,7 @@ func (m *Model) clearChart() tea.Cmd {
 }
 
 func (m *Model) clearGraphics() tea.Cmd {
+	m.sheet = nil
 	return tea.Batch(m.clearChart(), m.clearMarkdown(), m.pic.SetImage(nil))
 }
 
@@ -217,8 +219,11 @@ func (m *Model) layoutMarkdown() tea.Cmd {
 	return m.markdown.layout(m.width, m.bodyHeight(), cw, ch)
 }
 
+// paged reports whether n and p turn pages, or sheets, rather than files.
+func (m *Model) paged() bool { return m.kind == "pdf" || m.kind == "xlsx" }
+
 func (m *Model) movePage(page int) tea.Cmd {
-	if m.kind != "pdf" {
+	if !m.paged() {
 		return nil
 	}
 	page = max(1, min(page, m.pages))
@@ -299,7 +304,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.clearGraphics()
 		}
 		cleanup := tea.Batch(m.clearMarkdown(), m.clearChart())
+		m.sheet = nil
 		m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
+		if v.Sheet != nil {
+			m.source, m.sheet = nil, newSheetView(v.Sheet)
+			return m, tea.Sequence(cleanup, m.pic.SetImage(nil))
+		}
 		if v.Markdown != nil {
 			m.source = nil
 			m.markdown = newMarkdownView(v.Markdown, 100+int(nextModelID.Add(1))*1000)
@@ -352,6 +362,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		if m.sheet != nil && !m.help && !m.menu {
+			if v.Button == tea.MouseWheelUp {
+				m.sheet.scroll(-3, m.bodyHeight()-1)
+			} else if v.Button == tea.MouseWheelDown {
+				m.sheet.scroll(3, m.bodyHeight()-1)
+			}
+			return m, nil
+		}
 	case tea.KeyPressMsg:
 		m.note = ""
 		if k := v.String(); (k == "o" || k == "O") && !m.help {
@@ -378,6 +396,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.menu {
 			return m, m.menuKey(v.String())
+		}
+		if m.sheet != nil && m.sheet.key(v.String(), m.bodyHeight()-1) {
+			return m, nil
 		}
 		if m.markdown != nil {
 			if m.markdown.key(v.String()) {
@@ -415,12 +436,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		case "n", "space", "pgdown":
-			if m.kind == "pdf" {
+			if m.paged() {
 				return m, m.movePage(m.page + 1)
 			}
 			return m, m.switchFile(1)
 		case "p", "b", "pgup":
-			if m.kind == "pdf" {
+			if m.paged() {
 				return m, m.movePage(m.page - 1)
 			}
 			return m, m.switchFile(-1)
@@ -572,6 +593,8 @@ func (m *Model) View() tea.View {
 		body, mouse = v.Content, v.MouseMode
 	case m.markdown != nil:
 		body, mouse = m.markdown.view(), tea.MouseModeCellMotion
+	case m.sheet != nil:
+		body, mouse = m.sheet.view(w, h), tea.MouseModeCellMotion
 	default:
 		body = m.pic.View().Content
 	}
@@ -634,19 +657,33 @@ func (m *Model) View() tea.View {
 		if m.markdown.raw {
 			mode = "source"
 		}
-		detail = fmt.Sprintf("Markdown · %s · line %d/%d", mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
+		format := "Markdown"
+		if m.kind == "docx" {
+			format = "Word"
+		}
+		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
+	}
+	if m.sheet != nil {
+		detail = fmt.Sprintf("xlsx · sheet %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
+	}
+	// A note comes before the detail: it is brief, and must not be cut.
+	if m.note != "" {
+		detail = m.note + " · " + detail
 	}
 	status := fmt.Sprintf(" %s  [%d/%d]  %s", name, m.index+1, len(m.opts.Files), detail)
 	if empty {
 		status = " No files yet"
-	}
-	if m.note != "" {
-		status += " · " + m.note
+		if m.note != "" {
+			status += " · " + m.note
+		}
 	}
 	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
 	keys := " q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info"
 	if m.markdown != nil {
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
+	}
+	if m.sheet != nil {
+		keys = " q quit · m files · ↑/↓ ←/→ scroll · Space/b page · n/p sheets · i info"
 	}
 	if empty {
 		keys = " q quit · ? help"

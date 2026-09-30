@@ -105,11 +105,11 @@ func TestDetect3MF(t *testing.T) {
 	// Other packages share the container but not the contents.
 	var b bytes.Buffer
 	w := zip.NewWriter(&b)
-	f, _ := w.Create("word/document.xml")
-	fmt.Fprint(f, "<w:document/>")
+	f, _ := w.Create("ppt/presentation.xml")
+	fmt.Fprint(f, "<p:presentation/>")
 	w.Close()
-	if kind, err := Probe(write(t, "letter.docx", b.Bytes()), ""); err == nil {
-		t.Errorf("a Word document was taken for %q", kind)
+	if kind, err := Probe(write(t, "talk.pptx", b.Bytes()), ""); err == nil {
+		t.Errorf("a PowerPoint deck was taken for %q", kind)
 	}
 	fields := loadInfo(t, write(t, "part.3mf", data))
 	expect(t, fields, map[string]string{"Format": "3MF", "Objects": "1", "Triangles": "4", "Extent": "1 × 1 × 1 mm"})

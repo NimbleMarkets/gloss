@@ -1,7 +1,6 @@
 package document
 
 import (
-	"archive/zip"
 	"bytes"
 	"cmp"
 	"encoding/json"
@@ -21,9 +20,8 @@ import (
 )
 
 const (
-	max3MFEntries = 4096
-	max3MFDepth   = 16 // Components within components.
-	rootModel3MF  = "3D/3dmodel.model"
+	max3MFDepth  = 16 // Components within components.
+	rootModel3MF = "3D/3dmodel.model"
 )
 
 // Model3MF is what a 3MF package holds: a mesh assembled from the objects its
@@ -102,30 +100,16 @@ type part3MF struct {
 	build    []placed3MF
 }
 
-// package3MF reads parts of the archive as they are asked for, within a
-// budget: an archive of a few kilobytes can unpack to gigabytes.
+// package3MF is the package with its model parts, read as they are named.
 type package3MF struct {
-	files  map[string]*zip.File
-	parts  map[string]*part3MF
-	budget int64
+	*opc
+	parts map[string]*part3MF
 }
 
 func (p *package3MF) read(name string) ([]byte, error) {
-	f := p.files[strings.ToLower(strings.TrimPrefix(name, "/"))]
-	if f == nil {
-		return nil, fmt.Errorf("3MF lacks %s", name)
-	}
-	r, err := f.Open()
+	data, err := p.opc.read(name)
 	if err != nil {
-		return nil, fmt.Errorf("3MF %s: %w", name, err)
-	}
-	defer r.Close()
-	data, err := io.ReadAll(io.LimitReader(r, p.budget+1))
-	if err != nil {
-		return nil, fmt.Errorf("3MF %s: %w", name, err)
-	}
-	if p.budget -= int64(len(data)); p.budget < 0 {
-		return nil, fmt.Errorf("3MF unpacks to more than 128 MiB")
+		return nil, fmt.Errorf("3MF %w", err)
 	}
 	return data, nil
 }
@@ -253,29 +237,11 @@ func (p *package3MF) relationships() (model, thumbnail string) {
 }
 
 func open3MF(data []byte) (*package3MF, error) {
-	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	p, err := openOPC(data)
 	if err != nil {
 		return nil, fmt.Errorf("3MF: %w", err)
 	}
-	if len(archive.File) > max3MFEntries {
-		return nil, fmt.Errorf("3MF has more than %d entries", max3MFEntries)
-	}
-	p := &package3MF{files: map[string]*zip.File{}, parts: map[string]*part3MF{}, budget: MaxFileBytes}
-	for _, f := range archive.File {
-		p.files[strings.ToLower(f.Name)] = f
-	}
-	return p, nil
-}
-
-// is3MF reports whether a ZIP archive holds a 3D model, as other packages of
-// the same construction (Word, Excel) do not.
-func is3MF(archive *zip.Reader) bool {
-	for _, f := range archive.File {
-		if name := strings.ToLower(f.Name); strings.HasPrefix(name, "3d/") && strings.HasSuffix(name, ".model") {
-			return true
-		}
-	}
-	return false
+	return &package3MF{opc: p, parts: map[string]*part3MF{}}, nil
 }
 
 func Parse3MF(data []byte) (*Model3MF, error) {
@@ -284,10 +250,10 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 		return nil, err
 	}
 	root, picture := p.relationships()
-	if root == "" || p.files[strings.ToLower(strings.TrimPrefix(root, "/"))] == nil {
+	if root == "" || !p.has(root) {
 		root = rootModel3MF
 	}
-	if p.files[strings.ToLower(strings.TrimPrefix(root, "/"))] == nil {
+	if !p.has(root) {
 		return nil, fmt.Errorf("3MF has no model")
 	}
 	model, err := p.part(root)
@@ -404,7 +370,7 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	// A slicer's rendering of the plate stands in for the model better than
 	// the picture the package declares, which may be a photograph of a print.
 	for _, name := range []string{"Metadata/plate_1.png", picture, "Metadata/thumbnail.png", "Auxiliaries/.thumbnails/thumbnail_3mf.png"} {
-		if name == "" || p.files[strings.ToLower(strings.TrimPrefix(name, "/"))] == nil {
+		if name == "" || !p.has(name) {
 			continue
 		}
 		if data, err := p.read(name); err == nil {

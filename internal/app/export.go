@@ -38,6 +38,10 @@ func (m *Model) export() tea.Cmd {
 		m.note = "Markdown cannot be exported as PNG"
 		return nil
 	}
+	if m.sheet != nil {
+		m.note = "spreadsheets cannot be exported as PNG"
+		return nil
+	}
 	edge := m.opts.MaxEdge
 	if edge == 0 {
 		edge = 1536
