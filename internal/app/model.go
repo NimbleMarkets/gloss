@@ -79,10 +79,11 @@ type Model struct {
 	info                     bool   // The details box floats over the document.
 	fields                   []document.Field
 	opener                   *opener
-	hideUnsupported          bool     // The browser's choice outlasts any one visit.
-	quitting                 bool     // The view being drawn is the one left behind.
-	added                    []string // What the user has handed over, by full path.
-	fetched                  []string // Files fetched from the web this session.
+	hideUnsupported          bool         // The browser's choice outlasts any one visit.
+	quitting                 bool         // The view being drawn is the one left behind.
+	added                    []string     // What the user has handed over, by full path.
+	fetched                  []fetchedDoc // Files fetched from the web this session.
+	savedSheet               *sheetView   // The cell to return to when a fetched file closes.
 	picked                   []string
 	home                     charts.Camera // Where the camera starts, and returns on reset.
 	skipped                  []string      // Reported on stderr once the terminal is restored.
@@ -176,6 +177,11 @@ func (m *Model) switchFile(delta int) tea.Cmd {
 	if i < 0 || i >= len(m.opts.Files) {
 		return nil
 	}
+	return m.show(i)
+}
+
+// show loads the file at i afresh: its page, zoom, and camera start over.
+func (m *Model) show(i int) tea.Cmd {
 	m.index, m.page, m.pages, m.kind = i, 1, 1, ""
 	m.source, m.zoom, m.panX, m.panY = nil, 0, 0, 0
 	m.savedCamera, m.savedMarkdown, m.fields = nil, nil, nil
@@ -314,6 +320,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
 		if v.Sheet != nil {
 			m.source, m.sheet = nil, newSheetView(v.Sheet)
+			if m.savedSheet != nil {
+				m.sheet.row, m.sheet.col, m.sheet.at = m.savedSheet.row, m.savedSheet.col, m.savedSheet.at
+				m.sheet.settle(m.width, m.bodyHeight()-1)
+				m.savedSheet = nil
+			}
 			return m, tea.Sequence(cleanup, m.pic.SetImage(nil))
 		}
 		if v.Markdown != nil {
@@ -390,6 +401,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			if !m.help && m.menu {
 				return m, m.closeMenu(false)
+			}
+			if !m.help && !m.info {
+				if cmd, ok := m.closeFetched(); ok {
+					return m, cmd
+				}
 			}
 			if !m.help {
 				m.info = false
@@ -705,6 +721,9 @@ func (m *Model) View() tea.View {
 	}
 	if empty {
 		keys = " q quit · ? help"
+	}
+	if m.isFetched() {
+		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
 	}
 	if m.canBrowse() {
 		keys += " · o browse"

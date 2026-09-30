@@ -95,6 +95,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `Home` / `End`, `G` | First / last PDF page |
 | Arrows, `h j k l` | Move about a spreadsheet by row and column |
 | `Enter` | With `--fetch`, open the web address under the cursor |
+| `Esc` | Close a fetched file and return to its cell |
 | `+`, `-` | Zoom in / out |
 | Arrows, `h j k l` | Pan zoomed images; orbit meshes |
 | `f`, `0` | Fit image / reset camera |
@@ -375,9 +376,10 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
 - Web addresses in tables: a sheet has a cursor, and the status bar shows the
   address a cell holds or, in Excel, links to. With `--fetch`, `Enter` on such
   a cell downloads what it names and opens it like a dropped file; a picture
-  is shown as one. Only http and https are fetched, of no more than 128 MiB,
-  and only on `Enter`: gloss never fetches on its own. Fetched files are
-  removed when gloss exits, unless they were picked.
+  is shown as one, and `Esc` closes it and returns to the cell. Only http and
+  https are fetched, of no more than 128 MiB, and only on `Enter`: gloss never
+  fetches on its own. Fetched files are removed when closed or when gloss
+  exits, unless they were picked.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;

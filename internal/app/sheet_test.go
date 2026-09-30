@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -243,5 +244,38 @@ func TestCSVIsShownAsASheetOfItsOwn(t *testing.T) {
 	}
 	if lines := strings.Split(view, "\n"); !strings.Contains(lines[len(lines)-1], "n/p files") {
 		t.Fatalf("hint:\n%s", lines[len(lines)-1])
+	}
+}
+
+func TestEscapeClosesAFetchedFileAndReturnsToItsCell(t *testing.T) {
+	sheet := &document.Sheet{Name: "links", Columns: 2, Rows: [][]string{{"name", "picture"}, {"fern", "https://example.com/fern.png"}, {"moss", "plain"}}}
+	dir := t.TempDir()
+	m := viewing(t, Options{Files: []string{"links.csv"}, Fetch: func(address string) (string, error) {
+		return writePNG(t, filepath.Join(dir, "fern.png")), nil
+	}}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
+	send(m, press("j"), press("l"), enter)
+	if len(m.opts.Files) != 2 || m.index != 1 {
+		t.Fatalf("files=%q index=%d", m.opts.Files, m.index)
+	}
+	fetched := m.opts.Files[1]
+	if hints := plain(m)[len(plain(m))-1]; !strings.HasPrefix(hints, " Esc close") {
+		t.Fatalf("hints: %s", hints)
+	}
+	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	if len(m.opts.Files) != 1 || m.index != 0 || len(m.Fetched()) != 0 {
+		t.Fatalf("files=%q index=%d fetched=%q", m.opts.Files, m.index, m.Fetched())
+	}
+	if _, err := os.Stat(fetched); !os.IsNotExist(err) {
+		t.Fatal("the closed file was kept")
+	}
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
+	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "cell B2") {
+		t.Fatalf("status: %s", status)
+	}
+	// Escape on a file that was not fetched closes nothing.
+	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	if len(m.opts.Files) != 1 || m.sheet == nil {
+		t.Fatalf("files=%q sheet=%v", m.opts.Files, m.sheet != nil)
 	}
 }
