@@ -122,7 +122,8 @@ type Result struct {
 	Image       image.Image
 	Mesh        *Mesh
 	Markdown    *Markdown
-	Camera      *charts.Camera // Export view of a mesh; nil uses the default.
+	Camera      *charts.Camera // Export view of a mesh, as the viewer has it; nil uses Views.
+	Views       []View         // Export views of a mesh: several make a sheet. None uses the default camera.
 	CPU         bool           // Export a mesh without trying the GPU.
 	Info        []Field        // What the file says about itself, for the info panel.
 	Err         error

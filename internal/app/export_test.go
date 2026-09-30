@@ -196,3 +196,31 @@ func TestExportUsesTheViewersRenderer(t *testing.T) {
 		}
 	}
 }
+
+func TestViewerStartsFromTheViewAskedFor(t *testing.T) {
+	views, err := document.ParseViews("top,front")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mesh, err := document.ParseSTL([]byte(facet))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software", Views: views}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
+	want := views[0].Camera(mesh)
+	if got := m.chart.Camera(); got.Alpha != 89 || got.Beta != -90 || got.Distance != want.Distance {
+		t.Fatalf("camera %+v, want the first view asked for, fitted: %+v", got, want)
+	}
+	// Reset returns there, not to NTCharts3d's own view.
+	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
+	m.Update(press("f"))
+	if got := m.chart.Camera(); got.Alpha != 89 || got.Beta != -90 || got.Distance != want.Distance {
+		t.Fatalf("after reset: %+v", got)
+	}
+	plain := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software"}, "")
+	plain.Update(document.Result{Generation: plain.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
+	if got := plain.chart.Camera(); got.Alpha != charts.DefaultCamera().Alpha || got.Distance != charts.DefaultCamera().Distance {
+		t.Fatalf("with no view asked for: %+v", got)
+	}
+}

@@ -31,7 +31,7 @@ func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
 	}
 	for i, path := range opts.Files {
 		r := loader.Load(exportRequest(opts, path, i+1))
-		r.CPU = onCPU(opts)
+		r.CPU, r.Views = onCPU(opts), opts.Views
 		img, err := document.ExportForVision(r, opts.MaxEdge, opts.VisionProfile)
 		if err != nil {
 			return fmt.Errorf("%s: %w", path, err)

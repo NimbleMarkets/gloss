@@ -16,6 +16,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/NimbleMarkets/gloss/internal/document"
+	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/pflag"
 )
@@ -34,6 +35,7 @@ type options struct {
 	app.Options
 	Serve, NoOpen bool
 	Timeout       time.Duration
+	Info, JSON    bool
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -47,6 +49,11 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
+	view := f.String("view", "", "views of a mesh: front, back, left, right, top, bottom, iso, all; several, as front,top, export as one sheet")
+	camera := f.String("camera", "", "camera for a mesh, as elevation,azimuth or elevation,azimuth,distance in degrees")
+	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
+	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
+	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
 	f.BoolVar(&opts.Serve, "serve", false, "show the viewer on a web page, from a temporary server on this machine")
 	f.BoolVar(&opts.NoOpen, "no-open", false, "with --serve, print the page's address without opening a browser")
@@ -93,6 +100,40 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		return opts, false, fmt.Errorf("--dpi must be between 36 and 600")
 	}
 	opts.Files = f.Args()
+	var err error
+	switch {
+	case *view != "" && *camera != "":
+		return opts, false, fmt.Errorf("choose --view or --camera")
+	case f.Changed("view"):
+		if opts.Views, err = document.ParseViews(*view); err == nil && len(opts.Views) == 0 {
+			err = fmt.Errorf("--view names no view")
+		}
+	case f.Changed("camera"):
+		var at document.View
+		at, err = document.ParseCamera(*camera)
+		opts.Views = []document.View{at}
+	case f.Changed("projection"):
+		// The camera there would have been, otherwise projected.
+		at := charts.DefaultCamera()
+		opts.Views = []document.View{{Alpha: at.Alpha, Beta: at.Beta, Distance: at.Distance}}
+	}
+	if err != nil {
+		return opts, false, fmt.Errorf("--view/--camera: %w", err)
+	}
+	if !slices.Contains([]string{"ortho", "perspective"}, *projection) {
+		return opts, false, fmt.Errorf("--projection must be ortho or perspective")
+	}
+	for i := range opts.Views {
+		if *projection == "perspective" {
+			opts.Views[i].Projection = charts.Perspective
+		}
+	}
+	switch {
+	case opts.JSON && !opts.Info:
+		return opts, false, fmt.Errorf("--json requires --info")
+	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
+		return opts, false, fmt.Errorf("--info prints and exits; it cannot be combined with the viewer's or export's options")
+	}
 	if opts.VisionProfile != "" {
 		profile, ok := document.VisionProfiles[opts.VisionProfile]
 		if !ok {
@@ -157,7 +198,7 @@ func run(args []string) error {
 	// and draws on the terminal itself.
 	var screen *os.File
 	switch {
-	case exporting || opts.Serve || term.IsTerminal(os.Stdout.Fd()):
+	case exporting || opts.Info || opts.Serve || term.IsTerminal(os.Stdout.Fd()):
 	case opts.Pick:
 		if screen, err = os.OpenFile("/dev/tty", os.O_WRONLY, 0); err != nil {
 			return fmt.Errorf("--pick found no terminal to draw on; use --serve to show a page instead")
@@ -196,6 +237,9 @@ func run(args []string) error {
 			opts.Files[i] = stdinPath
 			continue
 		}
+	}
+	if opts.Info {
+		return describe(opts, os.Stdout, os.Stderr)
 	}
 	opts.Browse, opts.Files, err = inputs(opts.Files, opts.Type, exporting, os.Stderr)
 	if err != nil {

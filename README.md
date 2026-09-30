@@ -250,6 +250,48 @@ drawn on the GPU, and in software where there is none or where `--3d` names
 another renderer. Software draws every face, without the viewer's triangle
 sampling, and the same picture. A single view does not reveal hidden surfaces.
 
+### Views of a mesh
+
+```sh
+gloss --output front.png --view front model.stl
+gloss --output sheet.png --view all --vision-profile claude-high model.3mf
+gloss --output sheet.png --view iso,front,top,right model.stl
+gloss --output posed.png --camera 20,-120 --projection perspective model.stl
+gloss --view top model.stl       # the viewer starts there; f returns to it
+```
+
+`--view` names where a mesh is seen from: `front`, `back`, `left`, `right`,
+`top`, `bottom`, or `iso`, which is from the front, the right, and above. X runs
+to the right, Y away from the viewer at the front, and Z up. `--camera` places
+the camera by its elevation and azimuth in degrees, the azimuth counted from the
+X axis, and optionally its distance. `--projection` is `ortho` or `perspective`.
+
+Several views, as `front,top` or `all` for the six sides, are exported as one
+sheet of square tiles, each named in its corner. The sheet as a whole keeps to
+`--max-edge` and the vision profile. On the GPU the mesh is uploaded once for
+all of them.
+
+A view fits the mesh to nine tenths of the picture, unless `--camera` gives a
+distance. A mesh that is long toward the camera, a plank seen from its end, is
+drawn smaller: in NTCharts3d's orthographic projection distance is also scale,
+and the camera must stand clear of the mesh. Views asked for are lit from over
+the viewer's shoulder, so that the back and the underside show as much as the
+front. With no view asked for, the camera and the light are the viewer's.
+
+### What a file says about itself
+
+```sh
+gloss --info model.3mf report.pdf
+gloss --info --json -p 3 report.pdf
+```
+
+`--info` prints what the viewer shows with `i`, and does not open the viewer.
+`--json` prints an array with an object for each file: its `path` and `kind`,
+`page` and `pages` for a PDF, and `details` by section and label, as
+`details.Model.Triangles`. Values are as the viewer words them. A file that
+cannot be described has an `error` in place of what is missing, the others are
+described all the same, and the exit status is 1.
+
 Model profiles also fit the rounded patch budget, which a maximum edge alone
 cannot enforce. These profiles implement sizing envelopes, not a measured
 accuracy optimum or exact billing calculation. Verified against official
@@ -272,8 +314,9 @@ stderr and consult the target model's documentation.
 
 PNG is useful for text, diagrams, and thin lines because it is lossless. For
 dense documents, retain an overview and supply detail crops where needed. For
-3D interpretation, several views reveal more than one larger image. Automatic
-detail crops, multi-view STL export, and JPEG output are not implemented yet.
+3D interpretation, several views reveal more than one larger image: see
+[views of a mesh](#views-of-a-mesh). Automatic detail crops and JPEG output are
+not implemented yet.
 
 `--output` accepts one input; `--output-dir` exports all supplied inputs in order,
 with numbered filenames. Each PDF exports the selected `--page` (page 1 by

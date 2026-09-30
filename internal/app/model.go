@@ -22,8 +22,9 @@ import (
 )
 
 type Options struct {
-	STLCamera              *charts.Camera // Optional initial/reset view for an embedded gallery.
-	FilesFS                fs.FS          // Optional embedded files for the browser demo.
+	STLCamera              *charts.Camera  // Optional initial/reset view for an embedded gallery.
+	Views                  []document.View // Views of a mesh asked for: the first is where the viewer starts.
+	FilesFS                fs.FS           // Optional embedded files for the browser demo.
 	Files                  []string
 	Type, Render, Render3D string
 	Page, DPI              int
@@ -78,7 +79,8 @@ type Model struct {
 	quitting                 bool     // The view being drawn is the one left behind.
 	added                    []string // What the user has handed over, by full path.
 	picked                   []string
-	skipped                  []string // Reported on stderr once the terminal is restored.
+	home                     charts.Camera // Where the camera starts, and returns on reset.
+	skipped                  []string      // Reported on stderr once the terminal is restored.
 }
 
 var nextModelID atomic.Int64
@@ -320,11 +322,19 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
 			m.chart.SetColorLegendVisible(false)
 			m.chart.SetSeries(v.Mesh)
+			m.home = charts.DefaultCamera()
+			switch {
+			case len(m.opts.Views) > 0:
+				// Fitted to this mesh, so worked out once it is known.
+				m.home = m.opts.Views[0].Camera(v.Mesh)
+			case m.opts.STLCamera != nil:
+				m.home = *m.opts.STLCamera
+			}
 			if m.savedCamera != nil {
 				m.chart.SetCamera(*m.savedCamera)
 				m.savedCamera = nil
-			} else if m.opts.STLCamera != nil {
-				m.chart.SetCamera(*m.opts.STLCamera)
+			} else if m.home != charts.DefaultCamera() {
+				m.chart.SetCamera(m.home)
 			}
 			// Apply a capability already established before this chart existed.
 			_, _ = m.chart.Update(struct{}{})
@@ -429,10 +439,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case "0", "f":
 			if m.chart != nil {
-				if m.opts.STLCamera != nil {
-					return m, m.chart.SetCamera(*m.opts.STLCamera)
-				}
-				return m, m.chart.SetCamera(charts.DefaultCamera())
+				return m, m.chart.SetCamera(m.home)
 			}
 			m.zoom, m.panX, m.panY = 0, 0, 0
 			return m, m.refreshImage()
