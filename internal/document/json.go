@@ -17,9 +17,10 @@ const maxJSONMarkdown = MaxMarkdownBytes - 4096
 // each value pretty-printed in a fenced block for highlighting.
 type JSONDoc struct {
 	Markdown []byte
-	Lines    bool // One value to a line, as in JSONL and NDJSON.
-	Records  int  // Values in a file of lines.
-	Shown    int  // Records or lines that fit the Markdown.
+	Plain    string // Pretty-printed, records one after another, without fences.
+	Lines    bool   // One value to a line, as in JSONL and NDJSON.
+	Records  int    // Values in a file of lines.
+	Shown    int    // Records or lines that fit the Markdown.
 	kind     string
 	count    int
 	keys     []string
@@ -71,6 +72,7 @@ func (doc *JSONDoc) single(data []byte) (*JSONDoc, error) {
 		shown = bytes.Count(pretty.Bytes(), []byte("\n")) + 1
 		doc.cut = true
 	}
+	doc.Plain = pretty.String() + "\n"
 	var md bytes.Buffer
 	md.WriteString("```json\n")
 	md.Write(pretty.Bytes())
@@ -109,6 +111,7 @@ func (doc *JSONDoc) records(lines [][]byte) (*JSONDoc, error) {
 			continue
 		}
 		fmt.Fprintf(&md, "#### %d\n\n```json\n%s\n```\n\n", doc.Records, pretty.Bytes())
+		doc.Plain += pretty.String() + "\n"
 		doc.Shown++
 	}
 	if doc.cut {

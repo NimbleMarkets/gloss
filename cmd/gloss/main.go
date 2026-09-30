@@ -41,6 +41,8 @@ type options struct {
 	Info, JSON    bool
 	FetchAllowed  bool
 	Globs         []string
+	Text          bool      // Take the text out, rather than draw.
+	Pages         pageRange // What --page asked for; Page holds it when it is one.
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -50,7 +52,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
 	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, markdown (or md)")
-	f.IntVarP(&opts.Page, "page", "p", 1, "initial PDF page (1-based)")
+	page := f.StringP("page", "p", "1", "PDF page or workbook sheet, from 1; for an export or text into a folder, a range such as 2-5, or all")
+	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, CSV of a sheet, text and JSON as they are")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
@@ -107,14 +110,20 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "csv", "json", "ipynb", "html", "text", "markdown"}, opts.Type) {
 		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, or markdown")
 	}
-	if opts.Page < 1 {
-		return opts, false, fmt.Errorf("--page must be at least 1")
+	pages, err := parsePages(*page)
+	if err != nil {
+		return opts, false, err
+	}
+	opts.Pages = pages
+	if single, ok := opts.Pages.single(); ok {
+		opts.Page = single
+	} else if opts.OutputDir == "" && !opts.JSON {
+		return opts, false, fmt.Errorf("--page with a range or all needs --output-dir, or --json with --text")
 	}
 	if opts.DPI < 36 || opts.DPI > 600 {
 		return opts, false, fmt.Errorf("--dpi must be between 36 and 600")
 	}
 	opts.Files = f.Args()
-	var err error
 	if opts.Columns, err = document.ParseColumns(*cols, *coln); err != nil {
 		return opts, false, err
 	}
@@ -165,10 +174,12 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		}
 	}
 	switch {
-	case opts.JSON && !opts.Info:
-		return opts, false, fmt.Errorf("--json requires --info")
-	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
+	case opts.JSON && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "":
+		return opts, false, fmt.Errorf("--json goes with --info, --text, or an export")
+	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Text || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
 		return opts, false, fmt.Errorf("--info prints and exits; it cannot be combined with the viewer's or export's options")
+	case opts.Text && (opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen || opts.FetchAllowed):
+		return opts, false, fmt.Errorf("--text prints and exits; it cannot be combined with the viewer's options")
 	}
 	if opts.VisionProfile != "" {
 		profile, ok := document.VisionProfiles[opts.VisionProfile]
@@ -226,7 +237,7 @@ func run(args []string) error {
 		return err
 	}
 	opts.Files = arguments(opts, stdinTTY)
-	exporting := opts.Output != "" || opts.OutputDir != ""
+	exporting := opts.Output != "" || opts.OutputDir != "" || opts.Text
 	if opts.Output == "-" && term.IsTerminal(os.Stdout.Fd()) {
 		return fmt.Errorf("redirect PNG stdout to a file or pipe")
 	}
@@ -287,8 +298,11 @@ func run(args []string) error {
 		return err
 	}
 
+	if opts.Text {
+		return textFiles(opts, os.Stdout, os.Stderr)
+	}
 	if exporting {
-		return exportFiles(opts.Options, os.Stdout, os.Stderr)
+		return exportFiles(opts, os.Stdout, os.Stderr)
 	}
 	if opts.FetchAllowed {
 		// Fetched files are the session's; a picked one is the caller's.

@@ -313,8 +313,35 @@ gloss --output mesh.png --max-edge 1536 model.stl
 gloss --output page.png --vision-profile openai-high report.pdf
 gloss --output diagram.png --vision-profile claude-standard drawing.svg
 gloss --output-dir model-inputs --max-edge 768 photo.png drawing.svg report.pdf
+gloss --output-dir pages --page all report.pdf         # every page, or 2-5, or 1,3
 cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
 ```
+
+Standard output carries the answer, in the form asked for: the PNG bytes with
+`--output -`, else the paths written, one to a line, as `--pick` prints them.
+Nothing is ever overwritten: a taken name gains a number before its extension
+(`page.png`, then `page-2.png`), and `--output-dir` names each file after its
+input with an index (`001-shapes.png`, `001-report-page-2.png`). `--json`
+prints a manifest instead, one object per file and page: `path`, `kind`,
+`page`, `pages`, `output`, `width`, `height`, and `error` where one failed. A
+failure is reported on stderr and the rest go on; the exit status is 1.
+
+### Text for language models
+
+`--text` takes the text out, for a reader that wants words rather than a
+picture: the Markdown gloss makes of a Word document, an HTML page, or a
+notebook; Markdown as it is; text and JSON as they are, unfenced; and a sheet
+as CSV. Pictures, PDFs, and meshes have no text, and say so.
+
+```sh
+gloss --text report.docx                          # Markdown on stdout
+gloss --text --page all --output-dir sheets sales.xlsx   # one CSV per sheet
+gloss --text --json notes.txt sales.csv           # [{path, kind, text}, …]
+gloss --glob docs --text --output-dir text ~/Documents
+```
+
+One text goes to stdout; several go to files with `--output-dir`, whose paths
+are then the answer, or into a `--json` manifest with a `text` field each.
 
 Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
 transparency onto white, and contain no terminal chrome. Smaller raster sources

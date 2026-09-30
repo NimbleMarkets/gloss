@@ -222,7 +222,7 @@ func TestSkillMatchesTheFlags(t *testing.T) {
 	}
 	var help bytes.Buffer
 	parse([]string{"--help"}, &help)
-	for _, flag := range []string{"--output", "--output-dir", "--max-edge", "--vision-profile", "--page", "--dpi", "--type", "--view", "--camera", "--projection", "--parts", "--partn", "--color", "--info", "--json", "--pick", "--serve", "--prompt", "--timeout", "--glob"} {
+	for _, flag := range []string{"--output", "--output-dir", "--max-edge", "--vision-profile", "--page", "--dpi", "--type", "--view", "--camera", "--projection", "--parts", "--partn", "--color", "--info", "--json", "--text", "--pick", "--serve", "--prompt", "--timeout", "--glob"} {
 		if !bytes.Contains(skill, []byte(flag)) {
 			t.Errorf("the skill does not mention %s", flag)
 		}

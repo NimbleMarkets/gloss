@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"image/png"
 	"io"
@@ -21,7 +23,25 @@ func exportRequest(opts app.Options, path string, generation int) document.Reque
 // a renderer, and any but auto is one of the CPU's.
 func onCPU(opts app.Options) bool { return opts.Render3D != "auto" && opts.Render3D != "" }
 
-func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
+// A made file, or a text, as the manifest lists it: one line of JSON per
+// page of each input, with what went wrong where something did.
+type made struct {
+	Path   string `json:"path"`
+	Kind   string `json:"kind,omitempty"`
+	Page   int    `json:"page,omitempty"`
+	Pages  int    `json:"pages,omitempty"`
+	Output string `json:"output,omitempty"`
+	Width  int    `json:"width,omitempty"`
+	Height int    `json:"height,omitempty"`
+	Text   string `json:"text,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
+// exportFiles draws each input, and each page asked for, as a PNG. The
+// answer goes to stdout: the bytes with --output -, else the paths
+// written, one to a line, or the manifest with --json. A file that fails
+// is reported and the rest go on; the error is the first one's.
+func exportFiles(opts options, stdout, stderr io.Writer) error {
 	loader := &document.Loader{}
 	defer loader.Close()
 	if opts.OutputDir != "" {
@@ -29,46 +49,147 @@ func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
 			return err
 		}
 	}
+	var manifest []made
+	var failed error
+	generation := 0
 	for i, path := range opts.Files {
-		r := loader.Load(exportRequest(opts, path, i+1))
-		r.CPU, r.Views = onCPU(opts), opts.Views
-		img, err := document.ExportForVision(r, opts.MaxEdge, opts.VisionProfile)
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-		target := opts.Output
-		if opts.OutputDir != "" {
-			base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-			if document.IsStdin(path) {
-				base = "stdin"
-			}
-			suffix := ""
-			if r.Kind == "pdf" {
-				suffix = fmt.Sprintf("-page-%d", r.Page)
-			}
-			target = filepath.Join(opts.OutputDir, fmt.Sprintf("%03d-%s%s.png", i+1, base, suffix))
-		}
-		if target == "-" {
-			if err := png.Encode(stdout, img); err != nil {
-				return err
-			}
-		} else {
-			// Never overwrite an input or an earlier export accidentally.
-			f, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
-			if err != nil {
-				return err
-			}
-			encodeErr := png.Encode(f, img)
-			closeErr := f.Close()
-			if encodeErr != nil || closeErr != nil {
-				_ = os.Remove(target)
-				if encodeErr != nil {
-					return encodeErr
+		for _, page := range pagesOf(loader, opts, path, &generation) {
+			generation++
+			q := exportRequest(opts.Options, path, generation)
+			q.Page = page
+			r := loader.Load(q)
+			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages}
+			r.CPU, r.Views = onCPU(opts.Options), opts.Views
+			img, err := document.ExportForVision(r, opts.MaxEdge, opts.VisionProfile)
+			if err == nil {
+				var data bytes.Buffer
+				if err = png.Encode(&data, img); err == nil {
+					entry.Width, entry.Height = img.Bounds().Dx(), img.Bounds().Dy()
+					entry.Output, err = deliver(opts, i, path, r, ".png", data.Bytes(), stdout)
 				}
-				return closeErr
 			}
+			if err != nil {
+				entry.Error = err.Error()
+				fmt.Fprintf(stderr, "gloss: %s: %s\n", svg.SanitizeForTerminal(path), svg.SanitizeForTerminal(err.Error()))
+				if failed == nil {
+					failed = fmt.Errorf("%s: %w", path, err)
+				}
+			} else if entry.Output != "" {
+				fmt.Fprintf(stderr, "%s: %d×%d PNG\n", svg.SanitizeForTerminal(entry.Output), entry.Width, entry.Height)
+				if !opts.JSON {
+					fmt.Fprintln(stdout, entry.Output)
+				}
+			}
+			manifest = append(manifest, entry)
 		}
-		fmt.Fprintf(stderr, "%s: %d×%d PNG\n", svg.SanitizeForTerminal(target), img.Bounds().Dx(), img.Bounds().Dy())
 	}
-	return nil
+	if opts.JSON {
+		if err := json.NewEncoder(stdout).Encode(manifest); err != nil {
+			return err
+		}
+	}
+	return failed
+}
+
+// textFiles takes the text out of each input, and each page asked for:
+// to stdout as it is for one input, to files with --output or
+// --output-dir, whose paths are then the answer, or to a manifest with
+// --json.
+func textFiles(opts options, stdout, stderr io.Writer) error {
+	loader := &document.Loader{}
+	defer loader.Close()
+	if opts.OutputDir != "" {
+		if err := os.MkdirAll(opts.OutputDir, 0755); err != nil {
+			return err
+		}
+	}
+	var manifest []made
+	var failed error
+	generation, streamed := 0, 0
+	for i, path := range opts.Files {
+		for _, page := range pagesOf(loader, opts, path, &generation) {
+			generation++
+			q := exportRequest(opts.Options, path, generation)
+			q.Page = page
+			r := loader.Load(q)
+			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages}
+			text, ext, err := document.Text(r)
+			switch {
+			case err != nil:
+			case opts.JSON:
+				entry.Text = string(text)
+			case opts.Output != "" || opts.OutputDir != "":
+				entry.Output, err = deliver(opts, i, path, r, ext, text, stdout)
+				if err == nil {
+					fmt.Fprintln(stdout, entry.Output)
+				}
+			default:
+				// One stream holds one text: several would run together.
+				if streamed++; streamed > 1 {
+					err = fmt.Errorf("several texts: write them with --output-dir, or ask for --json")
+				} else {
+					_, err = stdout.Write(text)
+				}
+			}
+			if err != nil {
+				entry.Error = err.Error()
+				fmt.Fprintf(stderr, "gloss: %s: %s\n", svg.SanitizeForTerminal(path), svg.SanitizeForTerminal(err.Error()))
+				if failed == nil {
+					failed = fmt.Errorf("%s: %w", path, err)
+				}
+			}
+			manifest = append(manifest, entry)
+		}
+	}
+	if opts.JSON {
+		if err := json.NewEncoder(stdout).Encode(manifest); err != nil {
+			return err
+		}
+	}
+	return failed
+}
+
+// pagesOf lists the pages of path to be made: those asked for, of as many
+// as the document has, which a range means finding out first.
+func pagesOf(loader *document.Loader, opts options, path string, generation *int) []int {
+	if page, ok := opts.Pages.single(); ok {
+		return []int{page}
+	}
+	if !opts.Pages.all && len(opts.Pages.pages) == 0 {
+		return []int{max(1, opts.Page)} // Nothing asked: the page as set.
+	}
+	*generation++
+	q := exportRequest(opts.Options, path, *generation)
+	q.Page = 1
+	r := loader.Load(q)
+	if r.Err != nil || r.Pages < 1 {
+		return []int{1} // The failure is reported by the page's own load.
+	}
+	return opts.Pages.of(r.Pages)
+}
+
+// deliver puts data where it was asked for: to --output as named, into
+// --output-dir under a name made from the input's, or, for --output -, to
+// stdout. It gives the path written, or nothing for stdout.
+func deliver(opts options, i int, path string, r document.Result, ext string, data []byte, stdout io.Writer) (string, error) {
+	target := opts.Output
+	if opts.OutputDir != "" {
+		base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+		if document.IsStdin(path) {
+			base = "stdin"
+		}
+		suffix := ""
+		switch {
+		case r.Kind == "pdf" && r.Pages > 1:
+			suffix = fmt.Sprintf("-page-%d", r.Page)
+		case r.Kind == "xlsx" && r.Pages > 1:
+			suffix = fmt.Sprintf("-sheet-%d", r.Page)
+		}
+		target = filepath.Join(opts.OutputDir, fmt.Sprintf("%03d-%s%s%s", i+1, base, suffix, ext))
+	}
+	if target == "-" {
+		_, err := stdout.Write(data)
+		return "", err
+	}
+	return document.WriteNew(target, data)
 }

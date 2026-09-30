@@ -5,21 +5,55 @@ description: View and inspect files from the shell with the gloss pager. Export 
 
 # gloss: seeing files, and being shown them
 
-gloss is a visual pager (`less`, with pictures). For an agent it has three
+gloss is a visual pager (`less`, with pictures). For an agent it has four
 distinct uses, in the order you will need them:
 
-1. **See a file yourself** — headless PNG export, sized for your vision budget.
-2. **Learn about a file** — metadata as JSON, no rendering.
-3. **Involve the human** — they pick files for you, or view what you show them.
+1. **Read a file's text** — `--text`: Word, HTML, notebooks, and sheets as
+   Markdown or CSV, no rendering.
+2. **See a file yourself** — headless PNG export, sized for your vision budget.
+3. **Learn about a file** — metadata as JSON, no rendering.
+4. **Involve the human** — they pick files for you, or view what you show them.
+
+**stdout carries the answer, in the form you asked for.** Bytes with
+`--output -`; the text with `--text`; otherwise the *paths written*, one to a
+line, so `paths=$(gloss …)` is the whole protocol. `--json` gives a manifest
+instead. Diagnostics go to stderr. Exit status 1 means at least one input
+failed; the rest were still done.
 
 It handles PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF, STL, 3MF,
 Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, and
 CSV. One binary, no external converters, no CGO. Inputs are limited to 128 MiB.
 
-## 1. See a file: PNG export
+## 1. Read a file: `--text`
 
-Exports need no terminal and never open a UI. PNG bytes are the only thing on
-stdout; diagnostics go to stderr.
+The cheapest way to know what a document says. gloss converts what it can
+and hands the text over unchanged otherwise.
+
+```sh
+gloss --text report.docx                     # Markdown of the document, on stdout
+gloss --text page.html                       # Markdown of the page, scripts dropped
+gloss --text notebook.ipynb                  # cells and outputs as Markdown
+gloss --text --page 2 sales.xlsx             # one sheet as CSV
+gloss --text --page all --output-dir sheets sales.xlsx   # every sheet, one CSV each
+gloss --text --json notes.txt batch.jsonl    # [{"path","kind","text"}, …]
+```
+
+| Kind | What comes out |
+| --- | --- |
+| Word, HTML, notebook | Markdown, as gloss shows it |
+| Markdown | as it is |
+| plain text, source | as it is, unfenced |
+| JSON, JSONL | pretty-printed, records one after another |
+| Excel, CSV | CSV of the sheet (`--page` picks the sheet) |
+| image, SVG, PDF, mesh | *no text*: an error saying to use `--output` |
+
+One text goes to stdout; for several inputs use `--output-dir` (paths are
+printed) or `--json`. `--text` needs no terminal.
+
+## 2. See a file: PNG export
+
+Exports need no terminal and never open a UI. With `--output -` the PNG bytes
+are the only thing on stdout; with a file or folder, the paths written are.
 
 ```sh
 gloss --output page.png --page 3 report.pdf      # one page of a PDF
@@ -42,9 +76,15 @@ cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
   (`page.png` → `page-2.png`). stderr reports each file written as
   `path: W×H PNG`, so read the path from there, or use `--output -`.
 - `--output` takes one input; `--output-dir` takes many and prefixes each
-  name with its index: `001-shapes.png`, `002-landscape.png`.
-- PDF: `--page N` selects the page (default 1); `--dpi 36..600` raises raster
-  detail for dense pages. SVG/PDF are rasterized at the requested size.
+  name with its index: `001-shapes.png`, `002-landscape.png`; a page or sheet
+  adds `-page-2` or `-sheet-2`.
+- `--page 3`, `--page 2-5`, `--page 1,3`, or `--page all` with `--output-dir`
+  exports several pages of a PDF in one call. `--dpi 36..600` raises raster
+  detail for dense pages.
+- `--json` with an export prints a manifest to stdout: one object per file and
+  page with `path`, `kind`, `page`, `pages`, `output`, `width`, `height`, and
+  `error` where one failed. Prefer it over parsing stderr.
+- SVG and PDF are rasterized at the requested size.
 - `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|text|markdown`
   forces the format for extensionless files or stdin.
 - Markdown, plain text, and tables (Excel, CSV) cannot be exported as PNG:
@@ -82,7 +122,7 @@ gloss --output posed.png --camera 20,-120 --projection perspective model.stl
   also the way to see a model too large to render whole.
 - `--color orange` or `#rrggbb` paints plain meshes before export.
 
-## 2. Learn about a file: `--info`
+## 3. Learn about a file: `--info`
 
 Cheap, no rendering, no UI. Run this **before** exporting when you don't know
 the file: it tells you the kind, PDF page count, sheet names, mesh part names,
@@ -102,7 +142,7 @@ the exit status is 1 — treat partial results as usable:
 gloss --info --json a.pdf b.bin | jq '.[] | select(.error == null) | .kind'
 ```
 
-## 3. Involve the human
+## 4. Involve the human
 
 ### Ask for files: `--pick`
 
@@ -143,9 +183,9 @@ anywhere. Say that when you send the link.
 
 ## Guardrails
 
-- **Never run interactive gloss** (no `--output`, `--info`, or `--pick`)
-  without a user's terminal: it will fail or hang. The three headless modes
-  above are your whole interface.
+- **Never run interactive gloss** (no `--text`, `--output`, `--info`, or
+  `--pick`) without a user's terminal: it will fail or hang. The four headless
+  modes above are your whole interface.
 - Input files and stdin are limited to 128 MiB; images to 32 MP; PDFs to
   10,000 pages. `--info` reports these failures cleanly.
 - gloss never fetches the network on its own. `--fetch` is an interactive
@@ -153,5 +193,5 @@ anywhere. Say that when you send the link.
 - Don't parse or convert files yourself when gloss can show them: an exported
   PNG plus `--info --json` is usually cheaper and more accurate than a
   hand-rolled extractor.
-- Markdown, plain text, and tables (Excel/CSV) are better read as text
-  directly; gloss refuses to export them as PNG by design.
+- Markdown, plain text, and tables (Excel/CSV) are for `--text`, not for a
+  picture; gloss refuses to export them as PNG by design.

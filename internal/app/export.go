@@ -2,12 +2,9 @@ package app
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"image"
 	"image/png"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -100,24 +97,9 @@ func exportName(path, kind string, page int) string {
 
 // saveFile never replaces a file: a taken name gains a number instead.
 func saveFile(dir, name string, data []byte) (string, error) {
-	stem := strings.TrimSuffix(name, ".png")
-	for n := 1; n < 1000; n++ {
-		if n > 1 {
-			name = fmt.Sprintf("%s-%d.png", stem, n)
-		}
-		f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
-		if errors.Is(err, fs.ErrExist) {
-			continue
-		}
-		if err != nil {
-			return "", err
-		}
-		_, writeErr := f.Write(data)
-		if err := errors.Join(writeErr, f.Close()); err != nil {
-			_ = os.Remove(f.Name())
-			return "", err
-		}
-		return name, nil
+	written, err := document.WriteNew(filepath.Join(dir, name), data)
+	if err != nil {
+		return "", err
 	}
-	return "", fmt.Errorf("%s: too many exports with this name", name)
+	return filepath.Base(written), nil
 }

@@ -141,6 +141,7 @@ type Result struct {
 	Shown       []bool                      // Which of them the mesh holds; nil for all.
 	Assemble    func([]bool) (*Mesh, error) // The mesh of the parts marked, for a 3MF.
 	Markdown    *Markdown
+	Text        string         // Plain text, or pretty JSON, as a reader wants it, without the viewer's fences.
 	Sheet       *Sheet         // One sheet of a workbook; Page and Pages count sheets.
 	Camera      *charts.Camera // Export view of a mesh, as the viewer has it; nil uses Views.
 	Views       []View         // Export views of a mesh: several make a sheet. None uses the default camera.
@@ -281,6 +282,7 @@ func (l *Loader) Load(q Request) (out Result) {
 			return out
 		}
 		out.Markdown, out.Err = loadMarkdownFrom(q.Path, doc.Markdown, q.BaseDir, l.Files)
+		out.Text = doc.Plain
 		details = doc.fields
 	case "ipynb":
 		details = func() []Field { return Section("Notebook", Field{"Format", "Jupyter notebook"}) }
@@ -300,6 +302,7 @@ func (l *Loader) Load(q Request) (out Result) {
 			return out
 		}
 		out.Markdown, out.Err = loadMarkdownFrom(q.Path, doc.Markdown, q.BaseDir, l.Files)
+		out.Text = doc.Plain
 		details = doc.fields
 	case "html":
 		details = func() []Field { return Section("Page", Field{"Format", "HTML"}) }

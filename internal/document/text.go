@@ -14,6 +14,7 @@ import (
 // it is: no line of it is read as a heading, a list, or emphasis.
 type TextDoc struct {
 	Markdown   []byte
+	Plain      string // The text as it is, returns and the byte order mark dropped.
 	language   string // As chroma names it, for highlighting; empty for prose.
 	lines      int
 	words      int
@@ -30,7 +31,7 @@ func ReadText(path string, data []byte) (*TextDoc, error) {
 	text := strings.ReplaceAll(strings.ToValidUTF8(string(data), "\ufffd"), "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 	text = strings.TrimRight(text, "\n")
-	doc := &TextDoc{characters: utf8.RuneCountInString(text), words: len(strings.Fields(text)), language: language(path, text)}
+	doc := &TextDoc{Plain: text + "\n", characters: utf8.RuneCountInString(text), words: len(strings.Fields(text)), language: language(path, text)}
 	lines := strings.Split(text, "\n")
 	doc.lines = len(lines)
 	if text == "" {

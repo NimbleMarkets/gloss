@@ -53,7 +53,7 @@ func TestExportSheetOfViews(t *testing.T) {
 		t.Fatal(err)
 	}
 	var stdout, stderr bytes.Buffer
-	if err := exportFiles(opts.Options, &stdout, &stderr); err != nil {
+	if err := exportFiles(opts, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(stderr.String(), "600×400 PNG") {

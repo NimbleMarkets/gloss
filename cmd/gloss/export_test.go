@@ -5,6 +5,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/NimbleMarkets/gloss/internal/app"
@@ -12,7 +13,7 @@ import (
 
 func TestExportCLI(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	opts := app.Options{Files: []string{"../../examples/shapes.svg"}, Output: "-", MaxEdge: 512, Page: 1, DPI: 150}
+	opts := options{Options: app.Options{Files: []string{"../../examples/shapes.svg"}, Output: "-", MaxEdge: 512, Page: 1, DPI: 150}}
 	if err := exportFiles(opts, &stdout, &stderr); err != nil {
 		t.Fatal(err)
 	}
@@ -31,8 +32,18 @@ func TestExportCLI(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := exportFiles(opts, &stdout, &stderr); err == nil {
-		t.Fatal("overwrote existing output")
+	// Exported again, the names gain a number; nothing is overwritten.
+	stdout.Reset()
+	if err := exportFiles(opts, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"001-shapes-2.png", "002-tetrahedron-2.png"} {
+		if _, err := os.Stat(filepath.Join(opts.OutputDir, name)); err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(stdout.String(), name) {
+			t.Fatalf("the path written is not on stdout: %q", stdout.String())
+		}
 	}
 }
 
