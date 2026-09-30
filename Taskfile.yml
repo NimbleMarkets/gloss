@@ -53,6 +53,14 @@ tasks:
       - task: test-race
       - task: vet
       - task: build
+      - task: notices-check
+  notices:
+    desc: Regenerate THIRD_PARTY_NOTICES.md from the modules linked
+    cmds: ['go run ./internal/tools/notices > THIRD_PARTY_NOTICES.md']
+  notices-check:
+    desc: Fail when THIRD_PARTY_NOTICES.md is not what the modules linked say
+    cmds:
+      - 'go run ./internal/tools/notices | cmp -s - THIRD_PARTY_NOTICES.md || (echo "THIRD_PARTY_NOTICES.md is stale: run task notices" >&2; exit 1)'
   release:
     desc: Package macOS/Linux binaries in dist (VERSION=vX.Y.Z)
     env:
