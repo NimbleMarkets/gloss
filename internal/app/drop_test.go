@@ -238,9 +238,29 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 		}
 	}
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") || !strings.Contains(view, "Jupyter notebooks, Word, Excel, and CSV") {
+	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") || !strings.Contains(view, "3D:     STL and 3MF meshes") {
 		t.Fatalf("no drop target, or no word on what can be opened:\n%s", view)
 	}
+	// The labels line up when the block is centred, and a short screen
+	// gets the short list.
+	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
+	starts := map[int]bool{}
+	for _, line := range lines {
+		if i := strings.Index(line, "Images: "); i >= 0 {
+			starts[i] = true
+		}
+		if i := strings.Index(line, "3D:     "); i >= 0 {
+			starts[i] = true
+		}
+	}
+	if len(starts) != 1 {
+		t.Fatalf("labels do not line up:\n%s", ansi.Strip(m.View().Content))
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 8})
+	if view := ansi.Strip(m.View().Content); strings.Contains(view, "Images: ") || !strings.Contains(view, document.FormatsShort) {
+		t.Fatalf("short screen:\n%s", view)
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	for _, key := range []string{"m", "]", "[", "n", "p", "R", "r", "+", "g", "f"} {
 		m.Update(press(key))
 	}

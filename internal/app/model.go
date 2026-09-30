@@ -612,7 +612,13 @@ func (m *Model) View() tea.View {
 		if m.opts.Pick {
 			body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
 		}
-		body += "\n\n" + document.Formats
+		switch h := m.bodyHeight(); {
+		case h >= 9:
+			// Padded to one width, the lines stay aligned once centred.
+			body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n"))
+		case h >= 5:
+			body += "\n\n" + document.FormatsShort
+		}
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {
