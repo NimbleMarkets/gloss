@@ -125,7 +125,9 @@ type Request struct {
 	MaxEdge    int         // Export raster target; zero keeps interactive defaults.
 	Preview    bool        // A small, quick rendering is wanted: a thumbnail will do.
 	Parts      PartFilter  // The parts of a 3MF to show; empty shows them all.
+	Shown      []bool      // The parts of a 3MF already chosen, over any filter; nil for all.
 	Color      *color.RGBA // Paint for the faces of a mesh that its file left plain.
+	PaintAll   bool        // Paint every face, not only the plain ones.
 	BaseDir    string      // Relative Markdown assets; empty uses the source directory.
 }
 
@@ -136,6 +138,7 @@ type Result struct {
 	Image       image.Image
 	Mesh        *Mesh
 	Parts       []Part                      // What a 3MF build places, for choosing among.
+	Shown       []bool                      // Which of them the mesh holds; nil for all.
 	Assemble    func([]bool) (*Mesh, error) // The mesh of the parts marked, for a 3MF.
 	Markdown    *Markdown
 	Sheet       *Sheet         // One sheet of a workbook; Page and Pages count sheets.
@@ -328,6 +331,10 @@ func (l *Loader) Load(q Request) (out Result) {
 		shown := ""
 		out.Parts, out.Assemble = model.Parts, model.Assemble
 		chosen := q.Parts.Shown(model.Parts)
+		if q.Shown != nil {
+			chosen = q.Shown
+		}
+		out.Shown = chosen
 		switch {
 		case q.Preview && model.Thumbnail != nil:
 			out.Image, shown = model.Thumbnail, "embedded thumbnail"
@@ -347,7 +354,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		details = func() []Field { return imageFields(data) }
 	}
 	if out.Mesh != nil && q.Color != nil {
-		out.Mesh.Recolor(*q.Color, false)
+		out.Mesh.Recolor(*q.Color, q.PaintAll)
 	}
 	return out
 }

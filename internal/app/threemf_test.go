@@ -117,7 +117,7 @@ func assembled(t *testing.T) (*Model, *[]bool) {
 	mesh, _ := assemble(nil)
 	m := viewing(t, Options{Files: []string{"assembly.3mf"}, Render3D: "software"}, "")
 	send(m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.Update(document.Result{Generation: m.generation, Kind: "3mf", Page: 1, Pages: 1, Mesh: mesh,
+	send(m, document.Result{Generation: m.generation, Kind: "3mf", Page: 1, Pages: 1, Mesh: mesh,
 		Parts: []document.Part{{Name: "Base", Triangles: 1}, {Name: "Lid", Triangles: 1}, {Name: "Hinge", Triangles: 1}}, Assemble: assemble})
 	if m.chart == nil {
 		t.Fatalf("no chart: err=%v generation=%d loading=%v kind=%q", m.err, m.generation, m.loading, m.kind)
@@ -172,4 +172,32 @@ func TestPartsOptionAppliesToAMeshOnLoad(t *testing.T) {
 	if len(q.Parts.Names) != 1 || q.Parts.Names[0] != "hinge" {
 		t.Fatalf("request: %+v", q.Parts)
 	}
+}
+
+// A chart schedules its render through the command it returns; a command
+// dropped leaves it waiting for a frame that never comes, and it draws
+// nothing more. Every change to the parts must keep the chart drawing.
+func TestPartsChangesKeepTheChartDrawing(t *testing.T) {
+	m, _ := assembled(t)
+	drawing := func(step string) {
+		t.Helper()
+		camera := m.chart.Camera()
+		camera.Alpha += 5
+		cmd := m.chart.SetCamera(camera)
+		if cmd == nil {
+			t.Fatalf("after %s, the chart no longer draws", step)
+		}
+		pump(m, cmd, 0)
+	}
+	drawing("opening")
+	send(m, press("c"), press("j"), press(" "))
+	drawing("hiding a part")
+	send(m, press("j"), enter)
+	drawing("focusing a part")
+	send(m, press("X"))
+	drawing("showing all")
+	send(m, press("C"), press("l"), press(" "))
+	drawing("painting")
+	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
+	drawing("undoing the paint")
 }

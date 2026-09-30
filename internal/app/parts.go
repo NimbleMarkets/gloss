@@ -121,15 +121,20 @@ func (m *Model) assembled(r partsResult) tea.Cmd {
 		return nil
 	}
 	m.partsShown, m.triangles, m.mesh = r.shown, r.mesh.Triangles(), r.mesh
-	m.chart.SetSeries(r.mesh)
-	paint := m.repaint()
+	if m.tint != nil {
+		// Painted before the chart sees it, so that one frame shows both.
+		r.mesh.Recolor(*m.tint, m.tintAll)
+	}
+	// The chart draws only through the commands it returns: every one must
+	// reach the runtime, or it waits for a frame that never comes.
+	shown := m.chart.SetSeries(r.mesh)
 	if !r.focus {
-		return paint
+		return shown
 	}
 	// The part fills the picture, seen from where the camera was.
 	camera := m.chart.Camera()
 	fit := document.View{Alpha: camera.Alpha, Beta: camera.Beta, Projection: camera.Projection}.Camera(r.mesh)
-	return tea.Batch(paint, m.chart.SetCamera(fit))
+	return tea.Batch(shown, m.chart.SetCamera(fit))
 }
 
 // partsView lists the parts in a box no taller than h rows, the cursor

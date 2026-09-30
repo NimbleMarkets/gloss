@@ -515,3 +515,22 @@ func TestLoaderShowsTheAskedForParts(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+func TestLoaderReportsAndTakesThePartsShown(t *testing.T) {
+	path := write(t, "assembly.3mf", assembly3MF(t))
+	l := &Loader{}
+	defer l.Close()
+	// A filter says which parts were shown.
+	r := l.Load(Request{Path: path, Page: 1, Generation: 1, Parts: PartFilter{Names: []string{"Lid"}}})
+	if r.Err != nil || !slices.Equal(r.Shown, []bool{false, true, false}) {
+		t.Fatalf("shown=%v err=%v", r.Shown, r.Err)
+	}
+	// A choice already made is taken as it is, over any filter.
+	r = l.Load(Request{Path: path, Page: 1, Generation: 2, Parts: PartFilter{Names: []string{"Lid"}}, Shown: []bool{true, false, true}})
+	if r.Err != nil || r.Mesh.Triangles() != 8 || !slices.Equal(r.Shown, []bool{true, false, true}) {
+		t.Fatalf("shown=%v triangles=%d err=%v", r.Shown, r.Mesh.Triangles(), r.Err)
+	}
+	if r = l.Load(Request{Path: path, Page: 1, Generation: 3}); r.Shown != nil {
+		t.Fatalf("whole model reports shown=%v", r.Shown)
+	}
+}

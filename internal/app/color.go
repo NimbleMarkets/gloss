@@ -90,14 +90,6 @@ func (m *Model) unpaint() tea.Cmd {
 	return m.chart.SetSeries(m.mesh)
 }
 
-// repaint applies the paint in force to a mesh newly on screen.
-func (m *Model) repaint() tea.Cmd {
-	if m.tint == nil {
-		return nil
-	}
-	return m.paint(*m.tint, m.tintAll)
-}
-
 // colorKey handles a key while the picker is open, and reports whether it
 // was one of its own. Esc is the viewer's: it closes the picker and takes
 // the paint back.

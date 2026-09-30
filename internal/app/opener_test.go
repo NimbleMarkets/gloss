@@ -5,6 +5,7 @@ package app
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -18,7 +19,7 @@ import (
 // pump runs a command and what follows from it, as the runtime would, but
 // does not wait on timers such as the cursor's blink.
 func pump(m *Model, cmd tea.Cmd, depth int) {
-	if cmd == nil || depth > 6 {
+	if cmd == nil || depth > 12 {
 		return
 	}
 	done := make(chan tea.Msg, 1)
@@ -32,6 +33,15 @@ func pump(m *Model, cmd tea.Cmd, depth int) {
 	if batch, ok := msg.(tea.BatchMsg); ok {
 		for _, c := range batch {
 			pump(m, c, depth+1)
+		}
+		return
+	}
+	// A sequence is a slice of commands under a name of its own.
+	if v := reflect.ValueOf(msg); v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeOf(tea.Cmd(nil)) {
+		for i := 0; i < v.Len(); i++ {
+			if c, ok := v.Index(i).Interface().(tea.Cmd); ok {
+				pump(m, c, depth+1)
+			}
 		}
 		return
 	}

@@ -28,6 +28,17 @@ func (r exportResult) note() string {
 	return fmt.Sprintf("saved %s · %d×%d", safe(r.name), r.size.X, r.size.Y)
 }
 
+// exportRequest asks the loader for the page as it is on screen: the same
+// parts and paint, at export size.
+func (m *Model) exportRequest() document.Request {
+	q := m.request(false)
+	q.Preview, q.MaxEdge = false, m.opts.MaxEdge
+	if q.MaxEdge == 0 {
+		q.MaxEdge = 1536
+	}
+	return q
+}
+
 // export renders the current page as --output would, from the source rather
 // than the terminal's cells. A mesh keeps the camera it is being viewed from.
 func (m *Model) export() tea.Cmd {
@@ -42,11 +53,8 @@ func (m *Model) export() tea.Cmd {
 		m.note = "spreadsheets cannot be exported as PNG"
 		return nil
 	}
-	edge := m.opts.MaxEdge
-	if edge == 0 {
-		edge = 1536
-	}
-	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, MaxEdge: edge, Generation: m.generation}
+	q := m.exportRequest()
+	edge := q.MaxEdge
 	name, profile, save := exportName(q.Path, m.kind, m.page), m.opts.VisionProfile, m.opts.Save
 	if save == nil {
 		save = func(name string, data []byte) (string, error) { return saveFile(".", name, data) }

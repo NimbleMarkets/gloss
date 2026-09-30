@@ -45,6 +45,7 @@ func (m *Model) updatePreview() tea.Cmd {
 		opts := m.opts
 		opts.Menu, opts.Preview, opts.Page, opts.Browse = false, false, 1, ""
 		opts.Pick, opts.Drops, opts.Fetch, opts.Prompt = false, nil, nil, ""
+		opts.Color = m.tint // Previews are painted as the viewer is.
 		// Keep previews inexpensive and independent of the active camera.
 		opts.DPI = min(opts.DPI, 96)
 		m.preview = New(opts)

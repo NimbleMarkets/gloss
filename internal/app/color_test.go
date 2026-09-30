@@ -2,6 +2,7 @@ package app
 
 import (
 	"image/color"
+	"slices"
 	"strings"
 	"testing"
 
@@ -18,7 +19,7 @@ func painted(t *testing.T) *Model {
 	}
 	m := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software"}, "")
 	send(m, tea.WindowSizeMsg{Width: 100, Height: 30})
-	m.Update(document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
+	send(m, document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
 	if m.chart == nil || m.mesh == nil {
 		t.Fatal("no mesh on screen")
 	}
@@ -82,5 +83,40 @@ func TestColorOptionPaintsOnLoad(t *testing.T) {
 	m := viewing(t, Options{Files: []string{"part.stl"}, Color: &red}, "")
 	if q := m.request(false); q.Color == nil || *q.Color != red {
 		t.Fatalf("request: %+v", q.Color)
+	}
+}
+
+func TestExportCarriesWhatIsOnScreen(t *testing.T) {
+	m, _ := assembled(t)
+	send(m, press("c"), press("j"), press(" "), tea.KeyPressMsg{Code: tea.KeyEscape})
+	send(m, press("C"), press("l"), press(" "), enter)
+	q := m.exportRequest()
+	if !slices.Equal(q.Shown, []bool{true, false, true}) || q.Color == nil || q.PaintAll {
+		t.Fatalf("export request: shown=%v color=%v all=%v", q.Shown, q.Color, q.PaintAll)
+	}
+	// Paint on every face, where a mesh has colors of its own, goes too.
+	m.tintAll = true
+	if q := m.exportRequest(); !q.PaintAll {
+		t.Fatal("the export does not paint all faces")
+	}
+	m.tintAll = false
+	// A reload keeps the choice; the next file starts afresh.
+	if q := m.request(true); !slices.Equal(q.Shown, []bool{true, false, true}) {
+		t.Fatalf("reload request: shown=%v", q.Shown)
+	}
+	m.opts.Files = append(m.opts.Files, "other.3mf")
+	m.switchFile(1)
+	if q := m.request(false); q.Shown != nil || q.Color == nil {
+		t.Fatalf("next file: shown=%v color=%v", q.Shown, q.Color)
+	}
+}
+
+func TestPartsShownOnLoadReachTheViewer(t *testing.T) {
+	m, _ := assembled(t)
+	mesh, _ := document.ParseSTL([]byte(facet))
+	send(m, document.Result{Generation: m.generation, Kind: "3mf", Page: 1, Pages: 1, Mesh: mesh, Shown: []bool{false, true, false},
+		Parts: []document.Part{{Name: "Base"}, {Name: "Lid"}, {Name: "Hinge"}}, Assemble: func([]bool) (*document.Mesh, error) { return mesh, nil }})
+	if !strings.Contains(plain(m)[len(plain(m))-2], "parts 1/3") {
+		t.Fatalf("status: %s", plain(m)[len(plain(m))-2])
 	}
 }

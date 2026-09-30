@@ -168,7 +168,8 @@ func (m *Model) quit() tea.Cmd {
 
 // request is what the loader is asked for the current file and page.
 func (m *Model) request(reload bool) document.Request {
-	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview, Parts: m.opts.Parts, Color: m.tint}
+	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview,
+		Parts: m.opts.Parts, Shown: m.partsShown, Color: m.tint, PaintAll: m.tintAll}
 	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
 		q.BaseDir = m.opts.MarkdownBase
 	}
@@ -207,6 +208,7 @@ func (m *Model) show(i int) tea.Cmd {
 	m.index, m.page, m.pages, m.kind = i, 1, 1, ""
 	m.source, m.zoom, m.panX, m.panY = nil, 0, 0, 0
 	m.savedCamera, m.savedMarkdown, m.fields = nil, nil, nil
+	m.partsShown = nil // A choice of parts is for one file.
 	return tea.Sequence(m.clearGraphics(), m.load(false))
 }
 
@@ -373,11 +375,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.chartID = 100 + int(nextModelID.Add(1))*1000
 			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(color.RGBA{R: 24, G: 26, B: 30, A: 255}))
-			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
-			m.chart.SetColorLegendVisible(false)
-			m.chart.SetSeries(v.Mesh)
+			// The chart draws only through the commands it returns, so each
+			// is kept, whether or not it has anything to say before Init.
+			var setup []tea.Cmd
+			setup = append(setup, m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}}))
+			setup = append(setup, m.chart.SetColorLegendVisible(false), m.chart.SetSeries(v.Mesh))
 			m.mesh = v.Mesh
-			m.parts, m.assemble, m.partsShown, m.partPicker, m.colorPicker = v.Parts, v.Assemble, nil, nil, nil
+			m.parts, m.assemble, m.partsShown, m.partPicker, m.colorPicker = v.Parts, v.Assemble, v.Shown, nil, nil
 			m.home = charts.DefaultCamera()
 			switch {
 			case len(m.opts.Views) > 0:
@@ -387,15 +391,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.home = *m.opts.STLCamera
 			}
 			if m.savedCamera != nil {
-				m.chart.SetCamera(*m.savedCamera)
+				setup = append(setup, m.chart.SetCamera(*m.savedCamera))
 				m.savedCamera = nil
 			} else if m.home != charts.DefaultCamera() {
-				m.chart.SetCamera(m.home)
+				setup = append(setup, m.chart.SetCamera(m.home))
 			}
 			// Apply a capability already established before this chart existed.
-			_, _ = m.chart.Update(struct{}{})
+			_, applied := m.chart.Update(struct{}{})
+			setup = append(setup, applied)
 			m.triangles, m.err = v.Mesh.Triangles(), m.chart.Err()
-			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), m.chart.Init())
+			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(setup...), m.chart.Init())
 		}
 		m.source = v.Image
 		return m, tea.Sequence(cleanup, m.refreshImage())
@@ -718,7 +723,7 @@ func (m *Model) View() tea.View {
 		frame = frame.Align(lipgloss.Center, lipgloss.Center)
 	}
 	body = frame.Render(body)
-	if m.info && !m.help && !m.menu && !browsing {
+	if m.info && !m.help && !m.menu && !browsing && !m.pickingParts() && !m.pickingColor() && !m.pickingColumns() {
 		// The mesh view keeps its own title on the first row.
 		top := 0
 		if m.chart != nil {
