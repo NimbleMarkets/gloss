@@ -89,7 +89,7 @@ func exportName(path, kind string, page int) string {
 	if ext := filepath.Ext(base); ext != base {
 		base = strings.TrimSuffix(base, ext)
 	}
-	if strings.HasPrefix(base, "gloss-stdin-") {
+	if document.IsStdin(path) {
 		base = "stdin"
 	}
 	if kind == "pdf" {

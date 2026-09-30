@@ -2,7 +2,9 @@ package document
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -107,9 +109,12 @@ func (w *Workbook) Sheet(i int) (*Sheet, error) {
 }
 
 // sharedStrings reads the strings cells share, each with its runs joined.
+// The readings some workbooks carry beside the text, in rPh elements, are
+// not the text, and are left out.
 func sharedStrings(data []byte) []string {
 	var out []string
 	var text *strings.Builder
+	inT, inPhonetic := false, false
 	d := xml.NewDecoder(strings.NewReader(string(data)))
 	for {
 		token, err := d.Token()
@@ -118,27 +123,32 @@ func sharedStrings(data []byte) []string {
 		}
 		switch e := token.(type) {
 		case xml.StartElement:
-			if e.Name.Local == "si" {
+			switch e.Name.Local {
+			case "si":
 				text = &strings.Builder{}
+			case "rPh":
+				inPhonetic = true
+			case "t":
+				inT = true
 			}
 		case xml.CharData:
-			if text != nil && inText(d) {
+			if text != nil && inT && !inPhonetic {
 				text.Write(e)
 			}
 		case xml.EndElement:
-			if e.Name.Local == "si" && text != nil {
-				out = append(out, text.String())
-				text = nil
+			switch e.Name.Local {
+			case "si":
+				if text != nil {
+					out = append(out, text.String())
+					text = nil
+				}
+			case "rPh":
+				inPhonetic = false
+			case "t":
+				inT = false
 			}
 		}
 	}
-}
-
-// inText reports whether the decoder is within a t element: the text of a
-// string, rather than its phonetics or formatting.
-func inText(d *xml.Decoder) bool {
-	// The decoder does not say where it is, so the caller tracks it.
-	return true
 }
 
 // dateStyles reads which cell styles are dates and times.
@@ -220,7 +230,7 @@ func (w *Workbook) readSheet(name string, data []byte, rels map[string]string) (
 	for {
 		token, err := d.Token()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return nil, err

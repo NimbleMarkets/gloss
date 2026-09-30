@@ -39,7 +39,7 @@ func exportFiles(opts app.Options, stdout, stderr io.Writer) error {
 		target := opts.Output
 		if opts.OutputDir != "" {
 			base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-			if strings.HasPrefix(base, "gloss-stdin-") {
+			if document.IsStdin(path) {
 				base = "stdin"
 			}
 			suffix := ""

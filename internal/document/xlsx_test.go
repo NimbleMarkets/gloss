@@ -11,7 +11,7 @@ import (
 const sheetNS = `xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"`
 
 // workbook packs sheets, in order, with shared strings and styles.
-func workbook(t *testing.T, sheets map[string]string, extra map[string]string) []byte {
+func workbook(t testing.TB, sheets map[string]string, extra map[string]string) []byte {
 	t.Helper()
 	var names, rels strings.Builder
 	parts := map[string]string{}
@@ -227,5 +227,25 @@ func TestWorkbookInfo(t *testing.T) {
 	}
 	if kind, err := Probe(write(t, "book.xlsm", data), ""); err != nil || kind != "xlsx" {
 		t.Fatalf("Probe = %q, %v", kind, err)
+	}
+}
+
+func TestSharedStringsLeavePhoneticsOut(t *testing.T) {
+	// East Asian workbooks carry readings beside the text, in rPh runs, which
+	// are not the text.
+	data := `<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+	<si><t>plain</t></si>
+	<si><r><t>rich </t></r><r><rPr><b/></rPr><t>text</t></r></si>
+	<si><t>東京</t><rPh sb="0" eb="2"><t>トウキョウ</t></rPh><phoneticPr fontId="1"/></si>
+	</sst>`
+	got := sharedStrings([]byte(data))
+	want := []string{"plain", "rich text", "東京"}
+	if len(got) != len(want) {
+		t.Fatalf("%q", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("%d: %q, want %q", i, got[i], want[i])
+		}
 	}
 }

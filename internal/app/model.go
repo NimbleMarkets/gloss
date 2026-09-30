@@ -111,6 +111,11 @@ type Model struct {
 
 var nextModelID atomic.Int64
 
+// nextKittyID gives the next number for pictures to be transmitted under.
+// Each is a thousand apart, so a model's pages and frames have room, and
+// placeholder cells carry the number in a 24-bit color.
+func nextKittyID() int { return 100 + int(nextModelID.Add(1))*1000 }
+
 func New(opts Options) *Model {
 	switch opts.Render {
 	case "kitty":
@@ -125,7 +130,7 @@ func New(opts Options) *Model {
 		opts.keptScreen = true
 		nextModelID.Store(rand.Int64N(8000))
 	}
-	id := 100 + int(nextModelID.Add(1))*1000
+	id := nextKittyID()
 	m := &Model{opts: opts, tint: opts.Color, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
 	if opts.Render == "kitty" {
 		m.pic.Toggle()
@@ -174,7 +179,7 @@ func (m *Model) quit() tea.Cmd {
 func (m *Model) request(reload bool) document.Request {
 	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview,
 		Parts: m.opts.Parts, Shown: m.partsShown, Color: m.tint, PaintAll: m.tintAll}
-	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
+	if document.IsStdin(q.Path) {
 		q.BaseDir = m.opts.MarkdownBase
 	}
 	return q
@@ -384,7 +389,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if v.Markdown != nil {
 			m.source = nil
-			m.markdown = newMarkdownView(v.Markdown, 100+int(nextModelID.Add(1))*1000)
+			m.markdown = newMarkdownView(v.Markdown, nextKittyID())
 			if m.savedMarkdown != nil {
 				m.markdown.raw, m.markdown.offset = m.savedMarkdown.raw, m.savedMarkdown.offset
 				m.savedMarkdown = nil
@@ -399,7 +404,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "wireframe":
 				mode = charts.Wireframe
 			}
-			m.chartID = 100 + int(nextModelID.Add(1))*1000
+			m.chartID = nextKittyID()
 			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(color.RGBA{R: 24, G: 26, B: 30, A: 255}))
 			// The chart draws only through the commands it returns, so each
 			// is kept, whether or not it has anything to say before Init.
@@ -789,7 +794,7 @@ func (m *Model) View() tea.View {
 	if !empty {
 		name = safe(filepath.Base(m.opts.Files[m.index]))
 	}
-	if strings.HasPrefix(name, "gloss-stdin-") {
+	if !empty && document.IsStdin(m.opts.Files[m.index]) {
 		name = "stdin"
 	}
 	// How things are drawn, the renderer and the transport, is the info

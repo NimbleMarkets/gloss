@@ -55,6 +55,7 @@ type server struct {
 	drops         chan []string
 	started, done chan struct{}
 	once, ended   sync.Once
+	logged        io.Writer // Where the process logger wrote before the session.
 
 	mu    sync.Mutex
 	model *app.Model
@@ -99,7 +100,11 @@ func serve(ctx context.Context, opts app.Options) (*server, error) {
 			return next(r)
 		}
 	}))
-	log.SetOutput(io.Discard) // Booba reports its comings and goings.
+	// Booba reports its comings and goings through the process logger,
+	// which would land in the terminal beside the viewer; it is quieted for
+	// the session and given back on Close.
+	s.logged = log.Writer()
+	log.SetOutput(io.Discard)
 	failed := make(chan error, 1)
 	go func() {
 		failed <- viewer.Serve(ctx, func(session booba.Session) (tea.Model, []tea.ProgramOption) {
@@ -181,6 +186,9 @@ func (s *server) Wait(timeout time.Duration) (*app.Model, error) {
 func (s *server) Close() {
 	s.cancel()
 	s.front.Close()
+	if s.logged != nil {
+		log.SetOutput(s.logged)
+	}
 }
 
 // Discard removes what was dropped on the page. Drops are kept only when

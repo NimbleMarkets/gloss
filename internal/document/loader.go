@@ -543,3 +543,13 @@ func Detect(path string, data []byte, forced string) (string, error) {
 	}
 	return "", ErrUnsupported
 }
+
+// stdinPrefix names the file stdin is read into, so that it is known for
+// what it is wherever it is named.
+const stdinPrefix = "gloss-stdin-"
+
+// StdinPattern is the name pattern to create the file for stdin with.
+const StdinPattern = stdinPrefix + "*"
+
+// IsStdin says whether path is the file stdin was read into.
+func IsStdin(path string) bool { return strings.HasPrefix(filepath.Base(path), stdinPrefix) }

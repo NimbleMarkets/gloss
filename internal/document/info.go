@@ -88,7 +88,7 @@ func fileFields(files fs.FS, path string, size int) []Field {
 	if info != nil && !info.ModTime().IsZero() {
 		modified = info.ModTime().Format("2006-01-02 15:04")
 	}
-	if strings.HasPrefix(filepath.Base(path), "gloss-stdin-") {
+	if IsStdin(path) {
 		path, modified = "stdin", ""
 	}
 	return Section("File", Field{"Path", path}, Field{"Size", byteSize(size)}, Field{"Modified", modified})

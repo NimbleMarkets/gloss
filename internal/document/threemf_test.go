@@ -34,7 +34,7 @@ func model3MF(attrs, body string) string {
 
 // archive3MF packs parts into a 3MF package, adding the relationships that
 // name the root model unless the parts supply their own.
-func archive3MF(t *testing.T, parts map[string]string) []byte {
+func archive3MF(t testing.TB, parts map[string]string) []byte {
 	t.Helper()
 	if _, ok := parts["_rels/.rels"]; !ok {
 		parts["_rels/.rels"] = rels3MF
@@ -58,7 +58,7 @@ func archive3MF(t *testing.T, parts map[string]string) []byte {
 	return b.Bytes()
 }
 
-func thumbnail(t *testing.T) string {
+func thumbnail(t testing.TB) string {
 	t.Helper()
 	img := image.NewRGBA(image.Rect(0, 0, 8, 6))
 	img.Set(0, 0, color.RGBA{R: 255, A: 255})
@@ -69,7 +69,7 @@ func thumbnail(t *testing.T) string {
 	return b.String()
 }
 
-func simple3MF(t *testing.T) []byte {
+func simple3MF(t testing.TB) []byte {
 	return archive3MF(t, map[string]string{"3D/3dmodel.model": model3MF(`unit="millimeter"`,
 		`<resources><object id="1" type="model">`+tetrahedron+`</object></resources><build><item objectid="1"/></build>`)})
 }
@@ -207,7 +207,7 @@ func TestMetadata3MF(t *testing.T) {
 }
 
 // many3MF has a single object of n triangles, each a copy of the first.
-func many3MF(t *testing.T, n int, parts map[string]string) []byte {
+func many3MF(t testing.TB, n int, parts map[string]string) []byte {
 	var b strings.Builder
 	b.WriteString(`<resources><object id="1"><mesh><vertices><vertex x="0" y="0" z="0"/><vertex x="2" y="0" z="0"/><vertex x="0" y="3" z="0"/></vertices><triangles>`)
 	for range n {
@@ -425,7 +425,7 @@ func TestDamagedSlicerSettingsAreIgnored(t *testing.T) {
 
 // An assembly of three placed parts: two named objects and one that only
 // a slicer's settings name.
-func assembly3MF(t *testing.T) []byte {
+func assembly3MF(t testing.TB) []byte {
 	t.Helper()
 	return archive3MF(t, map[string]string{
 		"3D/3dmodel.model": model3MF(`unit="millimeter"`,

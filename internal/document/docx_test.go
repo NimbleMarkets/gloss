@@ -13,7 +13,7 @@ import (
 const wordNS = `xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"`
 
 // wordDocument packs a body, with the parts beside it.
-func wordDocument(t *testing.T, body string, extra map[string]string) []byte {
+func wordDocument(t testing.TB, body string, extra map[string]string) []byte {
 	t.Helper()
 	parts := map[string]string{
 		"word/document.xml": `<?xml version="1.0"?><w:document ` + wordNS + `><w:body>` + body + `<w:sectPr/></w:body></w:document>`,

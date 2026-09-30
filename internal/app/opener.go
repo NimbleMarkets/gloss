@@ -244,7 +244,7 @@ func (m *Model) openBrowser() tea.Cmd {
 		return nil
 	}
 	dir, err := os.Getwd()
-	if len(m.opts.Files) > 0 && !strings.HasPrefix(filepath.Base(m.opts.Files[m.index]), "gloss-stdin-") {
+	if len(m.opts.Files) > 0 && !document.IsStdin(m.opts.Files[m.index]) {
 		if file, fileErr := filepath.Abs(m.opts.Files[m.index]); fileErr == nil {
 			dir, err = filepath.Dir(file), nil
 		}

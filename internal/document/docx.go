@@ -2,7 +2,9 @@ package document
 
 import (
 	"encoding/xml"
+	"errors"
 	"fmt"
+	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -241,7 +243,7 @@ func (w *Word) convert(data []byte) error {
 	for {
 		token, err := d.Token()
 		if err != nil {
-			if err.Error() == "EOF" {
+			if errors.Is(err, io.EOF) {
 				break
 			}
 			return err

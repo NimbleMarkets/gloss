@@ -259,7 +259,7 @@ func run(args []string) error {
 				if err != nil {
 					return fmt.Errorf("stdin: %w", err)
 				}
-				f, err := os.CreateTemp("", "gloss-stdin-*")
+				f, err := os.CreateTemp("", document.StdinPattern)
 				if err != nil {
 					return err
 				}

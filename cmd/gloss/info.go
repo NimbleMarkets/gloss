@@ -34,7 +34,7 @@ func describe(opts options, stdout, stderr io.Writer) error {
 	files, failed := make([]described, 0, len(opts.Files)), 0
 	for i, path := range opts.Files {
 		d := described{Path: path}
-		if strings.HasPrefix(path, "gloss-stdin-") || strings.Contains(path, "/gloss-stdin-") {
+		if document.IsStdin(path) {
 			d.Path = "stdin"
 		}
 		if kind, err := document.Probe(path, opts.Type); err != nil {
