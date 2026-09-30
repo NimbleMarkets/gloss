@@ -14,9 +14,13 @@ import (
 	"github.com/NimbleMarkets/ntcharts3d/math3d"
 )
 
-// NTCharts3d accepts at most 512*512 mesh vertices. Each STL face has
-// separate vertices so that its flat normal is preserved.
-const MaxTriangles = 512 * 512 / 3
+// MaxTriangles is the most faces a mesh may have: as many as NTCharts3d
+// draws, which is as many as any GPU is sure to hold. Each face has vertices
+// of its own, so that its flat normal is preserved.
+const MaxTriangles = charts.MaxMeshTriangles
+
+// maxTriangles is the limit in force. Tests lower it.
+var maxTriangles = MaxTriangles
 
 type Mesh struct{ geometry charts.Geometry }
 
@@ -47,8 +51,8 @@ func ParseSTL(data []byte) (*Mesh, error) {
 	if len(data) >= 84 {
 		n := uint64(binary.LittleEndian.Uint32(data[80:84]))
 		if 84+50*n == uint64(len(data)) {
-			if n == 0 || n > MaxTriangles {
-				return nil, fmt.Errorf("STL must have 1..%d triangles", MaxTriangles)
+			if n == 0 || n > uint64(maxTriangles) {
+				return nil, fmt.Errorf("STL must have 1 to %s triangles", grouped(maxTriangles))
 			}
 			for off := 84; off < len(data); off += 50 {
 				var v [3]math3d.Vec3
@@ -135,8 +139,8 @@ func ParseSTL(data []byte) (*Mesh, error) {
 }
 
 func (m *Mesh) add(v [3]math3d.Vec3, shade color.RGBA) error {
-	if m.Triangles() >= MaxTriangles {
-		return fmt.Errorf("STL exceeds %d triangles", MaxTriangles)
+	if m.Triangles() >= maxTriangles {
+		return fmt.Errorf("mesh exceeds %s triangles", grouped(maxTriangles))
 	}
 	for _, p := range v {
 		for _, x := range []float32{p.X, p.Y, p.Z} {

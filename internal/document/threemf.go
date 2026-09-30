@@ -360,7 +360,7 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 		return nil, fmt.Errorf("3MF contains no triangles")
 	}
 	mesh := &Mesh{}
-	if out.Triangles > MaxTriangles {
+	if out.Triangles > maxTriangles {
 		mesh = nil
 	}
 	err = each(func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {

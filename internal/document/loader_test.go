@@ -13,6 +13,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	charts "github.com/NimbleMarkets/ntcharts3d"
 )
 
 const triangleSTL = `solid triangle
@@ -215,5 +217,64 @@ func TestProbeExtensionless(t *testing.T) {
 		if _, err := Probe(path, ""); !errors.Is(err, ErrUnsupported) {
 			t.Fatalf("%s: %v", suffix, err)
 		}
+	}
+}
+
+// manySTL is a binary STL of n triangles.
+func manySTL(n int) []byte {
+	b := make([]byte, 84+50*n)
+	binary.LittleEndian.PutUint32(b[80:], uint32(n))
+	for i := range n {
+		at := b[84+50*i+12:]
+		x := float32(i % 1000)
+		for j, corner := range [][3]float32{{x, float32(i / 1000), 0}, {x + 1, float32(i / 1000), 0}, {x, float32(i/1000) + 1, 0}} {
+			for k, v := range corner {
+				binary.LittleEndian.PutUint32(at[12*j+4*k:], math.Float32bits(v))
+			}
+		}
+	}
+	return b
+}
+
+func TestMeshLimitIsTheGPUs(t *testing.T) {
+	if MaxTriangles != charts.MaxMeshTriangles || MaxTriangles < 900000 {
+		t.Fatalf("MaxTriangles = %d, NTCharts3d draws %d", MaxTriangles, charts.MaxMeshTriangles)
+	}
+	// More than the 87,381 that a chart's limits once allowed.
+	mesh, err := ParseSTL(manySTL(200000))
+	if err != nil || mesh.Triangles() != 200000 {
+		t.Fatalf("200,000 triangles: %v", err)
+	}
+	if _, err := mesh.Geometry(nil); err != nil {
+		t.Fatal(err)
+	}
+	// What NTCharts3d is given, it accepts.
+	chart := charts.New(1, 3, charts.WithRenderMode(charts.Software))
+	defer chart.Close()
+	if chart.SetSeries(mesh); chart.Err() != nil {
+		t.Fatalf("NTCharts3d refused the mesh: %v", chart.Err())
+	}
+	img, err := ExportImage(Result{Mesh: mesh, CPU: true}, 256)
+	if err != nil || img.Bounds().Dx() != 256 {
+		t.Fatalf("export: %v", err)
+	}
+}
+
+func TestMeshesOverTheLimitAreRefused(t *testing.T) {
+	limit(t, 1000)
+	if _, err := ParseSTL(manySTL(1000)); err != nil {
+		t.Fatalf("at the limit: %v", err)
+	}
+	if _, err := ParseSTL(manySTL(1001)); err == nil || !strings.Contains(err.Error(), "1,000") {
+		t.Fatalf("binary, over the limit: %v", err)
+	}
+	var text strings.Builder
+	text.WriteString("solid many\n")
+	for range 1001 {
+		text.WriteString("facet normal 0 0 1\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\n")
+	}
+	text.WriteString("endsolid many\n")
+	if _, err := ParseSTL([]byte(text.String())); err == nil || !strings.Contains(err.Error(), "1,000") {
+		t.Fatalf("ASCII, over the limit: %v", err)
 	}
 }

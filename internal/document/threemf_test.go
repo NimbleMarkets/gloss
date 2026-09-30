@@ -217,25 +217,35 @@ func many3MF(t *testing.T, n int, parts map[string]string) []byte {
 	return archive3MF(t, parts)
 }
 
+// limit lowers the most triangles a mesh may have, so that a test of the
+// limit need not build a million of them.
+func limit(t *testing.T, n int) {
+	t.Helper()
+	real := maxTriangles
+	maxTriangles = n
+	t.Cleanup(func() { maxTriangles = real })
+}
+
 func TestLarge3MFFallsBackToItsThumbnail(t *testing.T) {
+	limit(t, 1000)
 	l := &Loader{}
 	defer l.Close()
-	over := MaxTriangles + 1
+	over := 1001
 	r := l.Load(Request{Path: write(t, "plate.3mf", many3MF(t, over, map[string]string{"Metadata/thumbnail.png": thumbnail(t)})), Page: 1, DPI: 72, Generation: 1})
 	if r.Err != nil || r.Mesh != nil || r.Image == nil || r.Image.Bounds().Dx() != 8 || r.Kind != "3mf" {
 		t.Fatalf("err=%v mesh=%v image=%v kind=%q", r.Err, r.Mesh != nil, r.Image, r.Kind)
 	}
-	expect(t, r.Info, map[string]string{"Triangles": "87,382", "Extent": "2 × 3 × 0 mm"})
-	if got := field(r.Info, "Shown"); !strings.Contains(got, "thumbnail") || !strings.Contains(got, "87,381") {
+	expect(t, r.Info, map[string]string{"Triangles": "1,001", "Extent": "2 × 3 × 0 mm"})
+	if got := field(r.Info, "Shown"); !strings.Contains(got, "thumbnail") || !strings.Contains(got, "1,000") {
 		t.Errorf("Shown = %q", got)
 	}
 	r = l.Load(Request{Path: write(t, "plate.3mf", many3MF(t, over, map[string]string{})), Page: 1, DPI: 72, Generation: 2})
-	if r.Err == nil || !strings.Contains(r.Err.Error(), "87,382 triangles") || r.Image != nil {
+	if r.Err == nil || !strings.Contains(r.Err.Error(), "1,001 triangles") || !strings.Contains(r.Err.Error(), "1,000") || r.Image != nil {
 		t.Fatalf("without a thumbnail: err=%v", r.Err)
 	}
-	expect(t, r.Info, map[string]string{"Triangles": "87,382"})
-	r = l.Load(Request{Path: write(t, "plate.3mf", many3MF(t, MaxTriangles, map[string]string{"Metadata/thumbnail.png": thumbnail(t)})), Page: 1, DPI: 72, Generation: 3})
-	if r.Err != nil || r.Mesh == nil || r.Mesh.Triangles() != MaxTriangles || r.Image != nil {
+	expect(t, r.Info, map[string]string{"Triangles": "1,001"})
+	r = l.Load(Request{Path: write(t, "plate.3mf", many3MF(t, 1000, map[string]string{"Metadata/thumbnail.png": thumbnail(t)})), Page: 1, DPI: 72, Generation: 3})
+	if r.Err != nil || r.Mesh == nil || r.Mesh.Triangles() != 1000 || r.Image != nil {
 		t.Fatalf("at the limit: err=%v", r.Err)
 	}
 }

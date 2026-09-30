@@ -257,9 +257,9 @@ func (l *Loader) Load(q Request) (out Result) {
 		case model.Mesh != nil:
 			out.Mesh = model.Mesh
 		case model.Thumbnail != nil:
-			out.Image, shown = model.Thumbnail, fmt.Sprintf("embedded thumbnail; the limit for a mesh is %s triangles", grouped(MaxTriangles))
+			out.Image, shown = model.Thumbnail, fmt.Sprintf("embedded thumbnail; the limit for a mesh is %s triangles", grouped(maxTriangles))
 		default:
-			out.Err = fmt.Errorf("3MF has %s triangles; the limit is %s", grouped(model.Triangles), grouped(MaxTriangles))
+			out.Err = fmt.Errorf("3MF has %s triangles; the limit is %s", grouped(model.Triangles), grouped(maxTriangles))
 		}
 		details = func() []Field { return model.fields(shown) }
 	default:

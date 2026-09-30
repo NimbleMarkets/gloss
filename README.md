@@ -295,8 +295,8 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   runtime installation. Pages render at 150 DPI by default (`--dpi 36..600`),
   with a 32-megapixel raster budget and a 10,000-page limit. Password-protected
   PDFs aren't supported. This version provides visual paging, without text search.
-- STL: ASCII and binary, flat-shaded triangles, up to 87,381 faces to stay within
-  NTCharts3d's vertex limit. Normals are recomputed from vertex winding. GPU
+- STL: ASCII and binary, flat-shaded triangles, up to 932,067 faces: as many as
+  NTCharts3d draws, which is as many as any GPU is sure to hold. Normals are recomputed from vertex winding. GPU
   rendering falls back to software and then wireframe. Software is limited to
   320×200 pixels and samples meshes above 20,000 triangles; wireframe samples
   above 2,000 triangles, so large models can lose detail in fallback modes.
@@ -305,7 +305,7 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   of the package, as slicers write them. Projects from Bambu Studio and its
   relatives are drawn in their filament colors, which those programs keep in
   settings of their own; colors painted onto faces are not read. Textures, beam lattices, slices, and
-  encrypted content are not read. The same 87,381-face limit applies: a larger
+  encrypted content are not read. The same 932,067-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
   hold 4,096 entries and unpack to 128 MiB.
 - Input files and stdin are limited to 128 MiB. One active document and, when
