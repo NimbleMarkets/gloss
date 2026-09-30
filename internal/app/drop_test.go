@@ -238,8 +238,8 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 		}
 	}
 	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
-	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") {
-		t.Fatalf("no drop target:\n%s", view)
+	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") || !strings.Contains(view, "Jupyter notebooks, Word, Excel, and CSV") {
+		t.Fatalf("no drop target, or no word on what can be opened:\n%s", view)
 	}
 	for _, key := range []string{"m", "]", "[", "n", "p", "R", "r", "+", "g", "f"} {
 		m.Update(press(key))

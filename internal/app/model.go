@@ -612,6 +612,7 @@ func (m *Model) View() tea.View {
 		if m.opts.Pick {
 			body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
 		}
+		body += "\n\n" + document.Formats
 	case m.menu:
 		body = m.menuView()
 		if m.preview != nil && m.previewWidth() > 0 {

@@ -32,6 +32,9 @@ const MaxPixels = 32 << 20
 // examined first, so a supported file need not carry one of them.
 var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
+// Formats says, for people, what gloss opens.
+const Formats = "Images (PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC), SVG, PDF, STL and 3MF meshes,\nMarkdown, HTML, JSON and JSONL, Jupyter notebooks, Word, Excel, and CSV"
+
 var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, or CSV")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
