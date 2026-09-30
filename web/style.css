@@ -71,6 +71,14 @@ h1 {
   letter-spacing:-1.5px;
   margin:4px 0 6px
 }
+h1 code {
+  font:600 .92em ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
+  letter-spacing:0;
+  color:#282d2b;
+  background:#e6e2d6;
+  border-radius:6px;
+  padding:0 .3em .05em
+}
 .lede {
   color:var(--muted);
   margin:0
