@@ -24,7 +24,6 @@ type partsResult struct {
 }
 
 // pickingParts says whether the part list is open over a mesh.
-func (m *Model) pickingParts() bool { return m.chart != nil && m.partPicker != nil }
 
 // hasParts says whether the mesh on screen is made of parts to choose among.
 func (m *Model) hasParts() bool { return m.chart != nil && len(m.parts) > 1 && m.assemble != nil }

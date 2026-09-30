@@ -49,9 +49,9 @@ func (g *grid) next(files []string) string {
 	return ""
 }
 
-// openGrid shows the list as thumbnails.
+// openGrid shows the list as thumbnails, the style kept for next time.
 func (m *Model) openGrid() tea.Cmd {
-	m.thumbs = true
+	m.screen, m.thumbs = screenGrid, true
 	if m.grid == nil {
 		m.grid = &grid{tiles: map[string]*document.Tile{}, loader: &document.Loader{Files: m.opts.FilesFS}}
 	}
@@ -60,7 +60,7 @@ func (m *Model) openGrid() tea.Cmd {
 
 // closeGrid shows the list as a list again.
 func (m *Model) closeGrid() tea.Cmd {
-	m.thumbs = false
+	m.screen, m.thumbs = screenList, false
 	return tea.Batch(m.pic.SetImage(nil), m.updatePreview())
 }
 
@@ -68,7 +68,7 @@ func (m *Model) closeGrid() tea.Cmd {
 // in view, and asks for the next thumbnail wanted.
 func (m *Model) layoutGrid() tea.Cmd {
 	g := m.grid
-	if g == nil || !m.thumbs {
+	if g == nil || m.screen != screenGrid {
 		return nil
 	}
 	w, h := max(1, m.width), max(1, m.bodyHeight())
@@ -180,8 +180,6 @@ func (m *Model) gridKey(k string) (tea.Cmd, bool) {
 		m.selection = 0
 	case "end", "G":
 		m.selection = n - 1
-	case "t":
-		return m.closeGrid(), true
 	default:
 		return nil, false
 	}

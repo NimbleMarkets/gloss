@@ -75,8 +75,8 @@ func Test3MFPreviewsByThumbnailAndOpensAsAMesh(t *testing.T) {
 		t.Fatalf("the preview is not the thumbnail: %+v", m.preview)
 	}
 	send(m, enter)
-	if m.menu || m.chart == nil || m.source != nil || m.kind != "3mf" {
-		t.Fatalf("opened: menu=%v chart=%v kind=%q", m.menu, m.chart != nil, m.kind)
+	if m.listing() || m.chart == nil || m.source != nil || m.kind != "3mf" {
+		t.Fatalf("opened: menu=%v chart=%v kind=%q", m.listing(), m.chart != nil, m.kind)
 	}
 }
 

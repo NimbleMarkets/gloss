@@ -27,15 +27,15 @@ func TestPickSendsWhatTheUserAdded(t *testing.T) {
 		t.Fatal("there was nothing to send")
 	}
 	send(m, tea.PasteMsg{Content: filepath.Join(dir, "alpha.png") + "\n" + filepath.Join(dir, "beta.svg")})
-	if !m.menu {
+	if !m.listing() {
 		t.Fatal("several files open the menu, as ever")
 	}
 	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Enter open") || strings.Contains(view, "Enter send") {
 		t.Fatalf("in the menu Enter opens a file:\n%s", view)
 	}
 	send(m, enter)
-	if m.menu || m.Picked() != nil {
-		t.Fatalf("menu=%v picked=%q", m.menu, m.Picked())
+	if m.listing() || m.Picked() != nil {
+		t.Fatalf("menu=%v picked=%q", m.listing(), m.Picked())
 	}
 	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Enter send 2 files") {
 		t.Fatalf("the viewer does not say what Enter will send:\n%s", view)
@@ -131,27 +131,27 @@ func TestEscapeReturnsToTheListWithPreviews(t *testing.T) {
 	m := viewing(t, Options{Files: []string{samples + "shapes.svg", samples + "readme.md"}}, "svg")
 	send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
 	send(m, escape)
-	if !m.menu || !m.opts.Preview || m.selection != 0 {
-		t.Fatalf("menu=%v preview=%v selection=%d", m.menu, m.opts.Preview, m.selection)
+	if !m.listing() || !m.opts.Preview || m.selection != 0 {
+		t.Fatalf("menu=%v preview=%v selection=%d", m.listing(), m.opts.Preview, m.selection)
 	}
 	// Esc in the list leaves it, back to the document; the info box and
 	// the help take Esc first.
 	send(m, escape)
-	if m.menu {
+	if m.listing() {
 		t.Fatal("Esc did not leave the list")
 	}
 	send(m, press("i"), escape)
-	if m.menu || m.info {
-		t.Fatalf("menu=%v info=%v", m.menu, m.info)
+	if m.listing() || m.showingInfo() {
+		t.Fatalf("menu=%v info=%v", m.listing(), m.showingInfo())
 	}
 	send(m, press("?"), escape)
-	if m.menu || m.help {
-		t.Fatalf("menu=%v help=%v", m.menu, m.help)
+	if m.listing() || m.help {
+		t.Fatalf("menu=%v help=%v", m.listing(), m.help)
 	}
 	// With no file there is no list to go to.
 	m = viewing(t, Options{}, "")
 	send(m, escape)
-	if m.menu {
+	if m.listing() {
 		t.Fatal("an empty session opened a list")
 	}
 }

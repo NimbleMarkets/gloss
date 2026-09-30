@@ -158,19 +158,13 @@ func (v *sheetView) scroll(rows, w, h int) {
 }
 
 // key moves the cursor, hides and shows columns, and reports whether the
-// key was one of its own.
+// key was one of its own. The column list, when open, has the keys instead.
 func (v *sheetView) key(k string, w, h int) bool {
-	if v.picker != nil {
-		return v.picker.key(v, k)
-	}
 	switch k {
 	case "x":
 		v.hide(v.column())
 	case "X":
 		v.showAll()
-	case "c":
-		v.picker = &columnPicker{at: v.column()}
-		return true
 	case "j", "down":
 		v.at[0]++
 	case "k", "up":

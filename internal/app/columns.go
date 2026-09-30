@@ -7,9 +7,6 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
-// pickingColumns says whether the column list is open over a sheet.
-func (m *Model) pickingColumns() bool { return m.sheet != nil && m.sheet.picker != nil }
-
 // columnPicker is the list of a sheet's columns, each ticked when shown.
 type columnPicker struct {
 	at, top int // The column under the cursor, and the first listed.
@@ -40,8 +37,6 @@ func (p *columnPicker) key(v *sheetView, k string) bool {
 		for c := range v.hidden {
 			v.hide(c)
 		}
-	case "enter", "c":
-		v.picker = nil
 	default:
 		return false
 	}

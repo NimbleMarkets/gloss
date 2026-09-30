@@ -270,6 +270,8 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 	}
 	m.opener = &opener{picker: picky.New(filepath.ToSlash(dir), options...), reads: reads, dir: dir}
 	m.opener.resize(m.width, m.bodyHeight())
+	m.screen, m.help = screenBrowser, false
+	m.keepLayer()
 	return m.opener.picker.Init()
 }
 
@@ -352,7 +354,7 @@ func (m *Model) reread() tea.Cmd {
 }
 
 func (m *Model) opened(r openResult) tea.Cmd {
-	if m.opener == nil {
+	if !m.browsing() {
 		return nil // Cancelled while the file was being examined.
 	}
 	if r.err != nil {

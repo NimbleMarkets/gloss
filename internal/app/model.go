@@ -8,12 +8,9 @@ import (
 	"io/fs"
 	"math/rand/v2"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync/atomic"
 
 	tea "charm.land/bubbletea/v2"
-	"charm.land/lipgloss/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
 	"github.com/NimbleMarkets/ntcharts-svg/svg"
 	"github.com/NimbleMarkets/ntcharts/v2/picture"
@@ -79,7 +76,8 @@ type Model struct {
 	tint                     *color.RGBA    // Paint given to the mesh, if any.
 	tintAll                  bool           // On every face, not only the plain ones.
 	colorPicker              *colorPicker
-	menu                     bool
+	screen                   screen // What fills the body.
+	layer                    layer  // What floats over a document.
 	selection                int
 	preview                  *Model
 	isPreview                bool
@@ -92,12 +90,11 @@ type Model struct {
 	markdown                 *markdownView
 	sheet                    *sheetView
 	note                     string // Outcome of the last drop, shown until the next key.
-	info                     bool   // The details box floats over the document.
 	fields                   []document.Field
 	opener                   *opener
 	hideUnsupported          bool // The browser's choice outlasts any one visit.
 	sortBy                   int  // The order the browser lists in; kept likewise.
-	thumbs                   bool // The list is shown as a grid of thumbnails.
+	thumbs                   bool // The list is shown as a grid of thumbnails, last time and next.
 	grid                     *grid
 	noTextFiles              bool         // The browser sets text files aside; kept likewise.
 	quitting                 bool         // The view being drawn is the one left behind.
@@ -131,7 +128,10 @@ func New(opts Options) *Model {
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := nextKittyID()
-	m := &Model{opts: opts, tint: opts.Color, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
+	m := &Model{opts: opts, tint: opts.Color, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
+	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
+		m.screen = screenList
+	}
 	if opts.Render == "kitty" {
 		m.pic.Toggle()
 	}
@@ -143,7 +143,7 @@ func (m *Model) Init() tea.Cmd {
 	if m.opts.Browse != "" {
 		browse = m.browseFrom(m.opts.Browse)
 	}
-	if m.menu {
+	if m.screen == screenList {
 		m.suspended = true
 		return tea.Batch(m.pic.Init(), m.updatePreview(), browse, m.awaitDrops())
 	}
@@ -171,7 +171,10 @@ func (m *Model) quit() tea.Cmd {
 	if !m.opts.KeepScreen {
 		return tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
 	}
-	m.quitting, m.help, m.opener = true, false, nil
+	m.quitting, m.help = true, false
+	if m.browsing() {
+		m.showDocument()
+	}
 	return tea.Quit
 }
 
@@ -278,43 +281,17 @@ func (m *Model) movePage(page int) tea.Cmd {
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.opener != nil {
-		// The browser's filter takes every key: letters are text here.
-		switch v := msg.(type) {
-		case tea.KeyPressMsg:
-			m.note = ""
-			switch v.String() {
-			case "ctrl+c":
-				return m, m.quit()
-			case "esc":
-				if m.opener.find != nil {
-					m.opener.find = nil
-					return m, nil
-				}
-				if m.opener.going {
-					m.opener.stopGoing()
-					return m, nil
-				}
-				m.opener = nil
-				return m, nil
-			case "ctrl+t":
-				return m, m.toggleUnsupported()
-			case "ctrl+s":
-				return m, m.reorder()
-			case "ctrl+x":
-				return m, m.toggleText()
-			}
-			return m, m.browse(msg)
-		case tea.MouseMsg:
+	if m.browsing() {
+		if _, ok := msg.(tea.MouseMsg); ok {
 			return m, nil
 		}
 	}
 	msg = m.onBody(msg)
-	if mouse, ok := msg.(tea.MouseMsg); ok && m.menu {
+	if mouse, ok := msg.(tea.MouseMsg); ok && m.listing() {
 		if m.help {
 			return m, nil
 		}
-		if m.thumbs && m.grid != nil {
+		if m.screen == screenGrid && m.grid != nil {
 			return m, m.gridMouse(mouse)
 		}
 		return m, m.previewMouse(mouse)
@@ -355,7 +332,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openResult:
 		return m, m.opened(v)
 	case findResult:
-		if m.opener != nil && m.opener.find != nil {
+		if m.browsing() && m.opener.find != nil {
 			m.opener.find.answered(v)
 		}
 		return m, nil
@@ -412,7 +389,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			setup = append(setup, m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}}))
 			setup = append(setup, m.chart.SetColorLegendVisible(false), m.chart.SetSeries(v.Mesh))
 			m.mesh = v.Mesh
-			m.parts, m.assemble, m.partsShown, m.partPicker, m.colorPicker = v.Parts, v.Assemble, v.Shown, nil, nil
+			m.parts, m.assemble, m.partsShown = v.Parts, v.Assemble, v.Shown
+			m.keepLayer()
 			m.home = charts.DefaultCamera()
 			switch {
 			case len(m.opts.Views) > 0:
@@ -436,7 +414,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.source = v.Image
 		return m, tea.Sequence(cleanup, m.refreshImage())
 	case tea.MouseWheelMsg:
-		if m.markdown != nil && !m.help && !m.menu {
+		if m.markdown != nil && !m.help && m.screen == screenDocument {
 			if v.Button == tea.MouseWheelUp {
 				m.markdown.scroll(-3)
 			} else if v.Button == tea.MouseWheelDown {
@@ -444,7 +422,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if m.sheet != nil && !m.help && !m.menu {
+		if m.sheet != nil && !m.help && m.screen == screenDocument {
 			if v.Button == tea.MouseWheelUp {
 				m.sheet.scroll(-3, m.width, m.bodyHeight()-1)
 			} else if v.Button == tea.MouseWheelDown {
@@ -453,186 +431,12 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	case tea.KeyPressMsg:
-		m.note = ""
-		if k := v.String(); (k == "o" || k == "O") && !m.help && !m.pickingColumns() && !m.pickingParts() {
-			return m, m.openBrowser()
-		}
-		switch v.String() {
-		case "q", "ctrl+c":
-			return m, m.quit()
-		case "Q":
-			// Quit leaving the view where it can be scrolled back to,
-			// whatever the launch asked: the choice is best made now.
-			m.opts.KeepScreen = true
-			return m, m.quit()
-		case "?":
-			m.help = !m.help
-			return m, nil
-		case "esc":
-			if !m.help && m.menu {
-				return m, m.closeMenu(false)
-			}
-			if m.pickingColumns() {
-				m.sheet.picker = nil
-				return m, nil
-			}
-			if m.pickingParts() {
-				m.partPicker = nil
-				return m, nil
-			}
-			if m.pickingColor() {
-				p := m.colorPicker
-				m.colorPicker = nil
-				if p.wasTint == nil {
-					return m, m.unpaint()
-				}
-				return m, m.paint(*p.wasTint, p.wasAll)
-			}
-			if !m.help && !m.info {
-				if cmd, ok := m.closeFetched(); ok {
-					return m, cmd
-				}
-			}
-			switch {
-			case m.help:
-				m.help = false
-			case m.info:
-				m.info = false
-			case len(m.opts.Files) > 0 && !m.isPreview:
-				// Back to the list, with previews, from wherever the viewer is.
-				m.opts.Preview = true
-				return m, m.openMenu(m.index)
-			}
-			return m, nil
-		}
-		if len(m.opts.Files) == 0 && v.String() == "i" && !m.help {
-			m.info = !m.info
-			return m, nil
-		}
-		if m.help || len(m.opts.Files) == 0 {
-			return m, nil
-		}
-		if m.menu {
-			return m, m.menuKey(v.String())
-		}
-		if m.pickingParts() {
-			if cmd, ok := m.partsKey(v.String()); ok {
-				return m, cmd
-			}
-		}
-		if m.pickingColor() {
-			if cmd, ok := m.colorKey(v.String()); ok {
-				return m, cmd
-			}
-		}
-		if m.chart != nil && m.mesh != nil && v.String() == "C" && !m.help && !m.menu {
-			m.openColorPicker()
-			return m, nil
-		}
-		if m.hasParts() && !m.help && !m.menu {
-			switch v.String() {
-			case "c":
-				m.partPicker = &partPicker{}
-				return m, nil
-			case "X":
-				return m, m.showParts(nil, false)
-			}
-		}
-		if m.sheet != nil && m.sheet.key(v.String(), m.width, m.bodyHeight()-1) {
-			return m, nil
-		}
-		if m.sheet != nil && v.String() == "enter" && m.sheet.url() != "" {
-			return m, m.open(m.sheet.url())
-		}
-		if m.markdown != nil {
-			if m.markdown.key(v.String()) {
-				return m, nil
-			}
-			if v.String() == "s" {
-				m.markdown.raw = !m.markdown.raw
-				m.markdown.offset = 0
-				return m, m.layoutMarkdown()
-			}
-		}
-		switch v.String() {
-		case "m":
-			return m, m.openMenu(m.index)
-		case "]", "tab":
-			return m, m.switchFile(1)
-		case "[", "shift+tab":
-			return m, m.switchFile(-1)
-		case "R":
-			return m, m.load(true)
-		case "e":
-			return m, m.export()
-		case "enter":
-			if m.opts.Pick {
-				return m, m.pick()
-			}
-		case "i":
-			m.info = !m.info
-			return m, nil
-		case "5":
-			// NTCharts3d binds the projection to o, which opens the browser here.
-			if m.chart != nil {
-				_, cmd := m.chart.Update(tea.KeyPressMsg{Code: 'o', Text: "o"})
-				return m, cmd
-			}
-			return m, nil
-		case "n", "space", "pgdown":
-			if m.paged() {
-				return m, m.movePage(m.page + 1)
-			}
-			return m, m.switchFile(1)
-		case "p", "b", "pgup":
-			if m.paged() {
-				return m, m.movePage(m.page - 1)
-			}
-			return m, m.switchFile(-1)
-		case "home":
-			return m, m.movePage(1)
-		case "end", "G":
-			return m, m.movePage(m.pages)
-		case "g":
-			m.autoKitty = false
-			if m.chart == nil {
-				cmd := m.pic.Toggle()
-				if m.markdown != nil {
-					cmd = tea.Batch(cmd, m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty))
-				}
-				return m, cmd
-			}
-		case "0", "f":
-			if m.chart != nil {
-				return m, m.chart.SetCamera(m.home)
-			}
-			m.zoom, m.panX, m.panY = 0, 0, 0
-			return m, m.refreshImage()
-		}
-		if m.chart == nil {
-			switch v.String() {
-			case "+", "=":
-				m.zoom = min(6, m.zoom+1)
-			case "-", "_":
-				m.zoom = max(0, m.zoom-1)
-			case "h", "left":
-				m.panX -= .1 / float64(int(1)<<m.zoom)
-			case "l", "right":
-				m.panX += .1 / float64(int(1)<<m.zoom)
-			case "k", "up":
-				m.panY -= .1 / float64(int(1)<<m.zoom)
-			case "j", "down":
-				m.panY += .1 / float64(int(1)<<m.zoom)
-			case "r":
-				return m, m.load(true)
-			default:
-				return m, nil
-			}
-			return m, m.refreshImage()
+		if cmd, handled := m.key(v); handled {
+			return m, cmd
 		}
 	}
 	var cmds []tea.Cmd
-	if m.opener != nil {
+	if m.browsing() {
 		cmds = append(cmds, m.browse(msg))
 	}
 	// Picture messages carry image IDs and sequence numbers, so late frames
@@ -645,7 +449,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, m.markdown.update(msg), m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty))
 	}
 	_, mouseMessage := msg.(tea.MouseMsg)
-	if m.chart != nil && !((m.help || m.menu) && mouseMessage) {
+	if m.chart != nil && !((m.help || m.listing()) && mouseMessage) {
 		before := m.chart.Camera()
 		_, cmd := m.chart.Update(msg)
 		cmds = append(cmds, cmd)
@@ -688,269 +492,6 @@ func crop(src image.Image, zoom int, panX, panY float64) image.Image {
 	out := image.NewRGBA(image.Rect(0, 0, w, h))
 	draw.Draw(out, out.Bounds(), src, image.Pt(x, y), draw.Src)
 	return out
-}
-
-func (m *Model) View() tea.View {
-	w, h := max(1, m.width), m.bodyHeight()
-	body := ""
-	mouse := tea.MouseModeNone
-	switch {
-	case m.help:
-		// Kept to 22 lines, the room a 24-row terminal leaves.
-		body = "gloss — a visual pager\n\n" +
-			"q / Q          quit / quit, leaving the view in the scrollback\n? / Esc        help / dismiss; Esc: file list\n" +
-			"] / [ / Tab    next / previous file\n" +
-			"m              file menu (v toggles preview)\n" +
-			"o              browse for a file to open\n" +
-			"n / p / Space  next / previous PDF page (or file)\n" +
-			"Home / End     first / last PDF page\n" +
-			"+ / -          zoom\nh j k l / arrows  pan image / orbit mesh\n" +
-			"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
-			"R              reload file\n" +
-			"e / i          export as PNG / file details\n" +
-			"r              auto-rotate mesh (reload other files)\n\n" +
-			"Drop files on the terminal to add them\n" +
-			"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
-			"Markdown: arrows/wheel scroll, Space/b page, s source\n\n" +
-			"gloss --help lists the command-line options\n"
-	case m.opener != nil:
-		body = m.opener.view()
-	case len(m.opts.Files) == 0:
-		body = "Drop files here to open\n\nDrag them from a file manager, or paste their paths."
-		if m.opts.FilesFS != nil {
-			// The browser: files come from drops, or from the page around.
-			body = "Drop files here to open\n\nDrag them from a file manager onto the terminal."
-		}
-		if m.canBrowse() {
-			body = "Drop files here to open\n\nDrag them from a file manager, paste their paths, or press o to browse."
-		}
-		if m.opts.Pick {
-			body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
-		}
-		switch h := m.bodyHeight(); {
-		case h >= 12:
-			// Padded to one width, the lines stay aligned once centred.
-			body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n\n"))
-		case h >= 5:
-			body += "\n\n" + lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
-		}
-	case m.menu:
-		body = m.menuView()
-		if m.preview != nil && m.previewWidth() > 0 {
-			mouse = m.preview.View().MouseMode
-		}
-		if m.thumbs && m.grid != nil {
-			mouse = tea.MouseModeCellMotion
-		}
-	case m.loading:
-		body = "Loading " + safe(filepath.Base(m.opts.Files[m.index])) + "…"
-	case m.err != nil:
-		body = "Cannot open file\n\n" + safe(m.err.Error()) + "\n\nR retry · ] next file · q quit"
-	case m.chart != nil:
-		v := m.chart.View()
-		body, mouse = m.meshFrame(v.Content, w), v.MouseMode
-	case m.markdown != nil:
-		body, mouse = m.markdown.view(), tea.MouseModeCellMotion
-	case m.sheet != nil:
-		body, mouse = m.sheet.view(w, h), tea.MouseModeCellMotion
-	default:
-		body = m.pic.View().Content
-	}
-	// Avoid wrapping filenames, errors, or help beyond the viewport. Do not
-	// truncate the graphics body: Kitty's zero-width escapes must survive.
-	empty := len(m.opts.Files) == 0
-	browsing := m.opener != nil && !m.help
-	if m.help || empty || browsing || (!m.menu && (m.loading || m.err != nil)) {
-		lines := strings.Split(body, "\n")
-		for i := range lines {
-			lines[i] = ansi.Truncate(lines[i], w, "")
-		}
-		body = strings.Join(lines[:min(len(lines), h)], "\n")
-	}
-	frame := lipgloss.NewStyle().Width(w).Height(h)
-	if empty && !m.help && !browsing {
-		frame = frame.Align(lipgloss.Center, lipgloss.Center)
-	}
-	body = frame.Render(body)
-	if m.info && !m.help && !m.menu && !browsing && !m.pickingParts() && !m.pickingColor() && !m.pickingColumns() {
-		// The mesh view keeps its own title on the first row.
-		top := 0
-		if m.chart != nil {
-			top = 1
-		}
-		body = overlay(body, m.infoBox(w, h-top), w, top)
-	}
-	if m.pickingColumns() && !m.help && !m.menu {
-		body = overlay(body, m.sheet.picker.view(m.sheet, w, h), w, 0)
-	}
-	if m.pickingParts() && !m.help && !m.menu {
-		// Below the mesh view's title row.
-		body = overlay(body, m.partsView(w, h-1), w, 1)
-	}
-	if m.pickingColor() && !m.help && !m.menu {
-		body = overlay(body, m.colorView(w, h-1), w, 1)
-	}
-	name := "no files"
-	if !empty {
-		name = safe(filepath.Base(m.opts.Files[m.index]))
-	}
-	if !empty && document.IsStdin(m.opts.Files[m.index]) {
-		name = "stdin"
-	}
-	// How things are drawn, the renderer and the transport, is the info
-	// box's to say; the status bar keeps to the file.
-	detail := fmt.Sprintf("%s · %dx", m.kind, 1<<m.zoom)
-	if m.kind == "pdf" {
-		detail += fmt.Sprintf(" · page %d/%d", m.page, m.pages)
-	}
-	switch {
-	case m.chart != nil:
-		detail = fmt.Sprintf("%s · %s", strings.ToUpper(m.kind), plural(m.triangles, "triangle"))
-		if m.hasParts() && m.partsShown != nil {
-			detail += fmt.Sprintf(" · parts %d/%d", m.partsOnScreen(), len(m.parts))
-		}
-		if m.tint != nil {
-			detail += fmt.Sprintf(" · painted #%02x%02x%02x", m.tint.R, m.tint.G, m.tint.B)
-		}
-	case m.kind == "3mf":
-		// Too large to draw, or a preview: the picture the file carries.
-		detail = fmt.Sprintf("3MF · thumbnail · %dx", 1<<m.zoom)
-	}
-	if m.markdown != nil {
-		mode := "rendered"
-		if m.markdown.raw {
-			mode = "source"
-		}
-		format := map[string]string{"docx": "Word", "json": "JSON", "ipynb": "notebook", "html": "HTML", "text": "text"}[m.kind]
-		if format == "" {
-			format = "Markdown"
-		}
-		if m.kind == "text" {
-			// Source says its language, as the highlighter names it.
-			for _, f := range m.fields {
-				if f.Label == "Language" && f.Value != "" {
-					format = f.Value
-				}
-			}
-		}
-		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
-	}
-	if m.sheet != nil {
-		detail = fmt.Sprintf("%s · %s", m.kind, m.sheet.status(w, h))
-		if m.kind == "xlsx" {
-			detail = fmt.Sprintf("xlsx · sheet %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
-		}
-	}
-	// A note comes before the detail: it is brief, and must not be cut.
-	if m.note != "" {
-		detail = m.note + " · " + detail
-	}
-	status := fmt.Sprintf(" %s  [%d/%d]  %s", name, m.index+1, len(m.opts.Files), detail)
-	if empty {
-		status = " No files yet"
-		if m.note != "" {
-			status += " · " + m.note
-		}
-	}
-	bar := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
-	keys := " q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info"
-	if m.markdown != nil {
-		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
-	}
-	if m.sheet != nil {
-		keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p sheets · c columns · i info"
-		if m.kind != "xlsx" {
-			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p files · c columns · i info"
-		}
-		if m.sheet.url() != "" && m.opts.Fetch != nil {
-			keys = " Enter open address ·" + strings.TrimPrefix(keys, " q quit ·")
-		}
-		if m.pickingColumns() {
-			keys = " ↑/↓ select · Space show/hide · a all · n none · Esc close"
-		}
-	}
-	if empty {
-		keys = " q quit · ? help · i info"
-	}
-	if m.chart != nil && m.mesh != nil {
-		keys = " q quit · ? help · m files · [/] files · e export · i info · C color"
-	}
-	if m.hasParts() {
-		keys += " · c parts"
-	}
-	if m.pickingColor() {
-		keys = " Tab mode · ↑/↓ ←/→ choose · Space apply · r file's colors · Enter keep · Esc undo"
-	}
-	if m.pickingParts() {
-		keys = " ↑/↓ select · Space show/hide · Enter focus · a all · n only · X all and close · Esc close"
-	}
-	if m.isFetched() {
-		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
-	}
-	if m.canBrowse() && !m.pickingColumns() && !m.pickingParts() && !m.pickingColor() {
-		keys += " · o browse"
-	}
-	if what := m.picking(); what != "" {
-		// Say what will be sent before it is.
-		keys = " Enter send " + what + " · q cancel ·" + strings.TrimPrefix(keys, " q quit ·")
-	}
-	hint := ansi.Truncate(keys, w, "")
-	if m.menu {
-		status = fmt.Sprintf(" Files · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)
-		if m.note != "" {
-			status += " · " + m.note
-		}
-		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
-		hint = ansi.Truncate(" ↑/↓ select · Enter open · t thumbnails · v preview · Esc cancel · q quit", w, "")
-		if m.thumbs && m.grid != nil {
-			status = fmt.Sprintf(" Files · grid · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)
-			if m.grid.pending() {
-				status += " · making thumbnails"
-			}
-			bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
-			hint = ansi.Truncate(" ←→↑↓ select · Enter open · t list · Esc cancel · q quit", w, "")
-		}
-	}
-	if browsing {
-		// The end of a long path says where you are; the start rarely does.
-		dir, note := safe(m.opener.dir), " · by "+orderNames[m.sortBy]
-		if m.note != "" {
-			note += " · " + m.note
-		}
-		if over := ansi.StringWidth(" Open · "+dir+note) - w; over > 0 && over+1 < ansi.StringWidth(dir) {
-			dir = "…" + ansi.TruncateLeft(dir, over+1, "")
-		}
-		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Open · "+dir+note, w, "…"))
-		greyed, text := "hide greyed", "no text"
-		if m.hideUnsupported {
-			greyed = "show greyed"
-		}
-		if m.noTextFiles {
-			text = "text"
-		}
-		hint = ansi.Truncate(" Enter open · / find · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
-		if m.opener.going {
-			hint = ansi.Truncate(" Type a folder's path · Tab complete · Enter go · Esc back", w, "")
-		}
-		if f := m.opener.find; f != nil {
-			bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Find · "+f.status(), w, "…"))
-			hint = ansi.Truncate(" Enter search, then open · ↑/↓ select · Ctrl-A add all · Esc back", w, "")
-		}
-	}
-	body = m.framed(body)
-	content := body + "\n" + bar + "\n" + hint
-	if m.quitting {
-		// Keys no longer answer. The frame keeps its height, or Bubble Tea
-		// draws it below the last one; and it ends on an empty row, because
-		// the last row is erased on the way out. The prompt lands there.
-		content, mouse = body+"\n"+bar+"\n", tea.MouseModeNone
-	}
-	if m.height < 3 || (!m.menu && m.chart != nil && m.height < 5) {
-		content = ansi.Truncate("gloss: enlarge terminal", w, "")
-	}
-	v := tea.NewView(content)
-	v.AltScreen, v.MouseMode = !m.opts.KeepScreen, mouse
-	return v
 }
 
 func safe(s string) string { return svg.SanitizeForTerminal(s) }

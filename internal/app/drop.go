@@ -105,14 +105,17 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 		}
 		return nil
 	}
-	m.help, m.opener = false, nil
+	m.help = false
+	if m.browsing() {
+		m.showDocument()
+	}
 	switch {
-	case added > 1 && m.menu:
+	case added > 1 && m.listing():
 		m.selection = first
-		return m.updatePreview()
+		return tea.Batch(m.updatePreview(), m.layoutGrid())
 	case added > 1:
 		return m.openMenu(first)
-	case m.menu:
+	case m.listing():
 		m.selection = first
 		return m.closeMenu(true)
 	case first == m.index:

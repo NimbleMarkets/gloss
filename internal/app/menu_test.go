@@ -21,7 +21,7 @@ func TestMenuSelectionCancelAndOpen(t *testing.T) {
 	m.page, m.zoom = 4, 2
 	m.Update(press("m"))
 	m.menuKey("down")
-	if !m.menu || m.selection != 1 || m.index != 0 || m.page != 4 {
+	if !m.listing() || m.selection != 1 || m.index != 0 || m.page != 4 {
 		t.Fatal("browsing changed active file")
 	}
 	m.closeMenu(false)
@@ -31,7 +31,7 @@ func TestMenuSelectionCancelAndOpen(t *testing.T) {
 	m.Update(press("m"))
 	m.menuKey("end")
 	m.menuKey("enter")
-	if m.menu || m.index != 2 || m.page != 1 || m.zoom != 0 || !m.loading {
+	if m.listing() || m.index != 2 || m.page != 1 || m.zoom != 0 || !m.loading {
 		t.Fatal("selection did not open")
 	}
 }

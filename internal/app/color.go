@@ -51,7 +51,6 @@ var palettes = []palette{
 }
 
 // pickingColor says whether the color picker is open over a mesh.
-func (m *Model) pickingColor() bool { return m.chart != nil && m.colorPicker != nil }
 
 func (m *Model) openColorPicker() {
 	start := document.DefaultMeshColor()

@@ -16,7 +16,7 @@ type previewResult struct {
 }
 
 func (m *Model) previewWidth() int {
-	if !m.menu || !m.opts.Preview || m.width < 64 || m.bodyHeight() < 7 {
+	if m.screen != screenList || !m.opts.Preview || m.width < 64 || m.bodyHeight() < 7 {
 		return 0
 	}
 	return m.width - min(40, m.width/2) - 1
@@ -34,7 +34,7 @@ func (m *Model) resizePreview() tea.Cmd {
 }
 
 func (m *Model) updatePreview() tea.Cmd {
-	if m.previewWidth() == 0 || m.thumbs {
+	if m.previewWidth() == 0 {
 		return nil
 	}
 	var cleanup tea.Cmd
@@ -67,10 +67,12 @@ func (m *Model) disposePreview() tea.Cmd {
 	return cleanup
 }
 
-// The active document is set aside, not unloaded: cancelling restores its
-// page, camera, and scroll position.
+// openMenu shows the file list, in the style last used. The active
+// document is set aside, not unloaded: cancelling restores its page,
+// camera, and scroll position.
 func (m *Model) openMenu(selection int) tea.Cmd {
-	m.menu, m.selection, m.suspended = true, selection, true
+	m.selection, m.suspended = selection, true
+	m.keepLayer()
 	m.savedMarkdown = m.markdown
 	if m.chart != nil {
 		camera := m.chart.Camera()
@@ -79,12 +81,14 @@ func (m *Model) openMenu(selection int) tea.Cmd {
 	if m.thumbs {
 		return tea.Sequence(m.clearGraphics(), m.openGrid())
 	}
+	m.screen = screenList
 	return tea.Sequence(m.clearGraphics(), m.updatePreview())
 }
 
+// closeMenu leaves the list for the file chosen, or the one set aside.
 func (m *Model) closeMenu(open bool) tea.Cmd {
-	m.menu = false
-	cleanup := m.disposePreview()
+	m.screen = screenDocument
+	cleanup := tea.Batch(m.disposePreview(), m.pic.SetImage(nil))
 	suspended := m.suspended
 	m.suspended = false
 	if open && m.selection != m.index {
@@ -133,8 +137,9 @@ func (m *Model) previewMouse(msg tea.MouseMsg) tea.Cmd {
 	return cmd
 }
 
+// menuKey handles a key on the list; the grid has keys of its own.
 func (m *Model) menuKey(k string) tea.Cmd {
-	if m.thumbs && m.grid != nil {
+	if m.screen == screenGrid {
 		if cmd, ok := m.gridKey(k); ok {
 			return cmd
 		}
@@ -142,9 +147,12 @@ func (m *Model) menuKey(k string) tea.Cmd {
 	switch k {
 	case "enter":
 		return m.closeMenu(true)
-	case "m":
+	case "m", "esc":
 		return m.closeMenu(false)
 	case "t":
+		if m.screen == screenGrid {
+			return m.closeGrid()
+		}
 		return m.openGrid()
 	case "v":
 		m.opts.Preview = !m.opts.Preview
@@ -172,7 +180,7 @@ func (m *Model) menuKey(k string) tea.Cmd {
 }
 
 func (m *Model) menuView() string {
-	if m.thumbs && m.grid != nil {
+	if m.screen == screenGrid {
 		return m.pic.View().Content
 	}
 	w, h := max(1, m.width), m.bodyHeight()

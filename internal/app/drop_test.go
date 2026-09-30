@@ -56,8 +56,8 @@ func TestPastedPathOpensAfterProbe(t *testing.T) {
 	if len(m.opts.Files) != 2 || m.opts.Files[1] != picture {
 		t.Fatalf("files=%q", m.opts.Files)
 	}
-	if m.index != 1 || m.zoom != 0 || m.panX != 0 || !m.loading || m.menu {
-		t.Fatalf("new file not opened: index=%d zoom=%d loading=%v menu=%v", m.index, m.zoom, m.loading, m.menu)
+	if m.index != 1 || m.zoom != 0 || m.panX != 0 || !m.loading || m.listing() {
+		t.Fatalf("new file not opened: index=%d zoom=%d loading=%v menu=%v", m.index, m.zoom, m.loading, m.listing())
 	}
 	if len(m.Skipped()) != 0 {
 		t.Fatalf("junk line reported as a file: %q", m.Skipped())
@@ -80,7 +80,7 @@ func TestPasteThatIsNotAPathIsIgnored(t *testing.T) {
 			t.Fatalf("paste %q was treated as a drop", text)
 		}
 	}
-	if len(m.opts.Files) != 1 || m.menu || m.loading {
+	if len(m.opts.Files) != 1 || m.listing() || m.loading {
 		t.Fatal("ignored paste changed the session")
 	}
 }
@@ -108,7 +108,7 @@ func TestDropWithNothingUsableKeepsTheView(t *testing.T) {
 	if !deliver(m, tea.PasteMsg{Content: filepath.Join(dir, "notes.bin") + "\n" + huge + "\n" + filepath.Join(dir, "missing.png")}) {
 		t.Fatal("paths were not probed")
 	}
-	if len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 3 || m.menu || m.loading || m.opener != nil {
+	if len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 3 || m.listing() || m.loading || m.opener != nil {
 		t.Fatal("unusable drop changed the view")
 	}
 	skipped := strings.Join(m.Skipped(), "\n")
@@ -132,8 +132,8 @@ func TestDropSeveralOpensMenuOnFirstNewFile(t *testing.T) {
 	if len(m.opts.Files) != 3 {
 		t.Fatalf("files=%q", m.opts.Files)
 	}
-	if !m.menu || m.help || m.selection != 1 || m.index != 0 || m.zoom != 2 {
-		t.Fatalf("menu=%v help=%v selection=%d index=%d zoom=%d", m.menu, m.help, m.selection, m.index, m.zoom)
+	if !m.listing() || m.help || m.selection != 1 || m.index != 0 || m.zoom != 2 {
+		t.Fatalf("menu=%v help=%v selection=%d index=%d zoom=%d", m.listing(), m.help, m.selection, m.index, m.zoom)
 	}
 	view := m.View().Content
 	for _, want := range []string{"readme.md", "landscape.png", "added 2", "skipped 1"} {
@@ -142,7 +142,7 @@ func TestDropSeveralOpensMenuOnFirstNewFile(t *testing.T) {
 		}
 	}
 	m.menuKey("enter")
-	if m.menu || m.index != 1 || m.zoom != 0 || !m.loading {
+	if m.listing() || m.index != 1 || m.zoom != 0 || !m.loading {
 		t.Fatal("Enter did not open the dropped file")
 	}
 }
@@ -157,8 +157,8 @@ func TestDropDoesNotDuplicateListedFiles(t *testing.T) {
 	if !deliver(m, tea.PasteMsg{Content: again + "\n" + again}) {
 		t.Fatal("drop was ignored")
 	}
-	if len(m.opts.Files) != 2 || m.index != 1 || m.menu {
-		t.Fatalf("files=%q index=%d menu=%v", m.opts.Files, m.index, m.menu)
+	if len(m.opts.Files) != 2 || m.index != 1 || m.listing() {
+		t.Fatalf("files=%q index=%d menu=%v", m.opts.Files, m.index, m.listing())
 	}
 }
 
@@ -170,8 +170,8 @@ func TestDropWhileBrowsingTheMenu(t *testing.T) {
 	if !deliver(m, DropMsg{Paths: []string{samples + "landscape.png"}}) {
 		t.Fatal("drop was ignored")
 	}
-	if m.menu || m.index != 2 || !m.loading {
-		t.Fatalf("menu=%v index=%d loading=%v", m.menu, m.index, m.loading)
+	if m.listing() || m.index != 2 || !m.loading {
+		t.Fatalf("menu=%v index=%d loading=%v", m.listing(), m.index, m.loading)
 	}
 }
 
@@ -191,7 +191,7 @@ func TestEmbeddedSessionTakesDropsButNotPastedPaths(t *testing.T) {
 	if !deliver(m, DropMsg{Paths: []string{junk, first, second}}) {
 		t.Fatal("drop was ignored")
 	}
-	if n := len(examples.Names); len(m.opts.Files) != n+2 || m.selection != n || !m.menu {
+	if n := len(examples.Names); len(m.opts.Files) != n+2 || m.selection != n || !m.listing() {
 		t.Fatalf("files=%q selection=%d", m.opts.Files, m.selection)
 	}
 	if view := m.View().Content; !strings.Contains(view, "dropped/first.png") || !strings.Contains(view, "dropped/second.png") {
@@ -219,7 +219,7 @@ func TestDropLeavesTheCameraAlone(t *testing.T) {
 		t.Fatal("a pending drop moved the camera")
 	}
 	m.Update(cmd())
-	if !m.menu || m.savedCamera == nil || *m.savedCamera != camera {
+	if !m.listing() || m.savedCamera == nil || *m.savedCamera != camera {
 		t.Fatal("the menu opened by a drop lost the camera")
 	}
 }
@@ -268,8 +268,8 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 		m.Update(press(key))
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	if m.menu || m.loading || m.preview != nil || m.zoom != 0 {
-		t.Fatalf("keys acted on an empty session: menu=%v loading=%v zoom=%d", m.menu, m.loading, m.zoom)
+	if m.listing() || m.loading || m.preview != nil || m.zoom != 0 {
+		t.Fatalf("keys acted on an empty session: menu=%v loading=%v zoom=%d", m.listing(), m.loading, m.zoom)
 	}
 	m.Update(press("?"))
 	if view := m.View().Content; !strings.Contains(view, "a visual pager") || !strings.Contains(view, "gloss --help") {
@@ -286,8 +286,8 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 	if !deliver(m, tea.PasteMsg{Content: picture}) {
 		t.Fatal("drop was ignored")
 	}
-	if len(m.opts.Files) != 1 || m.index != 0 || !m.loading || m.menu {
-		t.Fatalf("files=%q index=%d loading=%v menu=%v", m.opts.Files, m.index, m.loading, m.menu)
+	if len(m.opts.Files) != 1 || m.index != 0 || !m.loading || m.listing() {
+		t.Fatalf("files=%q index=%d loading=%v menu=%v", m.opts.Files, m.index, m.loading, m.listing())
 	}
 	if view := m.View().Content; !strings.Contains(view, "first.png") || strings.Contains(view, "Drop files here") {
 		t.Fatalf("first file not shown:\n%s", view)
@@ -302,11 +302,11 @@ func TestEmptySessionOpensMenuForSeveralFiles(t *testing.T) {
 	if !deliver(m, tea.PasteMsg{Content: samples + "shapes.svg " + samples + "readme.md"}) {
 		t.Fatal("drop was ignored")
 	}
-	if !m.menu || m.selection != 0 || len(m.opts.Files) != 2 {
-		t.Fatalf("menu=%v selection=%d files=%q", m.menu, m.selection, m.opts.Files)
+	if !m.listing() || m.selection != 0 || len(m.opts.Files) != 2 {
+		t.Fatalf("menu=%v selection=%d files=%q", m.listing(), m.selection, m.opts.Files)
 	}
 	m.menuKey("enter")
-	if m.menu || m.index != 0 || !m.loading {
+	if m.listing() || m.index != 0 || !m.loading {
 		t.Fatal("Enter did not open the first dropped file")
 	}
 }

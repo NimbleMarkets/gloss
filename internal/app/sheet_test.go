@@ -275,8 +275,8 @@ func TestEscapeClosesAFetchedFileAndReturnsToItsCell(t *testing.T) {
 	}
 	// Escape on a file that was not fetched closes nothing: it goes to the list.
 	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
-	if len(m.opts.Files) != 1 || !m.menu {
-		t.Fatalf("files=%q menu=%v", m.opts.Files, m.menu)
+	if len(m.opts.Files) != 1 || !m.listing() {
+		t.Fatalf("files=%q menu=%v", m.opts.Files, m.listing())
 	}
 }
 

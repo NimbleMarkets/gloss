@@ -57,7 +57,7 @@ func (m *Model) fetchedFile(r fetchResult) tea.Cmd {
 
 // isFetched says whether the file on screen came from a cell.
 func (m *Model) isFetched() bool {
-	return !m.menu && m.index < len(m.opts.Files) && slices.ContainsFunc(m.fetched, func(f fetchedDoc) bool { return f.path == m.opts.Files[m.index] })
+	return m.screen == screenDocument && m.index < len(m.opts.Files) && slices.ContainsFunc(m.fetched, func(f fetchedDoc) bool { return f.path == m.opts.Files[m.index] })
 }
 
 // closeFetched drops the fetched file on screen, from the list and from

@@ -10,8 +10,8 @@ import (
 func TestThumbnailsShowTheListAsAGrid(t *testing.T) {
 	m := viewing(t, Options{Files: []string{samples + "shapes.svg", samples + "readme.md", samples + "landscape.png", samples + "tetrahedron.stl"}, Render3D: "software"}, "svg")
 	send(m, tea.WindowSizeMsg{Width: 100, Height: 30}, press("m"))
-	if !m.menu || m.thumbs {
-		t.Fatalf("menu=%v thumbs=%v", m.menu, m.thumbs)
+	if !m.listing() || m.thumbs {
+		t.Fatalf("menu=%v thumbs=%v", m.listing(), m.thumbs)
 	}
 	send(m, press("t"))
 	if !m.thumbs || m.grid == nil {
@@ -56,13 +56,13 @@ func TestThumbnailsShowTheListAsAGrid(t *testing.T) {
 		t.Fatalf("after j: %d (cols %d)", m.selection, m.grid.cols)
 	}
 	send(m, press("h"), press("k"), press("l"), press("l"), enter)
-	if m.menu || m.index != 2 {
-		t.Fatalf("Enter: menu=%v index=%d", m.menu, m.index)
+	if m.listing() || m.index != 2 {
+		t.Fatalf("Enter: menu=%v index=%d", m.listing(), m.index)
 	}
 	// Esc comes back to the grid, the style last used.
 	send(m, escape)
-	if !m.menu || !m.thumbs {
-		t.Fatalf("Esc: menu=%v thumbs=%v", m.menu, m.thumbs)
+	if !m.listing() || !m.thumbs {
+		t.Fatalf("Esc: menu=%v thumbs=%v", m.listing(), m.thumbs)
 	}
 	send(m, press("t"))
 	if m.thumbs {

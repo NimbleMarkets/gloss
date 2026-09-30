@@ -146,8 +146,8 @@ func TestOpenerListsTheFolderOfTheCurrentFile(t *testing.T) {
 func TestOpenerTypingFiltersRatherThanCommands(t *testing.T) {
 	m := browsing(t, folder(t))
 	send(m, typed("q?mO")...)
-	if m.opener == nil || m.help || m.menu || m.opener.picker.FilterValue() != "q?mO" {
-		t.Fatalf("typed letters acted as commands: opener=%v help=%v menu=%v", m.opener != nil, m.help, m.menu)
+	if m.opener == nil || m.help || m.listing() || m.opener.picker.FilterValue() != "q?mO" {
+		t.Fatalf("typed letters acted as commands: opener=%v help=%v menu=%v", m.opener != nil, m.help, m.listing())
 	}
 	m = browsing(t, folder(t))
 	send(m, typed(".svg")...)

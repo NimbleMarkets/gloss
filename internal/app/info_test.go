@@ -140,16 +140,16 @@ func TestInfoBoxLeavesTheDocumentInUse(t *testing.T) {
 	m := loaded(t, "a.pdf", "b.png")
 	m.Update(press("i"))
 	m.Update(press("+"))
-	if m.zoom != 1 || !m.info {
-		t.Fatalf("zoom=%d info=%v", m.zoom, m.info)
+	if m.zoom != 1 || !m.showingInfo() {
+		t.Fatalf("zoom=%d info=%v", m.zoom, m.showingInfo())
 	}
 	m.Update(document.Result{Generation: m.generation, Kind: "pdf", Page: 2, Pages: 3, Info: []document.Field{{Label: "Document"}, {Label: "Page size", Value: "595 × 842 pt"}}})
 	if view := m.View().Content; !strings.Contains(view, "595 × 842 pt") || strings.Contains(view, "Dimensions") {
 		t.Fatalf("the box shows the previous page:\n%s", view)
 	}
 	m.Update(press("]"))
-	if m.index != 1 || !m.info {
-		t.Fatalf("index=%d info=%v", m.index, m.info)
+	if m.index != 1 || !m.showingInfo() {
+		t.Fatalf("index=%d info=%v", m.index, m.showingInfo())
 	}
 	if view := m.View().Content; strings.Contains(view, "595 × 842 pt") {
 		t.Fatalf("the box shows the previous file:\n%s", view)
@@ -160,7 +160,7 @@ func TestInfoBoxLeavesTheDocumentInUse(t *testing.T) {
 	}
 	m.Update(press("?"))
 	m.Update(press("m"))
-	if view := m.View().Content; !m.menu || strings.Contains(view, "╭") {
+	if view := m.View().Content; !m.listing() || strings.Contains(view, "╭") {
 		t.Fatalf("the menu must not be covered:\n%s", view)
 	}
 }
@@ -177,7 +177,7 @@ func TestInfoBoxDescribesAFailedFile(t *testing.T) {
 func TestInfoKeyLeavesTheMenuAlone(t *testing.T) {
 	menu := viewing(t, Options{Files: []string{"a.png", "b.png"}, Menu: true}, "")
 	menu.Update(press("i"))
-	if !menu.menu || menu.info {
+	if !menu.listing() || menu.showingInfo() {
 		t.Fatal("i left the menu")
 	}
 }
