@@ -13,8 +13,77 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
-	"github.com/pgavlin/picky"
+	"github.com/NimbleMarkets/gloss/internal/picky"
 )
+
+// The orders a folder can be listed in, cycled with Ctrl-S.
+const (
+	byName = iota
+	byDate
+	byKind
+)
+
+var orderNames = []string{"name", "date", "kind"}
+
+// The marks of the kinds of file, by extension; a folder has its own, and
+// what gloss cannot open has none.
+var kindMarks = map[string]string{
+	".png": "📷", ".jpg": "📷", ".jpeg": "📷", ".gif": "📷", ".webp": "📷", ".bmp": "📷", ".tif": "📷", ".tiff": "📷", ".heic": "📷", ".heif": "📷", ".hif": "📷",
+	".svg": "🎨", ".pdf": "📕", ".stl": "🧊", ".3mf": "🧊",
+	".md": "📝", ".markdown": "📝", ".mdown": "📝", ".html": "📝", ".htm": "📝",
+	".json": "🧾", ".jsonl": "🧾", ".ndjson": "🧾", ".ipynb": "📓",
+	".docx": "📄", ".docm": "📄", ".xlsx": "📊", ".xlsm": "📊", ".csv": "📊", ".tsv": "📊",
+}
+
+// mark is what stands before a name in the listing, in place of its mode.
+func mark(e fs.DirEntry) string {
+	if e.IsDir() {
+		return "📁"
+	}
+	if m, ok := kindMarks[strings.ToLower(filepath.Ext(e.Name()))]; ok {
+		return m
+	}
+	return "  "
+}
+
+// ordering compares two files, or two folders, for the order named.
+func ordering(by int) func(a, b fs.DirEntry) int {
+	switch by {
+	case byDate:
+		return func(a, b fs.DirEntry) int {
+			ai, aErr := a.Info()
+			bi, bErr := b.Info()
+			if aErr != nil || bErr != nil {
+				return strings.Compare(a.Name(), b.Name())
+			}
+			if c := bi.ModTime().Compare(ai.ModTime()); c != 0 {
+				return c // Newest first.
+			}
+			return strings.Compare(a.Name(), b.Name())
+		}
+	case byKind:
+		return func(a, b fs.DirEntry) int {
+			if c := strings.Compare(kindOrder(a), kindOrder(b)); c != 0 {
+				return c
+			}
+			return strings.Compare(a.Name(), b.Name())
+		}
+	}
+	return nil
+}
+
+// The kinds in the order they are listed: pictures, drawings, documents,
+// meshes, text, data, notebooks, Word, and tables; the unmarked last.
+var kindRanks = []string{"📷", "🎨", "📕", "🧊", "📝", "🧾", "📓", "📄", "📊"}
+
+// kindOrder groups files by kind, then extension.
+func kindOrder(e fs.DirEntry) string {
+	rank := slices.Index(kindRanks, mark(e))
+	if rank < 0 {
+		rank = len(kindRanks)
+	}
+	return string(rune('a'+rank)) + strings.ToLower(filepath.Ext(e.Name()))
+}
 
 // opener browses the host's folders for a file to add to the session.
 type opener struct {
@@ -97,7 +166,7 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 		return nil
 	}
 	reads := &readLog{ReadDirFS: os.DirFS(string(filepath.Separator)).(fs.ReadDirFS), hide: m.hideUnsupported}
-	options := []picky.Option{picky.WithFS(reads)}
+	options := []picky.Option{picky.WithFS(reads), picky.WithMarker(mark), picky.WithSort(ordering(m.sortBy))}
 	if m.opts.Type == "" {
 		// Judged by name alone. A file without an extension may still be
 		// recognized by its content, so it is left for the taking.
@@ -131,6 +200,13 @@ func (m *Model) browse(msg tea.Msg) tea.Cmd {
 		_, err := document.Probe(path, forced)
 		return openResult{path: path, err: err}
 	})
+}
+
+// reorder lists the folder in the next order.
+func (m *Model) reorder() tea.Cmd {
+	m.sortBy = (m.sortBy + 1) % len(orderNames)
+	m.opener.picker.SetSort(ordering(m.sortBy))
+	return nil
 }
 
 func (m *Model) toggleUnsupported() tea.Cmd {

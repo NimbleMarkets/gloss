@@ -148,8 +148,13 @@ skipped, so globs stay safe.
 Files gloss cannot show are greyed and cannot be chosen; `Ctrl-T` hides them,
 and again shows them. They are judged by extension, so a file with none stays
 available: gloss may still recognize its content. With `--type`, nothing is
-greyed. The browser is [picky](https://github.com/pgavlin/picky); the embedded
-demo, which has no folders, does not offer it.
+greyed. Each file is marked by kind: 📁 folders, 📷 pictures, 🎨 SVG, 📕 PDF,
+🧊 meshes, 📝 Markdown and HTML, 🧾 JSON, 📓 notebooks, 📄 Word, 📊 tables.
+`Ctrl-S` changes the order: by name, by date with the newest first, or by
+kind; folders always come first, and the order is kept for the next browse.
+The browser is [picky](https://github.com/pgavlin/picky), carried in
+`internal/picky` with those two additions; the embedded demo, which has no
+folders, does not offer it.
 
 Press `e` to export what you are viewing: the current image, SVG, or PDF page,
 or a mesh from the camera's position. The PNG is rendered as `--output` would

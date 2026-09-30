@@ -412,3 +412,59 @@ func TestBrowseOptionNeedsAFilesystem(t *testing.T) {
 		t.Fatal("the embedded gallery has no folders to browse")
 	}
 }
+
+func TestOpenerMarksKindsInsteadOfModes(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"📁", "📷", "🎨"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("no %s in:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "-rw-") || strings.Contains(view, "drwx") {
+		t.Fatalf("modes are shown:\n%s", view)
+	}
+}
+
+func TestOpenerSortsByNameDateAndKind(t *testing.T) {
+	dir := folder(t)
+	// beta.svg is the newest, alpha.png the oldest.
+	old := time.Now().Add(-time.Hour)
+	if err := os.Chtimes(filepath.Join(dir, "alpha.png"), old, old); err != nil {
+		t.Fatal(err)
+	}
+	m := browsing(t, dir)
+	order := func() string {
+		var names []string
+		for _, line := range plain(m) {
+			for _, name := range []string{"alpha.png", "beta.svg", "trips"} {
+				if strings.Contains(line, name) {
+					names = append(names, name)
+				}
+			}
+		}
+		return strings.Join(names, " ")
+	}
+	status := func() string { return plain(m)[len(plain(m))-2] }
+	if order() != "trips alpha.png beta.svg" || !strings.Contains(status(), "by name") {
+		t.Fatalf("by name: %s · %s", order(), status())
+	}
+	send(m, tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	if order() != "trips beta.svg alpha.png" || !strings.Contains(status(), "by date") {
+		t.Fatalf("by date: %s · %s", order(), status())
+	}
+	send(m, tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl})
+	// Kinds are grouped: pictures before drawings.
+	if order() != "trips alpha.png beta.svg" || !strings.Contains(status(), "by kind") {
+		t.Fatalf("by kind: %s · %s", order(), status())
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Ctrl-S sort") {
+		t.Fatalf("hints: %s", hints)
+	}
+	// The order is kept for the next folder, and the next browse.
+	send(m, tea.KeyPressMsg{Code: tea.KeyEscape}, press("O"))
+	if !strings.Contains(status(), "by kind") {
+		t.Fatalf("after reopening: %s", status())
+	}
+}

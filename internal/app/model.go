@@ -96,6 +96,7 @@ type Model struct {
 	fields                   []document.Field
 	opener                   *opener
 	hideUnsupported          bool         // The browser's choice outlasts any one visit.
+	sortBy                   int          // The order the browser lists in; kept likewise.
 	quitting                 bool         // The view being drawn is the one left behind.
 	added                    []string     // What the user has handed over, by full path.
 	fetched                  []fetchedDoc // Files fetched from the web this session.
@@ -282,6 +283,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			case "ctrl+t":
 				return m, m.toggleUnsupported()
+			case "ctrl+s":
+				return m, m.reorder()
 			}
 			return m, m.browse(msg)
 		case tea.MouseMsg:
@@ -858,9 +861,9 @@ func (m *Model) View() tea.View {
 	}
 	if browsing {
 		// The end of a long path says where you are; the start rarely does.
-		dir, note := safe(m.opener.dir), ""
+		dir, note := safe(m.opener.dir), " · by "+orderNames[m.sortBy]
 		if m.note != "" {
-			note = " · " + m.note
+			note += " · " + m.note
 		}
 		if over := ansi.StringWidth(" Open · "+dir+note) - w; over > 0 && over+1 < ansi.StringWidth(dir) {
 			dir = "…" + ansi.TruncateLeft(dir, over+1, "")
@@ -870,7 +873,7 @@ func (m *Model) View() tea.View {
 		if m.hideUnsupported {
 			unsupported = "show all"
 		}
-		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-T "+unsupported+" · Esc cancel", w, "")
+		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-S sort · Ctrl-T "+unsupported+" · Esc cancel", w, "")
 	}
 	body = m.framed(body)
 	content := body + "\n" + bar + "\n" + hint

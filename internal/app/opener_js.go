@@ -10,6 +10,8 @@ type opener struct{ dir string }
 
 type openResult struct{}
 
+var orderNames = []string{"name", "date", "kind"}
+
 func (o *opener) view() string    { return "" }
 func (o *opener) resize(int, int) {}
 
@@ -18,4 +20,5 @@ func (m *Model) openBrowser() tea.Cmd       { return nil }
 func (m *Model) browse(tea.Msg) tea.Cmd     { return nil }
 func (m *Model) browseFrom(string) tea.Cmd  { return nil }
 func (m *Model) toggleUnsupported() tea.Cmd { return nil }
+func (m *Model) reorder() tea.Cmd           { return nil }
 func (m *Model) opened(openResult) tea.Cmd  { return nil }

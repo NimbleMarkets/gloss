@@ -3,6 +3,7 @@ module github.com/NimbleMarkets/gloss
 go 1.26.8
 
 require (
+	charm.land/bubbles/v2 v2.2.1
 	charm.land/bubbletea/v2 v2.0.10
 	charm.land/glamour/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.6
@@ -15,9 +16,9 @@ require (
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/coder/websocket v1.8.15
+	github.com/dustin/go-humanize v1.0.1
 	github.com/gen2brain/h265 v0.2.3
 	github.com/ledongthuc/pdf v0.0.0-20250511090121-5959a4027728
-	github.com/pgavlin/picky v0.0.0-20260512143253-8d4cf90d74f3
 	github.com/spf13/pflag v1.0.10
 	github.com/yuin/goldmark v1.8.2
 	golang.org/x/image v0.46.0
@@ -25,7 +26,6 @@ require (
 )
 
 require (
-	charm.land/bubbles/v2 v2.2.1 // indirect
 	github.com/JohannesKaufmann/dom v0.3.1 // indirect
 	github.com/NimbleMarkets/booba-shim v0.1.0 // indirect
 	github.com/NimbleMarkets/go-gpuimage v0.1.0 // indirect
@@ -47,7 +47,6 @@ require (
 	github.com/disintegration/imaging v1.6.2 // indirect
 	github.com/dlclark/regexp2 v1.11.0 // indirect
 	github.com/dunglas/httpsfv v1.1.2 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/go-webgpu/goffi v0.6.3 // indirect
 	github.com/go-webgpu/webgpu v0.5.5 // indirect
 	github.com/gogpu/gpucontext v0.31.3 // indirect
