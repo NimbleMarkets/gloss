@@ -111,3 +111,6 @@ pinned in `go.mod`; builds use `-mod=readonly`.
   paths must keep working without a TTY and write only the payload to stdout.
 - Fixtures in `examples/` are original; do not add third-party sample files
   without checking licensing (see `THIRD_PARTY_NOTICES.md`).
+- `skills/gloss/SKILL.md` teaches external agents gloss's headless surface
+  (export, `--info`, `--pick`, `--serve`, the app link). If you change
+  agent-facing flags, limits, or exit codes, update it in the same change.

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -209,5 +210,35 @@ func TestGlobSearchesFolders(t *testing.T) {
 	paths, err = expandGlobs([]string{dir}, []string{"*.stl"}, &stderr)
 	if err != nil || len(paths) != 0 || !strings.Contains(stderr.String(), "no match") {
 		t.Fatalf("no match: paths=%v err=%v stderr=%q", paths, err, stderr.String())
+	}
+}
+
+// The skill teaches agents the headless surface: every flag it names must
+// exist, and every headless flag must be named in it.
+func TestSkillMatchesTheFlags(t *testing.T) {
+	skill, err := os.ReadFile("../../skills/gloss/SKILL.md")
+	if err != nil {
+		t.Skip(err)
+	}
+	var help bytes.Buffer
+	parse([]string{"--help"}, &help)
+	for _, flag := range []string{"--output", "--output-dir", "--max-edge", "--vision-profile", "--page", "--dpi", "--type", "--view", "--camera", "--projection", "--parts", "--partn", "--color", "--info", "--json", "--pick", "--serve", "--prompt", "--timeout", "--glob"} {
+		if !bytes.Contains(skill, []byte(flag)) {
+			t.Errorf("the skill does not mention %s", flag)
+		}
+		if !bytes.Contains(help.Bytes(), []byte(flag)) {
+			t.Errorf("the skill's %s is not a flag", flag)
+		}
+	}
+	for _, flag := range regexp.MustCompile(`--[a-z][a-z-]+`).FindAll(skill, -1) {
+		if !bytes.Contains(help.Bytes(), flag) {
+			t.Errorf("the skill names %s, which gloss does not have", flag)
+		}
+	}
+	// What the skill says of the limits and the types is what gloss says.
+	for _, claim := range []string{"128 MiB", "1–4096", "text|markdown", "124 = timeout"} {
+		if !bytes.Contains(skill, []byte(claim)) {
+			t.Errorf("the skill no longer says %q", claim)
+		}
 	}
 }
