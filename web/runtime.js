@@ -34,8 +34,11 @@ async function tellLibrary() {
   if (!line || !library) return;
   const kept = await library.list();
   const size = kept.reduce((sum, f) => sum + f.size, 0);
-  line.textContent = kept.length ? `${kept.length} file${kept.length === 1 ? '' : 's'} kept in this browser (${(size / 2 ** 20).toFixed(1)} MiB)` : 'Nothing kept yet';
+  line.textContent = kept.length ? `${kept.length} file${kept.length === 1 ? '' : 's'} kept in this browser (${sizeText(size)})` : 'Nothing kept yet';
   $('#forget').hidden = kept.length === 0;
+}
+function sizeText(bytes) {
+  return bytes >= 2 ** 20 ? `${(bytes / 2 ** 20).toFixed(1)} MiB` : `${Math.max(1, Math.round(bytes / 1024))} KiB`;
 }
 async function open(names, contents, { keep = true } = {}) {
   if (typeof window.gloss_drop !== 'function') return notice('gloss is still loading.');
@@ -60,6 +63,11 @@ if (config.mode === 'app') {
   $('#open-folder')?.addEventListener('click', () => pickFolder(window, input).then(chosen, error => notice(error.message)));
   $('#forget')?.addEventListener('click', async () => { await library.forget(); await tellLibrary(); notice('The library is empty. Files already open stay until you restart.'); });
   await tellLibrary();
+  if (config.src && $('#notice')) {
+    // The bar takes its room before the terminal measures what is left.
+    $('#notice').textContent = `Fetching ${config.src}…`;
+    $('#notice').hidden = false;
+  }
 }
 
 try {
