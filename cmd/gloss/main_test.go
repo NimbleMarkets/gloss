@@ -134,3 +134,17 @@ func TestColumnFlags(t *testing.T) {
 		t.Fatalf("bad --coln: %v", err)
 	}
 }
+
+func TestPartFlags(t *testing.T) {
+	opts, _, err := parse([]string{"--parts", "Lid, hinge", "--partn", "1", "a.3mf"}, &bytes.Buffer{})
+	if err != nil || !slices.Equal(opts.Parts.Names, []string{"Lid", "hinge"}) || !slices.Equal(opts.Parts.Indexes, []int{1}) {
+		t.Fatalf("%+v %v", opts.Parts, err)
+	}
+	if _, _, err := parse([]string{"--partn", "0", "a.3mf"}, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "--partn") {
+		t.Fatalf("bad --partn: %v", err)
+	}
+	// Exports and descriptions carry the choice too.
+	if q := exportRequest(opts.Options, "a.3mf", 1); len(q.Parts.Names) != 2 {
+		t.Fatalf("export request: %+v", q.Parts)
+	}
+}

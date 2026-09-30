@@ -121,9 +121,10 @@ type Request struct {
 	Page, DPI  int
 	Generation uint64
 	Reload     bool
-	MaxEdge    int    // Export raster target; zero keeps interactive defaults.
-	Preview    bool   // A small, quick rendering is wanted: a thumbnail will do.
-	BaseDir    string // Relative Markdown assets; empty uses the source directory.
+	MaxEdge    int        // Export raster target; zero keeps interactive defaults.
+	Preview    bool       // A small, quick rendering is wanted: a thumbnail will do.
+	Parts      PartFilter // The parts of a 3MF to show; empty shows them all.
+	BaseDir    string     // Relative Markdown assets; empty uses the source directory.
 }
 
 type Result struct {
@@ -132,6 +133,8 @@ type Result struct {
 	Page, Pages int
 	Image       image.Image
 	Mesh        *Mesh
+	Parts       []Part                      // What a 3MF build places, for choosing among.
+	Assemble    func([]bool) (*Mesh, error) // The mesh of the parts marked, for a 3MF.
 	Markdown    *Markdown
 	Sheet       *Sheet         // One sheet of a workbook; Page and Pages count sheets.
 	Camera      *charts.Camera // Export view of a mesh, as the viewer has it; nil uses Views.
@@ -321,9 +324,14 @@ func (l *Loader) Load(q Request) (out Result) {
 			return out
 		}
 		shown := ""
+		out.Parts, out.Assemble = model.Parts, model.Assemble
+		chosen := q.Parts.Shown(model.Parts)
 		switch {
 		case q.Preview && model.Thumbnail != nil:
 			out.Image, shown = model.Thumbnail, "embedded thumbnail"
+		case chosen != nil:
+			out.Mesh, out.Err = model.Assemble(chosen)
+			shown = partsShown(model.Parts, chosen)
 		case model.Mesh != nil:
 			out.Mesh = model.Mesh
 		case model.Thumbnail != nil:

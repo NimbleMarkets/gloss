@@ -41,7 +41,9 @@ type Options struct {
 	// leaves the network alone, which is the default.
 	Fetch func(address string) (string, error)
 	// Columns picks the columns of every sheet to show; the rest are hidden.
-	Columns    document.ColumnFilter
+	Columns document.ColumnFilter
+	// Parts picks the parts of every 3MF to show; the rest are left out.
+	Parts      document.PartFilter
 	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
@@ -67,6 +69,10 @@ type Model struct {
 	zoom                     int
 	panX, panY               float64
 	triangles                int
+	parts                    []document.Part // What a 3MF build places, when a mesh is made of parts.
+	assemble                 func([]bool) (*document.Mesh, error)
+	partsShown               []bool // Which parts are on the chart; nil for all.
+	partPicker               *partPicker
 	menu                     bool
 	selection                int
 	preview                  *Model
@@ -154,16 +160,22 @@ func (m *Model) quit() tea.Cmd {
 	return tea.Quit
 }
 
+// request is what the loader is asked for the current file and page.
+func (m *Model) request(reload bool) document.Request {
+	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview, Parts: m.opts.Parts}
+	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
+		q.BaseDir = m.opts.MarkdownBase
+	}
+	return q
+}
+
 func (m *Model) load(reload bool) tea.Cmd {
 	if len(m.opts.Files) == 0 {
 		return nil
 	}
 	m.generation++
 	m.loading, m.err = true, nil
-	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview}
-	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
-		q.BaseDir = m.opts.MarkdownBase
-	}
+	q := m.request(reload)
 	preview := m.isPreview
 	return func() tea.Msg {
 		r := m.loader.Load(q)
@@ -312,6 +324,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.opened(v)
 	case fetchResult:
 		return m, m.fetchedFile(v)
+	case partsResult:
+		return m, m.assembled(v)
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -356,6 +370,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
 			m.chart.SetColorLegendVisible(false)
 			m.chart.SetSeries(v.Mesh)
+			m.parts, m.assemble, m.partsShown, m.partPicker = v.Parts, v.Assemble, nil, nil
 			m.home = charts.DefaultCamera()
 			switch {
 			case len(m.opts.Views) > 0:
@@ -396,7 +411,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyPressMsg:
 		m.note = ""
-		if k := v.String(); (k == "o" || k == "O") && !m.help && !m.pickingColumns() {
+		if k := v.String(); (k == "o" || k == "O") && !m.help && !m.pickingColumns() && !m.pickingParts() {
 			return m, m.openBrowser()
 		}
 		switch v.String() {
@@ -411,6 +426,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			if m.pickingColumns() {
 				m.sheet.picker = nil
+				return m, nil
+			}
+			if m.pickingParts() {
+				m.partPicker = nil
 				return m, nil
 			}
 			if !m.help && !m.info {
@@ -433,6 +452,20 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.menu {
 			return m, m.menuKey(v.String())
+		}
+		if m.pickingParts() {
+			if cmd, ok := m.partsKey(v.String()); ok {
+				return m, cmd
+			}
+		}
+		if m.hasParts() && !m.help && !m.menu {
+			switch v.String() {
+			case "c":
+				m.partPicker = &partPicker{}
+				return m, nil
+			case "X":
+				return m, m.showParts(nil, false)
+			}
 		}
 		if m.sheet != nil && m.sheet.key(v.String(), m.width, m.bodyHeight()-1) {
 			return m, nil
@@ -672,6 +705,10 @@ func (m *Model) View() tea.View {
 	if m.pickingColumns() && !m.help && !m.menu {
 		body = overlay(body, m.sheet.picker.view(m.sheet, w, h), w, 0)
 	}
+	if m.pickingParts() && !m.help && !m.menu {
+		// Below the mesh view's title row.
+		body = overlay(body, m.partsView(w, h-1), w, 1)
+	}
 	name := "no files"
 	if !empty {
 		name = safe(filepath.Base(m.opts.Files[m.index]))
@@ -698,6 +735,9 @@ func (m *Model) View() tea.View {
 	switch {
 	case m.chart != nil:
 		detail = fmt.Sprintf("%s · %d triangles · %s", strings.ToUpper(m.kind), m.triangles, mode)
+		if m.hasParts() && m.partsShown != nil {
+			detail += fmt.Sprintf(" · parts %d/%d", m.partsOnScreen(), len(m.parts))
+		}
 	case m.kind == "3mf":
 		// Too large to draw, or a preview: the picture the file carries.
 		detail = fmt.Sprintf("3MF · thumbnail · %s · %dx", mode, 1<<m.zoom)
@@ -750,10 +790,16 @@ func (m *Model) View() tea.View {
 	if empty {
 		keys = " q quit · ? help · i info"
 	}
+	if m.hasParts() {
+		keys += " · c parts"
+	}
+	if m.pickingParts() {
+		keys = " ↑/↓ select · Space show/hide · Enter focus · a all · n only · X all and close · Esc close"
+	}
 	if m.isFetched() {
 		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
 	}
-	if m.canBrowse() && !m.pickingColumns() {
+	if m.canBrowse() && !m.pickingColumns() && !m.pickingParts() {
 		keys += " · o browse"
 	}
 	if what := m.picking(); what != "" {

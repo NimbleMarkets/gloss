@@ -31,10 +31,21 @@ type Model3MF struct {
 	Thumbnail image.Image
 	Triangles int
 	Objects   int
+	Parts     []Part // What the build places, in its order.
 	Unit      string
 	metadata  map[string]string
 	bounds    math3d.AABB
 	area      float64
+	pkg       *package3MF
+	root      string
+	build     []placed3MF
+	settings  slicer3MF
+}
+
+// Part is one thing a 3MF build places: an object, with whatever it holds.
+type Part struct {
+	Name      string
+	Triangles int
 }
 
 func (m *Model3MF) triangles() int {
@@ -85,6 +96,7 @@ type triangle3MF struct {
 }
 
 type object3MF struct {
+	name       string
 	group      string
 	index      int
 	vertices   [][3]float64
@@ -136,7 +148,8 @@ func (p *package3MF) part(name string) (*part3MF, error) {
 // The standard has its own place for colors, which these slicers leave empty.
 type slicer3MF struct {
 	filaments []color.RGBA
-	extruders map[string]int // By "object" and "object/part"; filaments count from 1.
+	extruders map[string]int    // By "object" and "object/part"; filaments count from 1.
+	names     map[string]string // By object.
 }
 
 // color is that of the filament a part is printed in, where that is known.
@@ -154,7 +167,7 @@ func (s slicer3MF) color(object, part string) color.RGBA {
 // slicer reads those settings. They are a courtesy of one family of programs:
 // whatever is missing or malformed is passed over.
 func (p *package3MF) slicer() slicer3MF {
-	s := slicer3MF{extruders: map[string]int{}}
+	s := slicer3MF{extruders: map[string]int{}, names: map[string]string{}}
 	if data, err := p.read("Metadata/project_settings.config"); err == nil {
 		var project struct {
 			Colors []any `json:"filament_colour"`
@@ -188,6 +201,10 @@ func (p *package3MF) slicer() slicer3MF {
 			case "part":
 				part = attribute(e, "id")
 			case "metadata":
+				if attribute(e, "key") == "name" && object != "" && part == "" {
+					s.names[object] = strings.TrimSpace(attribute(e, "value"))
+					continue
+				}
 				extruder, err := strconv.Atoi(attribute(e, "value"))
 				if attribute(e, "key") != "extruder" || err != nil || object == "" {
 					continue
@@ -267,105 +284,53 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 			build = append(build, placed3MF{object: id, transform: identity3MF})
 		}
 	}
-	out := &Model3MF{Unit: model.unit, metadata: model.metadata}
-	objects := map[*object3MF]bool{}
-	settings := p.slicer()
-	// emit is given each object the build places, where it is placed, and
-	// the color for faces that name none.
-	type emit func(*part3MF, *object3MF, matrix3MF, color.RGBA) error
-	var walk func(at placed3MF, from, top string, transform matrix3MF, depth int, emit emit) error
-	walk = func(at placed3MF, from, top string, transform matrix3MF, depth int, emit emit) error {
-		if depth > max3MFDepth {
-			return fmt.Errorf("3MF objects nest too deeply, or within themselves")
-		}
-		if at.part != "" {
-			from = at.part
-		}
-		part, err := p.part(from)
-		if err != nil {
-			return err
-		}
-		object := part.objects[at.object]
-		if object == nil {
-			return fmt.Errorf("3MF places object %s, which it does not define", at.object)
-		}
-		transform = at.transform.then(transform)
-		if err := emit(part, object, transform, settings.color(top, at.object)); err != nil {
-			return err
-		}
-		for _, c := range object.components {
-			if err := walk(c, from, top, transform, depth+1, emit); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
-	each := func(emit emit) error {
-		for _, item := range build {
-			if err := walk(item, root, item.object, identity3MF, 0, emit); err != nil {
-				return err
-			}
-		}
-		return nil
-	}
+	out := &Model3MF{Unit: model.unit, metadata: model.metadata, pkg: p, root: root, build: build, settings: p.slicer()}
 	// Count before building: a model over the limit is measured, not stored.
-	err = each(func(_ *part3MF, o *object3MF, _ matrix3MF, _ color.RGBA) error {
-		// An object that only holds others is not counted among them.
-		if len(o.triangles) > 0 {
-			objects[o] = true
+	objects := map[*object3MF]bool{}
+	for _, item := range build {
+		// A slicer's name for the object, else the model's own, else its id.
+		part, named := Part{Name: out.settings.names[item.object]}, false
+		err := out.walk(item, root, item.object, identity3MF, 0, func(_ *part3MF, o *object3MF, _ matrix3MF, _ color.RGBA) error {
+			if !named {
+				part.Name, named = cmp.Or(part.Name, o.name), true
+			}
+			// An object that only holds others is not counted among them.
+			if len(o.triangles) > 0 {
+				objects[o] = true
+			}
+			if part.Triangles += len(o.triangles); out.Triangles+part.Triangles > 64<<20 {
+				return fmt.Errorf("3MF has too many triangles to count")
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		if out.Triangles += len(o.triangles); out.Triangles > 64<<20 {
-			return fmt.Errorf("3MF has too many triangles to count")
+		if part.Name == "" {
+			part.Name = "Object " + item.object
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
+		out.Triangles += part.Triangles
+		out.Parts = append(out.Parts, part)
 	}
 	if out.Objects = len(objects); out.Triangles == 0 {
 		return nil, fmt.Errorf("3MF contains no triangles")
 	}
-	mesh := &Mesh{}
-	if out.Triangles > maxTriangles {
-		mesh = nil
-	}
-	err = each(func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {
-		mirrored := transform.mirrors()
-		for _, t := range o.triangles {
-			var v [3]math3d.Vec3
-			for i, index := range t.v {
-				x, y, z := transform.apply(o.vertices[index][0], o.vertices[index][1], o.vertices[index][2])
-				v[i] = math3d.Vec3{X: float32(x), Y: float32(y), Z: float32(z)}
-			}
-			if mirrored {
-				v[1], v[2] = v[2], v[1]
-			}
-			if mesh != nil {
-				shade := plain
-				group, index := o.group, o.index
-				if t.group != "" {
-					group, index = t.group, t.index
-				}
-				if colors := part.colors[group]; index >= 0 && index < len(colors) {
-					shade = colors[index]
-				}
-				if err := mesh.add(v, shade); err != nil {
-					return fmt.Errorf("3MF vertex: %w", err)
-				}
-				continue
-			}
+	if out.Triangles <= maxTriangles {
+		if out.Mesh, err = out.Assemble(nil); err != nil {
+			return nil, err
+		}
+		out.bounds, out.area = out.Mesh.geometry.Bounds, out.Mesh.area()
+	} else {
+		err = out.each(nil, func(_ *part3MF, _ *object3MF, v [3]math3d.Vec3, _ color.RGBA) error {
 			for _, corner := range v {
 				out.bounds.Include(corner)
 			}
 			out.area += triangleArea(v)
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	if out.Mesh = mesh; mesh != nil {
-		out.bounds, out.area = mesh.geometry.Bounds, mesh.area()
 	}
 	// A slicer's rendering of the plate stands in for the model better than
 	// the picture the package declares, which may be a photograph of a print.
@@ -381,6 +346,133 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 		}
 	}
 	return out, nil
+}
+
+// walk gives emit each object placed by at, where it is placed, and the
+// color for faces that name none; then the objects it holds, likewise.
+func (m *Model3MF) walk(at placed3MF, from, top string, transform matrix3MF, depth int, emit func(*part3MF, *object3MF, matrix3MF, color.RGBA) error) error {
+	if depth > max3MFDepth {
+		return fmt.Errorf("3MF objects nest too deeply, or within themselves")
+	}
+	if at.part != "" {
+		from = at.part
+	}
+	part, err := m.pkg.part(from)
+	if err != nil {
+		return err
+	}
+	object := part.objects[at.object]
+	if object == nil {
+		return fmt.Errorf("3MF places object %s, which it does not define", at.object)
+	}
+	transform = at.transform.then(transform)
+	if err := emit(part, object, transform, m.settings.color(top, at.object)); err != nil {
+		return err
+	}
+	for _, c := range object.components {
+		if err := m.walk(c, from, top, transform, depth+1, emit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// each gives emit every triangle of the parts marked in shown, all of them
+// when shown is nil, placed and wound as the build has them, with the
+// color of the face.
+func (m *Model3MF) each(shown []bool, emit func(*part3MF, *object3MF, [3]math3d.Vec3, color.RGBA) error) error {
+	for i, item := range m.build {
+		if shown != nil && (i >= len(shown) || !shown[i]) {
+			continue
+		}
+		err := m.walk(item, m.root, item.object, identity3MF, 0, func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {
+			mirrored := transform.mirrors()
+			for _, t := range o.triangles {
+				var v [3]math3d.Vec3
+				for i, index := range t.v {
+					x, y, z := transform.apply(o.vertices[index][0], o.vertices[index][1], o.vertices[index][2])
+					v[i] = math3d.Vec3{X: float32(x), Y: float32(y), Z: float32(z)}
+				}
+				if mirrored {
+					v[1], v[2] = v[2], v[1]
+				}
+				shade := plain
+				group, index := o.group, o.index
+				if t.group != "" {
+					group, index = t.group, t.index
+				}
+				if colors := part.colors[group]; index >= 0 && index < len(colors) {
+					shade = colors[index]
+				}
+				if err := emit(part, o, v, shade); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Assemble builds the mesh of the parts marked in shown, or of all of them
+// when shown is nil. The triangle limit applies to what is shown, so a
+// model too large whole may still be seen part by part.
+func (m *Model3MF) Assemble(shown []bool) (*Mesh, error) {
+	triangles := 0
+	for i, part := range m.Parts {
+		if shown == nil || (i < len(shown) && shown[i]) {
+			triangles += part.Triangles
+		}
+	}
+	if triangles == 0 {
+		return nil, fmt.Errorf("no parts shown")
+	}
+	if triangles > maxTriangles {
+		return nil, fmt.Errorf("3MF parts have %s triangles; the limit is %s", grouped(triangles), grouped(maxTriangles))
+	}
+	mesh := &Mesh{}
+	err := m.each(shown, func(_ *part3MF, _ *object3MF, v [3]math3d.Vec3, shade color.RGBA) error {
+		if err := mesh.add(v, shade); err != nil {
+			return fmt.Errorf("3MF vertex: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return mesh, nil
+}
+
+// partNames lists the parts marked in shown, all of them when it is nil,
+// by name, up to a sensible number.
+func partNames(parts []Part, shown []bool) string {
+	var names []string
+	for i, part := range parts {
+		if shown == nil || (i < len(shown) && shown[i]) {
+			names = append(names, part.Name)
+		}
+	}
+	if len(parts) < 2 && shown == nil {
+		return ""
+	}
+	if len(names) > 12 {
+		return strings.Join(names[:12], ", ") + fmt.Sprintf(", and %d more", len(names)-12)
+	}
+	return strings.Join(names, ", ")
+}
+
+// partsShown says which parts a filter kept, for the info box.
+func partsShown(parts []Part, shown []bool) string {
+	n := 0
+	for _, s := range shown {
+		if s {
+			n++
+		}
+	}
+	return fmt.Sprintf("%s, %d of %d parts", partNames(parts, shown), n, len(parts))
 }
 
 func attribute(e xml.StartElement, name string) string {
@@ -463,7 +555,7 @@ func parsePart3MF(data []byte) (*part3MF, error) {
 				}
 				part.colors[group] = append(part.colors[group], shade)
 			case "object":
-				object = &object3MF{group: attribute(e, "pid"), index: -1}
+				object = &object3MF{name: strings.TrimSpace(attribute(e, "name")), group: attribute(e, "pid"), index: -1}
 				if index, err := strconv.Atoi(attribute(e, "pindex")); err == nil {
 					object.index = index
 				}
@@ -560,7 +652,7 @@ func (m *Model3MF) fields(shown string) []Field {
 	return Section("Model", Field{"Format", "3MF"}, Field{"Title", meta("Title")}, Field{"Designer", meta("Designer")}, Field{"Description", meta("Description")},
 		Field{"Application", meta("Application")}, Field{"Created", meta("CreationDate")}, Field{"Changed", meta("ModificationDate")},
 		Field{"License", cmp.Or(meta("LicenseTerms"), meta("License"))}, Field{"Copyright", meta("Copyright")},
-		Field{"Objects", grouped(m.Objects)}, Field{"Triangles", grouped(m.Triangles)},
+		Field{"Objects", grouped(m.Objects)}, Field{"Parts", partNames(m.Parts, nil)}, Field{"Triangles", grouped(m.Triangles)},
 		Field{"Extent", strings.TrimSpace(number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z)) + " " + unit)},
 		Field{"Surface area", area}, Field{"Thumbnail", thumbnail}, Field{"Shown", shown})
 }

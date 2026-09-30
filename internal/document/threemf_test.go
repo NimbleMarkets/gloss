@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -419,5 +420,98 @@ func TestDamagedSlicerSettingsAreIgnored(t *testing.T) {
 		if name == "plate is not a picture" && m.Thumbnail.Bounds().Dx() != 3 {
 			t.Errorf("%s: the declared thumbnail was not used instead: %v", name, m.Thumbnail.Bounds())
 		}
+	}
+}
+
+// An assembly of three placed parts: two named objects and one that only
+// a slicer's settings name.
+func assembly3MF(t *testing.T) []byte {
+	t.Helper()
+	return archive3MF(t, map[string]string{
+		"3D/3dmodel.model": model3MF(`unit="millimeter"`,
+			`<resources>
+			 <object id="1" name="Base">`+tetrahedron+`</object>
+			 <object id="2" name="Lid">`+tetrahedron+`</object>
+			 <object id="3">`+tetrahedron+`</object>
+			 </resources>
+			 <build>
+			 <item objectid="1"/>
+			 <item objectid="2" transform="1 0 0 0 1 0 0 0 1 10 0 0"/>
+			 <item objectid="3" transform="1 0 0 0 1 0 0 0 1 20 0 0"/>
+			 </build>`),
+		"Metadata/model_settings.config": `<?xml version="1.0"?><config>
+			 <object id="3"><metadata key="name" value="Hinge"/></object></config>`,
+	})
+}
+
+func TestPartsOf3MF(t *testing.T) {
+	m, err := Parse3MF(assembly3MF(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(m.Parts) != 3 || m.Parts[0].Name != "Base" || m.Parts[1].Name != "Lid" || m.Parts[2].Name != "Hinge" || m.Parts[2].Triangles != 4 {
+		t.Fatalf("parts: %+v", m.Parts)
+	}
+	// The mesh built for one part is that part alone, where it is placed.
+	mesh, err := m.Assemble([]bool{false, true, false})
+	if err != nil {
+		t.Fatal(err)
+	}
+	g, _ := mesh.Geometry(nil)
+	if mesh.Triangles() != 4 || g.Bounds.Min.X != 10 || g.Bounds.Max.X != 11 {
+		t.Fatalf("lid: triangles=%d bounds=%+v", mesh.Triangles(), g.Bounds)
+	}
+	if whole, err := m.Assemble(nil); err != nil || whole.Triangles() != 12 {
+		t.Fatalf("whole: %v %v", whole, err)
+	}
+	if _, err := m.Assemble([]bool{false, false, false}); err == nil {
+		t.Fatal("assembled nothing")
+	}
+	// A part with no name is named after its object.
+	m, err = Parse3MF(simple3MF(t))
+	if err != nil || len(m.Parts) != 1 || m.Parts[0].Name != "Object 1" {
+		t.Fatalf("%+v %v", m.Parts, err)
+	}
+}
+
+func TestPartFilter(t *testing.T) {
+	m, err := Parse3MF(assembly3MF(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tt := range []struct {
+		names, indexes string
+		shown          []bool
+	}{
+		{names: "lid, hinge", shown: []bool{false, true, true}},
+		{indexes: "1,3", shown: []bool{true, false, true}},
+		{names: "nope", shown: nil},
+		{shown: nil},
+	} {
+		f, err := ParseParts(tt.names, tt.indexes)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := f.Shown(m.Parts); !slices.Equal(got, tt.shown) {
+			t.Errorf("%q %q: %v, want %v", tt.names, tt.indexes, got, tt.shown)
+		}
+	}
+	if _, err := ParseParts("", "x"); err == nil {
+		t.Fatal("accepted a bad number")
+	}
+}
+
+func TestLoaderShowsTheAskedForParts(t *testing.T) {
+	path := write(t, "assembly.3mf", assembly3MF(t))
+	l := &Loader{}
+	defer l.Close()
+	r := l.Load(Request{Path: path, Page: 1, Generation: 1, Parts: PartFilter{Names: []string{"Lid"}}})
+	if r.Err != nil || r.Mesh == nil || r.Mesh.Triangles() != 4 || len(r.Parts) != 3 || r.Assemble == nil {
+		t.Fatalf("%+v", r)
+	}
+	expect(t, r.Info, map[string]string{"Parts": "Base, Lid, Hinge", "Shown": "Lid, 1 of 3 parts"})
+	r = l.Load(Request{Path: path, Page: 1, Generation: 2})
+	if r.Err != nil || r.Mesh.Triangles() != 12 || field(r.Info, "Shown") != "" {
+		t.Fatalf("%+v", r)
 	}
 }

@@ -108,6 +108,8 @@ gloss photo.png drawing.svg model.stl -mP
 | `i` | Show or hide a box of details about the current file and the terminal |
 | `r` | Toggle mesh auto-rotation; reload other formats |
 | `5` | Toggle mesh orthographic / perspective projection |
+| `c` | List the parts of a 3MF: `Space` shows or hides one, `Enter` focuses on it, `a` all, `n` only it |
+| `X` | Show every part of a 3MF again |
 | Drag / Shift-drag / wheel | Mesh (STL, 3MF) orbit / pan / zoom |
 | Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
 
@@ -163,7 +165,7 @@ and modification time, followed by:
 | SVG | Declared size, view box, title, description, element count |
 | PDF | Version, page count, size of the current page, title, author, subject, keywords, creator, producer, dates |
 | STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
-| 3MF | Title, designer, description, application, dates, license, object and triangle counts, extent and surface area in the file's unit, thumbnail size |
+| 3MF | Title, designer, description, application, dates, license, object and triangle counts, the parts by name, extent and surface area in the file's unit, thumbnail size |
 | Markdown | Title, lines, words, headings, links, images |
 | Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
 | Excel | Sheets with their size, title, author, dates, application |
@@ -287,6 +289,7 @@ gloss --output sheet.png --view all --vision-profile claude-high model.3mf
 gloss --output sheet.png --view iso,front,top,right model.stl
 gloss --output posed.png --camera 20,-120 --projection perspective model.stl
 gloss --view top model.stl       # the viewer starts there; f returns to it
+gloss --parts head --view iso -o head.png assembly.3mf   # one part of a project
 ```
 
 `--view` names where a mesh is seen from: `front`, `back`, `left`, `right`,
@@ -373,6 +376,13 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   size for Kitty output, smaller only while its frames are slow, and samples
   meshes above 20,000 triangles; wireframe samples above 2,000 triangles, so
   large models can lose detail in fallback modes.
+- 3MF parts: what the build places is listed by name, from the model or the
+  slicer's settings, and `c` opens that list over the mesh: `Space` shows or
+  hides a part, `Enter` shows it alone with the camera fitted to it, `n` keeps
+  only it, `a` and `X` bring all back. `--parts name,name` and `--partn 2,4-6`
+  choose parts for the viewer, an export, or `--info`, so an agent can pose
+  one part of an assembly. The triangle limit applies to the parts shown, so a
+  project too large to draw whole can be seen part by part.
 - 3MF: the core specification's meshes, components, and build transforms;
   colors from base materials and color groups; objects kept in separate parts
   of the package, as slicers write them. Projects from Bambu Studio and its

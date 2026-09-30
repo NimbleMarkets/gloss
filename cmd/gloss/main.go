@@ -57,6 +57,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
 	f.StringVar(&opts.Prompt, "prompt", "", "show this request to the user in a box, to say what to pick or look at")
 	promptLoc := f.String("prompt-loc", "bottom", "where the prompt box goes: bottom or top")
+	parts := f.String("parts", "", "show only these parts of a 3MF, by name: name,name")
+	partn := f.String("partn", "", "show only these parts of a 3MF, counted from 1: 2,4-6")
 	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
 	coln := f.String("coln", "", "show only these columns of a table, counted from 1: 2,4-6")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
@@ -110,6 +112,9 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	opts.Files = f.Args()
 	var err error
 	if opts.Columns, err = document.ParseColumns(*cols, *coln); err != nil {
+		return opts, false, err
+	}
+	if opts.Parts, err = document.ParseParts(*parts, *partn); err != nil {
 		return opts, false, err
 	}
 	switch {

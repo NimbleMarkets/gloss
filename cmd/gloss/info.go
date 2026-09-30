@@ -40,7 +40,7 @@ func describe(opts options, stdout, stderr io.Writer) error {
 		if kind, err := document.Probe(path, opts.Type); err != nil {
 			d.Error = document.SkipReason(err)
 		} else {
-			r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, Generation: uint64(i + 1)})
+			r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, Generation: uint64(i + 1), Parts: opts.Parts})
 			if d.Kind, d.fields = r.Kind, r.Info; d.Kind == "" {
 				d.Kind = kind
 			}

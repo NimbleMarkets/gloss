@@ -13,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
+	"github.com/charmbracelet/x/ansi"
 )
 
 const facet = "solid t\nfacet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\nendsolid t\n"
@@ -89,5 +90,86 @@ func Test3MFExportsFromTheCamera(t *testing.T) {
 	send(m, press("e"))
 	if len(out.names) != 1 || out.names[0] != "part.png" || out.images[0].Bounds().Dx() != 64 || out.images[0].Bounds().Dy() != 64 {
 		t.Fatalf("names=%q note=%q", out.names, m.note)
+	}
+}
+
+// assembled shows a three-part model whose parts are one triangle each.
+func assembled(t *testing.T) (*Model, *[]bool) {
+	t.Helper()
+	var last []bool
+	assemble := func(shown []bool) (*document.Mesh, error) {
+		last = shown
+		n := 3
+		if shown != nil {
+			n = 0
+			for _, s := range shown {
+				if s {
+					n++
+				}
+			}
+		}
+		if n == 0 {
+			return nil, fmt.Errorf("no parts shown")
+		}
+		face := "facet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 0\nendloop\nendfacet\n"
+		return document.ParseSTL([]byte("solid t\n" + strings.Repeat(face, n) + "endsolid t\n"))
+	}
+	mesh, _ := assemble(nil)
+	m := viewing(t, Options{Files: []string{"assembly.3mf"}, Render3D: "software"}, "")
+	send(m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	m.Update(document.Result{Generation: m.generation, Kind: "3mf", Page: 1, Pages: 1, Mesh: mesh,
+		Parts: []document.Part{{Name: "Base", Triangles: 1}, {Name: "Lid", Triangles: 1}, {Name: "Hinge", Triangles: 1}}, Assemble: assemble})
+	if m.chart == nil {
+		t.Fatalf("no chart: err=%v generation=%d loading=%v kind=%q", m.err, m.generation, m.loading, m.kind)
+	}
+	return m, &last
+}
+
+func TestPartsOf3MFCanBeHiddenAndFocused(t *testing.T) {
+	m, last := assembled(t)
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "c parts") {
+		t.Fatalf("hints: %s", hints)
+	}
+	send(m, press("c"))
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"[x] 1  Base", "[x] 2  Lid", "[x] 3  Hinge", "1 △"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("missing %q in the picker:\n%s", want, view)
+		}
+	}
+	// Untick the lid: the mesh is rebuilt without it.
+	send(m, press("j"), press(" "))
+	if *last == nil || (*last)[1] || m.triangles != 2 || !strings.Contains(ansi.Strip(m.View().Content), "[ ] 2  Lid") {
+		t.Fatalf("after hiding the lid: shown=%v triangles=%d", *last, m.triangles)
+	}
+	if !strings.Contains(plain(m)[len(plain(m))-2], "parts 2/3") {
+		t.Fatalf("status: %s", plain(m)[len(plain(m))-2])
+	}
+	// Enter focuses the part under the cursor, alone.
+	send(m, press("j"), enter)
+	if *last == nil || (*last)[0] || (*last)[1] || !(*last)[2] || m.triangles != 1 {
+		t.Fatalf("after focusing the hinge: shown=%v triangles=%d", *last, m.triangles)
+	}
+	// The last part cannot be hidden; X brings them all back and closes.
+	send(m, press(" "))
+	if m.triangles != 1 {
+		t.Fatal("the last part was hidden")
+	}
+	send(m, press("X"))
+	if m.triangles != 3 || m.pickingParts() {
+		t.Fatalf("after X: triangles=%d picking=%v", m.triangles, m.pickingParts())
+	}
+	send(m, press("c"), tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.pickingParts() {
+		t.Fatal("Esc did not close the picker")
+	}
+}
+
+func TestPartsOptionAppliesToAMeshOnLoad(t *testing.T) {
+	filter, _ := document.ParseParts("hinge", "")
+	m := viewing(t, Options{Files: []string{"assembly.3mf"}, Parts: filter, Render3D: "software"}, "")
+	q := m.request(false)
+	if len(q.Parts.Names) != 1 || q.Parts.Names[0] != "hinge" {
+		t.Fatalf("request: %+v", q.Parts)
 	}
 }
