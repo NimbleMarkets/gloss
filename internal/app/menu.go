@@ -34,7 +34,7 @@ func (m *Model) resizePreview() tea.Cmd {
 }
 
 func (m *Model) updatePreview() tea.Cmd {
-	if m.previewWidth() == 0 {
+	if m.previewWidth() == 0 || m.thumbs {
 		return nil
 	}
 	var cleanup tea.Cmd
@@ -75,6 +75,9 @@ func (m *Model) openMenu(selection int) tea.Cmd {
 	if m.chart != nil {
 		camera := m.chart.Camera()
 		m.savedCamera = &camera
+	}
+	if m.thumbs {
+		return tea.Sequence(m.clearGraphics(), m.openGrid())
 	}
 	return tea.Sequence(m.clearGraphics(), m.updatePreview())
 }
@@ -131,11 +134,18 @@ func (m *Model) previewMouse(msg tea.MouseMsg) tea.Cmd {
 }
 
 func (m *Model) menuKey(k string) tea.Cmd {
+	if m.thumbs && m.grid != nil {
+		if cmd, ok := m.gridKey(k); ok {
+			return cmd
+		}
+	}
 	switch k {
 	case "enter":
 		return m.closeMenu(true)
 	case "m":
 		return m.closeMenu(false)
+	case "t":
+		return m.openGrid()
 	case "v":
 		m.opts.Preview = !m.opts.Preview
 		if !m.opts.Preview && m.preview != nil {
@@ -162,6 +172,9 @@ func (m *Model) menuKey(k string) tea.Cmd {
 }
 
 func (m *Model) menuView() string {
+	if m.thumbs && m.grid != nil {
+		return m.pic.View().Content
+	}
 	w, h := max(1, m.width), m.bodyHeight()
 	pw := m.previewWidth()
 	if pw > 0 {

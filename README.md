@@ -92,6 +92,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `q`, `Ctrl-C` | Quit |
 | `?`, `Esc` | Show help / dismiss help |
 | `Esc` | Back to the file list, with previews, from a document |
+| `t` | In the file list, show the files as a grid of thumbnails, and back |
 | `m` | Open the file-selection menu |
 | `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
@@ -130,7 +131,12 @@ reduced DPI; mesh previews are drawn as the viewer draws them, and 3MF previews 
 picture the file carries, when it has one: a slicer's rendering of the plate
 if there is one, otherwise the declared thumbnail. The pane appears in terminals
 at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
-`--preview` starts there with previews enabled.
+`--preview` starts there with previews enabled. `t` in the list shows the
+files as a grid of thumbnails instead: one picture, made from each file's own
+as they are drawn in turn, with the file's kind standing in where it has
+none. Arrows move about it, `Enter` opens, a click selects and a second click
+opens, and `t` returns to the list. `Esc` from a document comes back to
+whichever style was last used.
 
 Drag files from a file manager onto the terminal to add them to the list.
 Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text

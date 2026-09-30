@@ -95,8 +95,10 @@ type Model struct {
 	info                     bool   // The details box floats over the document.
 	fields                   []document.Field
 	opener                   *opener
-	hideUnsupported          bool         // The browser's choice outlasts any one visit.
-	sortBy                   int          // The order the browser lists in; kept likewise.
+	hideUnsupported          bool // The browser's choice outlasts any one visit.
+	sortBy                   int  // The order the browser lists in; kept likewise.
+	thumbs                   bool // The list is shown as a grid of thumbnails.
+	grid                     *grid
 	noTextFiles              bool         // The browser sets text files aside; kept likewise.
 	quitting                 bool         // The view being drawn is the one left behind.
 	added                    []string     // What the user has handed over, by full path.
@@ -307,6 +309,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.help {
 			return m, nil
 		}
+		if m.thumbs && m.grid != nil {
+			return m, m.gridMouse(mouse)
+		}
 		return m, m.previewMouse(mouse)
 	}
 	switch v := msg.(type) {
@@ -319,7 +324,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width, m.height = max(1, v.Width), max(1, v.Height)
 		m.opener.resize(m.width, m.bodyHeight())
-		cmd := tea.Batch(m.pic.SetSize(m.width, m.bodyHeight()), m.resizePreview(), m.layoutMarkdown())
+		cmd := tea.Batch(m.pic.SetSize(m.width, m.bodyHeight()), m.resizePreview(), m.layoutMarkdown(), m.layoutGrid())
 		if m.chart != nil {
 			return m, tea.Batch(cmd, m.chart.SetSize(m.width, m.bodyHeight()))
 		}
@@ -353,6 +358,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchedFile(v)
 	case partsResult:
 		return m, m.assembled(v)
+	case thumbResult:
+		return m, m.thumbnailMade(v)
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -718,6 +725,9 @@ func (m *Model) View() tea.View {
 		if m.preview != nil && m.previewWidth() > 0 {
 			mouse = m.preview.View().MouseMode
 		}
+		if m.thumbs && m.grid != nil {
+			mouse = tea.MouseModeCellMotion
+		}
 	case m.loading:
 		body = "Loading " + safe(filepath.Base(m.opts.Files[m.index])) + "…"
 	case m.err != nil:
@@ -877,7 +887,15 @@ func (m *Model) View() tea.View {
 			status += " · " + m.note
 		}
 		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
-		hint = ansi.Truncate(" ↑/↓ select · Enter open · Esc cancel · v preview · q quit", w, "")
+		hint = ansi.Truncate(" ↑/↓ select · Enter open · t thumbnails · v preview · Esc cancel · q quit", w, "")
+		if m.thumbs && m.grid != nil {
+			status = fmt.Sprintf(" Files · grid · %d/%d selected · current %d", m.selection+1, len(m.opts.Files), m.index+1)
+			if m.grid.pending() {
+				status += " · making thumbnails"
+			}
+			bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(status, w, ""))
+			hint = ansi.Truncate(" ←→↑↓ select · Enter open · t list · Esc cancel · q quit", w, "")
+		}
 	}
 	if browsing {
 		// The end of a long path says where you are; the start rarely does.
