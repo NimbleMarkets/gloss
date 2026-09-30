@@ -43,7 +43,9 @@ type Options struct {
 	// Columns picks the columns of every sheet to show; the rest are hidden.
 	Columns document.ColumnFilter
 	// Parts picks the parts of every 3MF to show; the rest are left out.
-	Parts      document.PartFilter
+	Parts document.PartFilter
+	// Color paints the faces of a mesh that its file left plain.
+	Color      *color.RGBA
 	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
@@ -73,6 +75,10 @@ type Model struct {
 	assemble                 func([]bool) (*document.Mesh, error)
 	partsShown               []bool // Which parts are on the chart; nil for all.
 	partPicker               *partPicker
+	mesh                     *document.Mesh // The mesh on the chart.
+	tint                     *color.RGBA    // Paint given to the mesh, if any.
+	tintAll                  bool           // On every face, not only the plain ones.
+	colorPicker              *colorPicker
 	menu                     bool
 	selection                int
 	preview                  *Model
@@ -116,7 +122,7 @@ func New(opts Options) *Model {
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := 100 + int(nextModelID.Add(1))*1000
-	m := &Model{opts: opts, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
+	m := &Model{opts: opts, tint: opts.Color, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph", menu: (opts.Menu || opts.Preview) && len(opts.Files) > 0}
 	if opts.Render == "kitty" {
 		m.pic.Toggle()
 	}
@@ -162,7 +168,7 @@ func (m *Model) quit() tea.Cmd {
 
 // request is what the loader is asked for the current file and page.
 func (m *Model) request(reload bool) document.Request {
-	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview, Parts: m.opts.Parts}
+	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview, Parts: m.opts.Parts, Color: m.tint}
 	if strings.HasPrefix(filepath.Base(q.Path), "gloss-stdin-") {
 		q.BaseDir = m.opts.MarkdownBase
 	}
@@ -370,7 +376,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}})
 			m.chart.SetColorLegendVisible(false)
 			m.chart.SetSeries(v.Mesh)
-			m.parts, m.assemble, m.partsShown, m.partPicker = v.Parts, v.Assemble, nil, nil
+			m.mesh = v.Mesh
+			m.parts, m.assemble, m.partsShown, m.partPicker, m.colorPicker = v.Parts, v.Assemble, nil, nil, nil
 			m.home = charts.DefaultCamera()
 			switch {
 			case len(m.opts.Views) > 0:
@@ -432,6 +439,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.partPicker = nil
 				return m, nil
 			}
+			if m.pickingColor() {
+				p := m.colorPicker
+				m.colorPicker = nil
+				if p.wasTint == nil {
+					return m, m.unpaint()
+				}
+				return m, m.paint(*p.wasTint, p.wasAll)
+			}
 			if !m.help && !m.info {
 				if cmd, ok := m.closeFetched(); ok {
 					return m, cmd
@@ -457,6 +472,15 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if cmd, ok := m.partsKey(v.String()); ok {
 				return m, cmd
 			}
+		}
+		if m.pickingColor() {
+			if cmd, ok := m.colorKey(v.String()); ok {
+				return m, cmd
+			}
+		}
+		if m.chart != nil && m.mesh != nil && v.String() == "C" && !m.help && !m.menu {
+			m.openColorPicker()
+			return m, nil
 		}
 		if m.hasParts() && !m.help && !m.menu {
 			switch v.String() {
@@ -709,6 +733,9 @@ func (m *Model) View() tea.View {
 		// Below the mesh view's title row.
 		body = overlay(body, m.partsView(w, h-1), w, 1)
 	}
+	if m.pickingColor() && !m.help && !m.menu {
+		body = overlay(body, m.colorView(w, h-1), w, 1)
+	}
 	name := "no files"
 	if !empty {
 		name = safe(filepath.Base(m.opts.Files[m.index]))
@@ -737,6 +764,9 @@ func (m *Model) View() tea.View {
 		detail = fmt.Sprintf("%s · %d triangles · %s", strings.ToUpper(m.kind), m.triangles, mode)
 		if m.hasParts() && m.partsShown != nil {
 			detail += fmt.Sprintf(" · parts %d/%d", m.partsOnScreen(), len(m.parts))
+		}
+		if m.tint != nil {
+			detail += fmt.Sprintf(" · painted #%02x%02x%02x", m.tint.R, m.tint.G, m.tint.B)
 		}
 	case m.kind == "3mf":
 		// Too large to draw, or a preview: the picture the file carries.
@@ -790,8 +820,14 @@ func (m *Model) View() tea.View {
 	if empty {
 		keys = " q quit · ? help · i info"
 	}
+	if m.chart != nil && m.mesh != nil {
+		keys = " q quit · ? help · m files · [/] files · f fit · 5 ortho · e export · i info · C color"
+	}
 	if m.hasParts() {
 		keys += " · c parts"
+	}
+	if m.pickingColor() {
+		keys = " Tab mode · ↑/↓ ←/→ choose · Space apply · r file's colors · Enter keep · Esc undo"
 	}
 	if m.pickingParts() {
 		keys = " ↑/↓ select · Space show/hide · Enter focus · a all · n only · X all and close · Esc close"
@@ -799,7 +835,7 @@ func (m *Model) View() tea.View {
 	if m.isFetched() {
 		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
 	}
-	if m.canBrowse() && !m.pickingColumns() && !m.pickingParts() {
+	if m.canBrowse() && !m.pickingColumns() && !m.pickingParts() && !m.pickingColor() {
 		keys += " · o browse"
 	}
 	if what := m.picking(); what != "" {

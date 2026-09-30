@@ -148,3 +148,19 @@ func TestPartFlags(t *testing.T) {
 		t.Fatalf("export request: %+v", q.Parts)
 	}
 }
+
+func TestColorFlag(t *testing.T) {
+	opts, _, err := parse([]string{"--color", "orange", "a.stl"}, &bytes.Buffer{})
+	if err != nil || opts.Color == nil || opts.Color.R != 255 || opts.Color.G != 140 {
+		t.Fatalf("%+v %v", opts.Color, err)
+	}
+	if q := exportRequest(opts.Options, "a.stl", 1); q.Color == nil {
+		t.Fatal("the export does not carry the color")
+	}
+	if opts, _, err := parse([]string{"a.stl"}, &bytes.Buffer{}); err != nil || opts.Color != nil {
+		t.Fatalf("default: %+v %v", opts.Color, err)
+	}
+	if _, _, err := parse([]string{"--color", "#zz", "a.stl"}, &bytes.Buffer{}); err == nil {
+		t.Fatal("accepted a bad color")
+	}
+}

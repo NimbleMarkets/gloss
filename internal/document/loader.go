@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"image"
+	"image/color"
 	"io"
 	"io/fs"
 	"math"
@@ -121,10 +122,11 @@ type Request struct {
 	Page, DPI  int
 	Generation uint64
 	Reload     bool
-	MaxEdge    int        // Export raster target; zero keeps interactive defaults.
-	Preview    bool       // A small, quick rendering is wanted: a thumbnail will do.
-	Parts      PartFilter // The parts of a 3MF to show; empty shows them all.
-	BaseDir    string     // Relative Markdown assets; empty uses the source directory.
+	MaxEdge    int         // Export raster target; zero keeps interactive defaults.
+	Preview    bool        // A small, quick rendering is wanted: a thumbnail will do.
+	Parts      PartFilter  // The parts of a 3MF to show; empty shows them all.
+	Color      *color.RGBA // Paint for the faces of a mesh that its file left plain.
+	BaseDir    string      // Relative Markdown assets; empty uses the source directory.
 }
 
 type Result struct {
@@ -343,6 +345,9 @@ func (l *Loader) Load(q Request) (out Result) {
 	default:
 		out.Image, out.Err = decodeRaster(data)
 		details = func() []Field { return imageFields(data) }
+	}
+	if out.Mesh != nil && q.Color != nil {
+		out.Mesh.Recolor(*q.Color, false)
 	}
 	return out
 }

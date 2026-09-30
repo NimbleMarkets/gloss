@@ -14,7 +14,7 @@ import (
 )
 
 func exportRequest(opts app.Options, path string, generation int) document.Request {
-	return document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(generation), Parts: opts.Parts}
+	return document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(generation), Parts: opts.Parts, Color: opts.Color}
 }
 
 // onCPU reports whether meshes are to be drawn without the GPU: --3d names

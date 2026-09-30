@@ -57,6 +57,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
 	f.StringVar(&opts.Prompt, "prompt", "", "show this request to the user in a box, to say what to pick or look at")
 	promptLoc := f.String("prompt-loc", "bottom", "where the prompt box goes: bottom or top")
+	paint := f.String("color", "", "paint the faces of a mesh its file left plain: #rrggbb or a name such as orange")
 	parts := f.String("parts", "", "show only these parts of a 3MF, by name: name,name")
 	partn := f.String("partn", "", "show only these parts of a 3MF, counted from 1: 2,4-6")
 	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
@@ -116,6 +117,13 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	}
 	if opts.Parts, err = document.ParseParts(*parts, *partn); err != nil {
 		return opts, false, err
+	}
+	if *paint != "" {
+		c, err := document.ParseColor(*paint)
+		if err != nil {
+			return opts, false, err
+		}
+		opts.Color = &c
 	}
 	switch {
 	case *promptLoc != "bottom" && *promptLoc != "top":

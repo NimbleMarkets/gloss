@@ -22,7 +22,11 @@ const MaxTriangles = charts.MaxMeshTriangles
 // maxTriangles is the limit in force. Tests lower it.
 var maxTriangles = MaxTriangles
 
-type Mesh struct{ geometry charts.Geometry }
+type Mesh struct {
+	geometry charts.Geometry
+	plain    []bool       // Per vertex: the file gave the face no color.
+	saved    []color.RGBA // The file's colors, while all faces are painted over.
+}
 
 func (m *Mesh) Name() string                                     { return "STL" }
 func (m *Mesh) Geometry(charts.Palette) (charts.Geometry, error) { return m.geometry, nil }
@@ -154,6 +158,7 @@ func (m *Mesh) add(v [3]math3d.Vec3, shade color.RGBA) error {
 	for _, p := range v {
 		m.geometry.Indices = append(m.geometry.Indices, uint32(len(m.geometry.Vertices)))
 		m.geometry.Vertices = append(m.geometry.Vertices, charts.Vertex{Position: p, Normal: n, Color: shade})
+		m.plain = append(m.plain, shade == meshColor)
 		m.geometry.Bounds.Include(p)
 	}
 	return nil
