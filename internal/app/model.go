@@ -664,7 +664,10 @@ func (m *Model) View() tea.View {
 		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
 	}
 	if m.sheet != nil {
-		detail = fmt.Sprintf("xlsx · sheet %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
+		detail = fmt.Sprintf("%s · %s", m.kind, m.sheet.status(w, h))
+		if m.kind == "xlsx" {
+			detail = fmt.Sprintf("xlsx · sheet %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
+		}
 	}
 	// A note comes before the detail: it is brief, and must not be cut.
 	if m.note != "" {
@@ -684,6 +687,9 @@ func (m *Model) View() tea.View {
 	}
 	if m.sheet != nil {
 		keys = " q quit · m files · ↑/↓ ←/→ scroll · Space/b page · n/p sheets · i info"
+		if m.kind != "xlsx" {
+			keys = " q quit · m files · ↑/↓ ←/→ scroll · Space/b page · n/p files · i info"
+		}
 	}
 	if empty {
 		keys = " q quit · ? help"

@@ -166,3 +166,15 @@ func TestWordDocumentIsNamedAsSuch(t *testing.T) {
 		t.Fatalf("status:\n%s", view)
 	}
 }
+
+func TestCSVIsShownAsASheetOfItsOwn(t *testing.T) {
+	m := viewing(t, Options{Files: []string{"sales.csv"}}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: &document.Sheet{Name: "sales", Rows: [][]string{{"a", "b"}}, Columns: 2, Delimiter: "comma"}})
+	view := ansi.Strip(m.View().Content)
+	if m.sheet == nil || !strings.Contains(view, "csv · row 1/1") || strings.Contains(view, "sheet 1/1") {
+		t.Fatalf("status:\n%s", view)
+	}
+	if lines := strings.Split(view, "\n"); !strings.Contains(lines[len(lines)-1], "n/p files") {
+		t.Fatalf("hint:\n%s", lines[len(lines)-1])
+	}
+}

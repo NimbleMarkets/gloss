@@ -1,7 +1,7 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, and Word and
-Excel files.
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, Word, Excel,
+and CSV files.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -60,7 +60,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -160,6 +160,7 @@ and modification time, followed by:
 | Markdown | Title, lines, words, headings, links, images |
 | Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
 | Excel | Sheets with their size, title, author, dates, application |
+| CSV | Separator, rows, columns |
 
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
@@ -365,6 +366,10 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   by their last result, and dates and times where a cell's style says so. Up to
   100,000 rows and 1,024 columns of a sheet are read; the rest are counted.
   Formatting, merged cells, charts, and pictures are not shown.
+- CSV (`.csv`, `.tsv`): shown as a sheet is. The separator is read from the
+  file: a comma, tab, semicolon, or pipe, whichever the first lines agree on;
+  a `.tsv` is read as tabs. Quoted values may hold the separator and line
+  breaks. Only the file's name says it is a table: text is not sniffed.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;

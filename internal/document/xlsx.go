@@ -18,6 +18,7 @@ const (
 // after its last cell with anything in it.
 type Sheet struct {
 	Name        string
+	Delimiter   string // Of a CSV: what set its values apart.
 	Rows        [][]string
 	Columns     int // The widest row.
 	MoreRows    int // Beyond the limit, and not read.

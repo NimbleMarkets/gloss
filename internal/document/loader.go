@@ -30,7 +30,7 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
 var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, Word, or Excel")
 var ErrNotRegular = errors.New("not a regular file")
@@ -249,6 +249,11 @@ func (l *Loader) Load(q Request) (out Result) {
 	case "stl":
 		out.Mesh, out.Err = ParseSTL(data)
 		details = func() []Field { return meshFields(data, out.Mesh) }
+	case "csv":
+		out.Sheet, out.Err = ReadCSV(q.Path, data)
+		if out.Sheet != nil {
+			details = out.Sheet.csvFields
+		}
 	case "docx":
 		details = func() []Field { return section("Document", Field{"Format", "Word document"}) }
 		doc, err := OpenWord(data)
@@ -445,6 +450,8 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "3mf", nil
 	case ".xlsx", ".xlsm":
 		return "xlsx", nil
+	case ".csv", ".tsv":
+		return "csv", nil
 	case ".docx", ".docm":
 		return "docx", nil
 	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
