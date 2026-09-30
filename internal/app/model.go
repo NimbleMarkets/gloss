@@ -467,10 +467,16 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, cmd
 				}
 			}
-			if !m.help {
+			switch {
+			case m.help:
+				m.help = false
+			case m.info:
 				m.info = false
+			case len(m.opts.Files) > 0 && !m.isPreview:
+				// Back to the list, with previews, from wherever the viewer is.
+				m.opts.Preview = true
+				return m, m.openMenu(m.index)
 			}
-			m.help = false
 			return m, nil
 		}
 		if len(m.opts.Files) == 0 && v.String() == "i" && !m.help {
@@ -666,7 +672,7 @@ func (m *Model) View() tea.View {
 	case m.help:
 		// Kept to 22 lines, the room a 24-row terminal leaves.
 		body = "gloss — a visual pager\n\n" +
-			"q / Ctrl-C     quit\n? / Esc        help / dismiss\n" +
+			"q / Ctrl-C     quit\n? / Esc        help / dismiss; Esc: file list\n" +
 			"] / [ / Tab    next / previous file\n" +
 			"m              file menu (v toggles preview)\n" +
 			"o              browse for a file to open\n" +

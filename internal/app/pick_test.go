@@ -126,3 +126,32 @@ func TestDropsArriveFromOutside(t *testing.T) {
 		t.Fatal("the preview listens for drops")
 	}
 }
+
+func TestEscapeReturnsToTheListWithPreviews(t *testing.T) {
+	m := viewing(t, Options{Files: []string{samples + "shapes.svg", samples + "readme.md"}}, "svg")
+	send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	send(m, escape)
+	if !m.menu || !m.opts.Preview || m.selection != 0 {
+		t.Fatalf("menu=%v preview=%v selection=%d", m.menu, m.opts.Preview, m.selection)
+	}
+	// Esc in the list leaves it, back to the document; the info box and
+	// the help take Esc first.
+	send(m, escape)
+	if m.menu {
+		t.Fatal("Esc did not leave the list")
+	}
+	send(m, press("i"), escape)
+	if m.menu || m.info {
+		t.Fatalf("menu=%v info=%v", m.menu, m.info)
+	}
+	send(m, press("?"), escape)
+	if m.menu || m.help {
+		t.Fatalf("menu=%v help=%v", m.menu, m.help)
+	}
+	// With no file there is no list to go to.
+	m = viewing(t, Options{}, "")
+	send(m, escape)
+	if m.menu {
+		t.Fatal("an empty session opened a list")
+	}
+}

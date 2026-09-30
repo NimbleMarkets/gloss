@@ -90,6 +90,7 @@ gloss photo.png drawing.svg model.stl -mP
 | --- | --- |
 | `q`, `Ctrl-C` | Quit |
 | `?`, `Esc` | Show help / dismiss help |
+| `Esc` | Back to the file list, with previews, from a document |
 | `m` | Open the file-selection menu |
 | `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |

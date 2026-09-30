@@ -273,10 +273,10 @@ func TestEscapeClosesAFetchedFileAndReturnsToItsCell(t *testing.T) {
 	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "cell B2") {
 		t.Fatalf("status: %s", status)
 	}
-	// Escape on a file that was not fetched closes nothing.
+	// Escape on a file that was not fetched closes nothing: it goes to the list.
 	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
-	if len(m.opts.Files) != 1 || m.sheet == nil {
-		t.Fatalf("files=%q sheet=%v", m.opts.Files, m.sheet != nil)
+	if len(m.opts.Files) != 1 || !m.menu {
+		t.Fatalf("files=%q menu=%v", m.opts.Files, m.menu)
 	}
 }
 
