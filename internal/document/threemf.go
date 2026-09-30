@@ -557,7 +557,7 @@ func (m *Model3MF) fields(shown string) []Field {
 	if unit != "" {
 		area += " " + unit + "²"
 	}
-	return section("Model", Field{"Format", "3MF"}, Field{"Title", meta("Title")}, Field{"Designer", meta("Designer")}, Field{"Description", meta("Description")},
+	return Section("Model", Field{"Format", "3MF"}, Field{"Title", meta("Title")}, Field{"Designer", meta("Designer")}, Field{"Description", meta("Description")},
 		Field{"Application", meta("Application")}, Field{"Created", meta("CreationDate")}, Field{"Changed", meta("ModificationDate")},
 		Field{"License", cmp.Or(meta("LicenseTerms"), meta("License"))}, Field{"Copyright", meta("Copyright")},
 		Field{"Objects", grouped(m.Objects)}, Field{"Triangles", grouped(m.Triangles)},

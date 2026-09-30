@@ -208,7 +208,7 @@ func exifFields(payload []byte) []Field {
 		settings = append(settings, fmt.Sprintf("%.3g mm", focal))
 	}
 	turned := map[float64]string{2: "mirrored", 3: "rotated 180°", 4: "flipped", 5: "mirrored, rotated 90° counterclockwise", 6: "rotated 90° clockwise", 7: "mirrored, rotated 90° clockwise", 8: "rotated 90° counterclockwise"}[orientation]
-	return section("Photo",
+	return Section("Photo",
 		Field{"Camera", model}, Field{"Lens", lens}, Field{"Taken", taken}, Field{"Exposure", strings.Join(settings, " · ")},
 		Field{"Orientation", turned}, Field{"Location", location}, Field{"Software", software}, Field{"Artist", artist}, Field{"Copyright", copyright})
 }

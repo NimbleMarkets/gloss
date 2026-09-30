@@ -105,7 +105,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
 | `e` | Export the current page as a PNG in the working directory |
-| `i` | Show or hide a box of details about the current file |
+| `i` | Show or hide a box of details about the current file and the terminal |
 | `r` | Toggle mesh auto-rotation; reload other formats |
 | `5` | Toggle mesh orthographic / perspective projection |
 | Drag / Shift-drag / wheel | Mesh (STL, 3MF) orbit / pan / zoom |
@@ -175,6 +175,13 @@ and modification time, followed by:
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
 you turn pages or change files. `i` or `Esc` closes it.
+
+The box ends with a `Terminal` section: the screen size in cells and, when the
+terminal has said, in pixels; whether pictures are drawn as glyphs or Kitty
+graphics and whether Kitty graphics were found to be supported; how meshes are
+rendered; the terminal program and multiplexer; and which screen is in use.
+With no file open, `i` shows that section alone, so `gloss` then `i` says what
+the terminal can do.
 
 ## Asking for a file
 

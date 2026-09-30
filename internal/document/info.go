@@ -22,8 +22,8 @@ import (
 // Field is one line of the info panel. A Field without a Value is a heading.
 type Field struct{ Label, Value string }
 
-// section drops the fields a file does not supply, and the heading with them.
-func section(heading string, fields ...Field) []Field {
+// Section drops the fields a file does not supply, and the heading with them.
+func Section(heading string, fields ...Field) []Field {
 	out := []Field{{Label: heading}}
 	for _, f := range fields {
 		// Values come from the file: keep each to one line of sensible length.
@@ -91,7 +91,7 @@ func fileFields(files fs.FS, path string, size int) []Field {
 	if strings.HasPrefix(filepath.Base(path), "gloss-stdin-") {
 		path, modified = "stdin", ""
 	}
-	return section("File", Field{"Path", path}, Field{"Size", byteSize(size)}, Field{"Modified", modified})
+	return Section("File", Field{"Path", path}, Field{"Size", byteSize(size)}, Field{"Modified", modified})
 }
 
 func imageFields(data []byte) []Field {
@@ -127,7 +127,7 @@ func imageFields(data []byte) []Field {
 			shade = "YCbCr"
 		}
 	}
-	return append(section("Image", Field{"Format", name}, Field{"Dimensions", dimensions}, Field{"Color", shade}), exifFields(exifPayload(format, data))...)
+	return append(Section("Image", Field{"Format", name}, Field{"Dimensions", dimensions}, Field{"Color", shade}), exifFields(exifPayload(format, data))...)
 }
 
 func svgFields(data []byte) []Field {
@@ -183,7 +183,7 @@ func svgFields(data []byte) []Field {
 	if elements >= limit {
 		count += "+"
 	}
-	return section("Drawing", Field{"Format", "SVG"}, Field{"Declared size", declared}, Field{"View box", box}, Field{"Title", title}, Field{"Description", desc}, Field{"Elements", count})
+	return Section("Drawing", Field{"Format", "SVG"}, Field{"Declared size", declared}, Field{"View box", box}, Field{"Title", title}, Field{"Description", desc}, Field{"Elements", count})
 }
 
 func pdfVersion(data []byte) string {
@@ -250,7 +250,7 @@ func pdfFields(reader *pdf.Reader, version string, pages, page int) []Field {
 	}
 	info := reader.Trailer().Key("Info")
 	text := func(key string) string { return info.Key(key).Text() }
-	return section("Document", Field{"Format", strings.TrimSpace("PDF " + version)}, Field{"Pages", strconv.Itoa(pages)}, Field{"Page size", size},
+	return Section("Document", Field{"Format", strings.TrimSpace("PDF " + version)}, Field{"Pages", strconv.Itoa(pages)}, Field{"Page size", size},
 		Field{"Title", text("Title")}, Field{"Author", text("Author")}, Field{"Subject", text("Subject")}, Field{"Keywords", text("Keywords")},
 		Field{"Creator", text("Creator")}, Field{"Producer", text("Producer")}, Field{"Created", pdfDate(text("CreationDate"))}, Field{"Changed", pdfDate(text("ModDate"))})
 }
@@ -276,7 +276,7 @@ func meshFields(data []byte, mesh *Mesh) []Field {
 	}, name)
 	extent := mesh.geometry.Bounds.Max.Sub(mesh.geometry.Bounds.Min)
 	// STL records no unit of length.
-	return section("Mesh", Field{"Format", format}, Field{"Name", name}, Field{"Triangles", grouped(mesh.Triangles())},
+	return Section("Mesh", Field{"Format", format}, Field{"Name", name}, Field{"Triangles", grouped(mesh.Triangles())},
 		Field{"Extent", number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z))}, Field{"Surface area", number(mesh.area())})
 }
 
@@ -324,6 +324,6 @@ func markdownFields(markdown *Markdown) []Field {
 		}
 		return strconv.Itoa(n)
 	}
-	return section("Text", Field{"Format", "Markdown"}, Field{"Title", title}, Field{"Lines", strconv.Itoa(lines)}, Field{"Words", strconv.Itoa(words)},
+	return Section("Text", Field{"Format", "Markdown"}, Field{"Title", title}, Field{"Lines", strconv.Itoa(lines)}, Field{"Words", strconv.Itoa(words)},
 		Field{"Headings", count(headings)}, Field{"Links", count(links)}, Field{"Images", count(images)})
 }

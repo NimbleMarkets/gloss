@@ -109,5 +109,5 @@ func (s *Sheet) csvFields() []Field {
 	case "pipe":
 		format = "Pipe-separated values"
 	}
-	return section("Table", Field{"Format", format}, Field{"Rows", grouped(len(s.Rows) + s.MoreRows)}, Field{"Columns", grouped(s.Columns + s.MoreColumns)})
+	return Section("Table", Field{"Format", format}, Field{"Rows", grouped(len(s.Rows) + s.MoreRows)}, Field{"Columns", grouped(s.Columns + s.MoreColumns)})
 }

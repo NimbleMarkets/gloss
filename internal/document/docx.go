@@ -416,6 +416,6 @@ func (w *Word) fields() []Field {
 			}
 		}
 	}
-	return section("Document", append(append([]Field{{"Format", "Word document"}}, office...),
+	return Section("Document", append(append([]Field{{"Format", "Word document"}}, office...),
 		Field{"Headings", count(w.Headings)}, Field{"Tables", count(w.Tables)}, Field{"Images", count(w.Images)}, Field{"Links", count(w.Links)})...)
 }

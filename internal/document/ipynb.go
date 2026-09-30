@@ -207,7 +207,7 @@ func (nb *Notebook) fields() []Field {
 	if nb.cut {
 		count += ", not all shown"
 	}
-	return section("Notebook",
+	return Section("Notebook",
 		Field{"Format", nb.format},
 		Field{"Language", nb.language},
 		Field{"Kernel", nb.kernel},

@@ -419,7 +419,7 @@ func (w *Workbook) fields() []Field {
 		}
 		sheets = append(sheets, name+size)
 	}
-	return section("Workbook", append([]Field{{"Format", "Excel workbook"}, {"Sheets", strings.Join(sheets, ", ")}}, w.pkg.officeFields()...)...)
+	return Section("Workbook", append([]Field{{"Format", "Excel workbook"}, {"Sheets", strings.Join(sheets, ", ")}}, w.pkg.officeFields()...)...)
 }
 
 func plural(n int, noun string) string {

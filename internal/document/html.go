@@ -82,7 +82,7 @@ func (p *Page) fields(md *Markdown) []Field {
 			fields = append(fields, f)
 		}
 	}
-	return section("Page", fields...)
+	return Section("Page", fields...)
 }
 
 // textKind tells HTML, notebooks, and JSON apart by their content: a page

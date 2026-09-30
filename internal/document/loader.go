@@ -230,7 +230,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		details = func() []Field { return markdownFields(out.Markdown) }
 	case "pdf":
 		details = func() []Field {
-			return section("Document", Field{"Format", strings.TrimSpace("PDF " + pdfVersion(data))})
+			return Section("Document", Field{"Format", strings.TrimSpace("PDF " + pdfVersion(data))})
 		}
 		reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 		if err != nil {
@@ -266,7 +266,7 @@ func (l *Loader) Load(q Request) (out Result) {
 			details = out.Sheet.csvFields
 		}
 	case "json":
-		details = func() []Field { return section("JSON", Field{"Format", "JSON"}) }
+		details = func() []Field { return Section("JSON", Field{"Format", "JSON"}) }
 		doc, err := ReadJSON(q.Path, data)
 		if err != nil {
 			out.Err = err
@@ -275,7 +275,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		out.Markdown, out.Err = loadMarkdownFrom(q.Path, doc.Markdown, q.BaseDir, l.Files)
 		details = doc.fields
 	case "ipynb":
-		details = func() []Field { return section("Notebook", Field{"Format", "Jupyter notebook"}) }
+		details = func() []Field { return Section("Notebook", Field{"Format", "Jupyter notebook"}) }
 		nb, err := ReadNotebook(data)
 		if err != nil {
 			out.Err = err
@@ -285,7 +285,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		out.Markdown, out.Err = loadMarkdownFrom("notebook.md", nb.Markdown, ".", nb.Files)
 		details = nb.fields
 	case "html":
-		details = func() []Field { return section("Page", Field{"Format", "HTML"}) }
+		details = func() []Field { return Section("Page", Field{"Format", "HTML"}) }
 		page, err := ReadHTML(data)
 		if err != nil {
 			out.Err = err
@@ -295,7 +295,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		out.Markdown, out.Err = loadMarkdownFrom(q.Path, page.Markdown, q.BaseDir, l.Files)
 		details = func() []Field { return page.fields(out.Markdown) }
 	case "docx":
-		details = func() []Field { return section("Document", Field{"Format", "Word document"}) }
+		details = func() []Field { return Section("Document", Field{"Format", "Word document"}) }
 		doc, err := OpenWord(data)
 		if err != nil {
 			out.Err = err
@@ -305,7 +305,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		out.Markdown, out.Err = loadMarkdownFrom("word/document.md", doc.Markdown, "word", doc.pkg.archive)
 		details = doc.fields
 	case "xlsx":
-		details = func() []Field { return section("Workbook", Field{"Format", "Excel workbook"}) }
+		details = func() []Field { return Section("Workbook", Field{"Format", "Excel workbook"}) }
 		book, err := OpenWorkbook(data)
 		if err != nil {
 			out.Err = err
@@ -317,7 +317,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		model, err := Parse3MF(data)
 		if err != nil {
 			out.Err = err
-			details = func() []Field { return section("Model", Field{"Format", "3MF"}) }
+			details = func() []Field { return Section("Model", Field{"Format", "3MF"}) }
 			return out
 		}
 		shown := ""

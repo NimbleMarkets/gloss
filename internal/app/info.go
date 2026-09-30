@@ -1,9 +1,13 @@
 package app
 
 import (
+	"fmt"
+	"os"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/NimbleMarkets/gloss/internal/document"
+	"github.com/NimbleMarkets/ntcharts/v2/picture"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -14,8 +18,9 @@ func (m *Model) infoBox(w, h int) string {
 	if inner < 16 || rows < 2 {
 		return ""
 	}
+	fields := append(append([]document.Field(nil), m.fields...), m.terminalFields()...)
 	labels := 0
-	for _, f := range m.fields {
+	for _, f := range fields {
 		if f.Value != "" {
 			labels = max(labels, lipgloss.Width(f.Label))
 		}
@@ -23,7 +28,7 @@ func (m *Model) infoBox(w, h int) string {
 	text := boxText
 	heading, label := text.Bold(true).Foreground(lipgloss.Color("231")), boxDim
 	var lines []string
-	for _, f := range m.fields {
+	for _, f := range fields {
 		if f.Value == "" {
 			lines = append(lines, heading.Render(ansi.Truncate(safe(f.Label), inner, "…")))
 			continue
@@ -44,6 +49,59 @@ func (m *Model) infoBox(w, h int) string {
 		lines = append(lines[:rows-1], text.Render("…"))
 	}
 	return box(lines)
+}
+
+// terminalFields describes the terminal and how gloss draws on it: what
+// the box says when there is no file, and what it ends with when there is.
+func (m *Model) terminalFields() []document.Field {
+	size := fmt.Sprintf("%d × %d cells", m.width, m.height)
+	if cw, ch := m.pic.CellPixelSize(); cw > 1 && ch > 1 {
+		size += fmt.Sprintf(", %d × %d pixels each", cw, ch)
+	}
+	pictures := "glyphs"
+	if m.pic.Mode() == picture.PictureKitty {
+		pictures = "Kitty graphics"
+	}
+	if m.opts.Render == "glyph" {
+		pictures += " (asked for)"
+	}
+	kitty := map[picture.KittyCapability]string{
+		picture.KittyCapabilitySupported:   "supported",
+		picture.KittyCapabilityUnsupported: "not supported",
+	}[m.pic.KittySupported()]
+	if kitty == "" {
+		kitty = "not yet known"
+	}
+	meshes := map[string]string{"software": "software (asked for)", "wireframe": "wireframe (asked for)"}[m.opts.Render3D]
+	if meshes == "" {
+		meshes = "WebGPU, or software without it"
+	}
+	if m.chart != nil {
+		meshes = m.chart.RenderMode().String()
+	}
+	program := os.Getenv("TERM_PROGRAM")
+	if program != "" {
+		program = strings.TrimSpace(program + " " + os.Getenv("TERM_PROGRAM_VERSION"))
+	} else {
+		program = os.Getenv("TERM")
+	}
+	multiplexer := ""
+	if os.Getenv("TMUX") != "" {
+		multiplexer = "tmux"
+	}
+	screen := "alternate"
+	if m.opts.KeepScreen {
+		screen = "main, kept after quitting"
+	}
+	return document.Section("Terminal",
+		document.Field{Label: "Size", Value: size},
+		document.Field{Label: "Pictures", Value: pictures},
+		document.Field{Label: "Kitty graphics", Value: kitty},
+		document.Field{Label: "Meshes", Value: meshes},
+		document.Field{Label: "Program", Value: program},
+		document.Field{Label: "Multiplexer", Value: multiplexer},
+		document.Field{Label: "Screen", Value: screen},
+	)
 }
 
 // The corner boxes' colours: a shade, plain text on it, and dim text.

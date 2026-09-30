@@ -200,5 +200,5 @@ func (doc *JSONDoc) fields() []Field {
 	} else {
 		fields = append(fields, Field{"Top level", top}, Field{"Keys", strings.Join(doc.keys, ", ")})
 	}
-	return section("JSON", fields...)
+	return Section("JSON", fields...)
 }

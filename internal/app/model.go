@@ -424,6 +424,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.help = false
 			return m, nil
 		}
+		if len(m.opts.Files) == 0 && v.String() == "i" && !m.help {
+			m.info = !m.info
+			return m, nil
+		}
 		if m.help || len(m.opts.Files) == 0 {
 			return m, nil
 		}
@@ -657,7 +661,7 @@ func (m *Model) View() tea.View {
 		frame = frame.Align(lipgloss.Center, lipgloss.Center)
 	}
 	body = frame.Render(body)
-	if m.info && !m.help && !m.menu && !empty && !browsing {
+	if m.info && !m.help && !m.menu && !browsing {
 		// The mesh view keeps its own title on the first row.
 		top := 0
 		if m.chart != nil {
@@ -744,7 +748,7 @@ func (m *Model) View() tea.View {
 		}
 	}
 	if empty {
-		keys = " q quit · ? help"
+		keys = " q quit · ? help · i info"
 	}
 	if m.isFetched() {
 		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")

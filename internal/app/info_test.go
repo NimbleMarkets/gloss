@@ -174,12 +174,7 @@ func TestInfoBoxDescribesAFailedFile(t *testing.T) {
 	}
 }
 
-func TestInfoKeyNeedsADocument(t *testing.T) {
-	empty := viewing(t, Options{}, "")
-	empty.Update(press("i"))
-	if view := empty.View().Content; !strings.Contains(view, "Drop files here to open") || strings.Contains(view, "╭") {
-		t.Fatalf("empty session:\n%s", view)
-	}
+func TestInfoKeyLeavesTheMenuAlone(t *testing.T) {
 	menu := viewing(t, Options{Files: []string{"a.png", "b.png"}, Menu: true}, "")
 	menu.Update(press("i"))
 	if !menu.menu || menu.info {
@@ -224,5 +219,38 @@ func TestOverlayKeepsKittyCellsWhole(t *testing.T) {
 	short := overlay("ab\ncd", "XYZ", 8, 0)
 	if got := strings.Split(ansi.Strip(short), "\n")[0]; got != "ab   XYZ" {
 		t.Fatalf("a short row must be padded out to the box: %q", got)
+	}
+}
+
+func TestInfoBoxDescribesTheTerminal(t *testing.T) {
+	t.Setenv("TERM_PROGRAM", "ghostty")
+	t.Setenv("TERM_PROGRAM_VERSION", "1.2.0")
+	t.Setenv("TMUX", "")
+	// With no file at all, the box still opens, on the terminal alone.
+	m := viewing(t, Options{}, "")
+	send(m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "i info") {
+		t.Fatalf("hints: %s", hints)
+	}
+	send(m, press("i"))
+	view := ansi.Strip(m.View().Content)
+	for _, want := range []string{"Terminal", "Size", "100 × 30 cells", "Pictures", "glyphs", "Kitty", "Meshes", "Program", "ghostty 1.2.0", "Screen", "alternate"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("missing %q:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "No details yet") {
+		t.Errorf("the empty note is shown beside the terminal:\n%s", view)
+	}
+	send(m, press("i"))
+	if strings.Contains(ansi.Strip(m.View().Content), "Terminal") {
+		t.Fatal("i did not close the box")
+	}
+	// With a file, the terminal comes after the file's own sections.
+	m = loaded(t, "photos/landscape.png")
+	send(m, press("i"))
+	view = ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Dimensions") || strings.Index(view, "Terminal") < strings.Index(view, "Camera") {
+		t.Fatalf("the terminal section is missing or out of place:\n%s", view)
 	}
 }
