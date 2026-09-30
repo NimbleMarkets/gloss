@@ -6,7 +6,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.10
 	github.com/NimbleMarkets/gloss v0.0.0
 	github.com/NimbleMarkets/go-booba v0.7.0
-	github.com/NimbleMarkets/ntcharts3d v0.1.0
+	github.com/NimbleMarkets/ntcharts3d v0.2.0
 	github.com/spf13/pflag v1.0.10
 )
 
@@ -74,5 +74,3 @@ replace charm.land/bubbletea/v2 => github.com/neomantra/bubbletea/v2 v2.0.0-2026
 tool github.com/NimbleMarkets/go-booba/cmd/booba-assets
 
 tool github.com/NimbleMarkets/booba-shim/cmd/booba-shim-assets
-
-replace github.com/NimbleMarkets/ntcharts3d => ../../../ntcharts3d

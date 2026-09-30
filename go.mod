@@ -10,7 +10,7 @@ require (
 	github.com/NimbleMarkets/ntcharts-pdf v0.3.0
 	github.com/NimbleMarkets/ntcharts-svg v0.3.0
 	github.com/NimbleMarkets/ntcharts/v2 v2.4.0
-	github.com/NimbleMarkets/ntcharts3d v0.1.0
+	github.com/NimbleMarkets/ntcharts3d v0.2.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/charmbracelet/x/term v0.2.2
 	github.com/coder/websocket v1.8.15
@@ -74,5 +74,3 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 )
-
-replace github.com/NimbleMarkets/ntcharts3d => ../ntcharts3d
