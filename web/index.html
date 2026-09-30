@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Try gloss, a visual terminal pager for images, HEIC, SVG, PDF, STL, 3MF and Markdown. Runs entirely in your browser.">
+  <meta name="description" content="gloss is a visual terminal pager: like less, for images, SVG, PDF, STL and 3MF meshes, Markdown, HTML, text, JSON, notebooks, Word, Excel, and CSV. Try it in your browser.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2712%27 fill=%27%23f5f2e9%27/%3E%3Ctext x=%2732%27 y=%2747%27 text-anchor=%27middle%27 font-size=%2752%27 fill=%27%23c44a27%27%3E%E2%96%A7%3C/text%3E%3C/svg%3E">
   <title>gloss — less, with pictures.</title>
   <meta property="og:type" content="website">
@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><a class="wordmark" href="./">gloss<span>▧</span></a><nav><a href="https://github.com/NimbleMarkets/gloss">Source ↗</a><a href="https://github.com/NimbleMarkets/gloss#build-and-run">Install ↗</a></nav></header>
+  <header><a class="wordmark" href="./">gloss<span>▧</span></a><nav><a href="app.html">Launch the app</a><a href="https://github.com/NimbleMarkets/gloss">Source ↗</a><a href="https://github.com/NimbleMarkets/gloss#build-and-run">Install ↗</a></nav></header>
   <main>
     <div class="intro"><div><p class="eyebrow">A VISUAL PAGER FOR YOUR TERMINAL</p><h1>less, with pictures.</h1><p class="lede"><em>See what’s in your files, without leaving your terminal.</em><br>Choose a sample below and try it yourself.</p></div><code class="command"><span class="prompt" aria-hidden="true">$ </span>gloss --preview *<span class="cursor" aria-hidden="true"></span></code></div>
     <section class="demo" aria-label="Interactive gloss demo">
@@ -42,10 +42,18 @@
         <button data-sample="sales.xlsx" aria-pressed="false">Excel</button>
         <button data-sample="sales.csv" aria-pressed="false">CSV</button>
       </div><button id="restart" title="Restart the selected demo">Restart ↻</button></div>
-      <iframe id="demo" title="gloss interactive terminal" src="demo.html" allow="clipboard-read; clipboard-write"></iframe>
+      <iframe id="demo" title="gloss interactive terminal" src="term.html" allow="clipboard-read; clipboard-write"></iframe>
       <div class="keys"><span><kbd>Enter</kbd> open</span><span><kbd>[</kbd> <kbd>]</kbd> files</span><span><kbd>?</kbd> all controls</span></div>
     </section>
-    <div class="notes"><p>Click inside the terminal to use the keyboard. Every sample is embedded in the app: one of each kind gloss opens. Drop your own files on the terminal to open them too. Nothing is uploaded.</p><a id="standalone" href="demo.html" target="_blank" rel="noopener">Open full window ↗</a></div>
+    <div class="notes"><p>Click inside the terminal to use the keyboard. Every sample is embedded: one of each kind gloss opens. Drop your own files on the terminal to open them too. Nothing is uploaded.</p><a id="standalone" href="term.html" target="_blank" rel="noopener">Open full window ↗</a></div>
+    <section class="formats"><h2>What it opens</h2><dl>
+      <div><dt>Images</dt><dd>PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC</dd></div>
+      <div><dt>Documents</dt><dd>SVG, PDF, Word, Excel, Jupyter notebooks</dd></div>
+      <div><dt>Text</dt><dd>Markdown, HTML, plain text and source, JSON and JSONL, CSV</dd></div>
+      <div><dt>3D</dt><dd>STL and 3MF meshes, with their parts and colors</dd></div>
+    </dl></section>
+    <section class="install"><h2>In your terminal</h2><p>gloss is a single Go binary. Pictures are drawn with Kitty graphics where the terminal has them, and with glyphs everywhere else. Drop files on it, browse folders, and export what you see.</p><code class="command"><span class="prompt" aria-hidden="true">$ </span>go install github.com/NimbleMarkets/gloss/cmd/gloss@latest</code></section>
+    <section class="launch"><h2>In your browser</h2><p>The same gloss, compiled to WebAssembly, for your own files: drop them, open them with the browser's picker, and find them again next time. They are read and kept in your browser, and nowhere else.</p><a class="button" href="app.html">Launch the app →</a></section>
     <section class="details"><article><span>01 / VIEW</span><h2>Keep your place.</h2><p>Browse your files without opening a dozen windows. Preview the next picture, turn a page, and keep going.</p></article><article><span>02 / EXPLORE</span><h2>Look a little closer.</h2><p>Get closer to the small details. Turn the block-built GLOSS around, or wander through a document with its pictures alongside the words.</p></article></section>
   </main>
   <footer><span>Built with <a href="https://github.com/NimbleMarkets/ntcharts">NTCharts</a>, <a href="https://github.com/NimbleMarkets/ntcharts3d">NTCharts3d</a> &amp; <a href="https://github.com/NimbleMarkets/go-booba">Booba</a>.</span><span>Go → WebAssembly → your browser</span></footer>

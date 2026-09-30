@@ -707,6 +707,10 @@ func (m *Model) View() tea.View {
 		body = m.opener.view()
 	case len(m.opts.Files) == 0:
 		body = "Drop files here to open\n\nDrag them from a file manager, or paste their paths."
+		if m.opts.FilesFS != nil {
+			// The browser: files come from drops, or from the page around.
+			body = "Drop files here to open\n\nDrag them from a file manager onto the terminal."
+		}
 		if m.canBrowse() {
 			body = "Drop files here to open\n\nDrag them from a file manager, paste their paths, or press o to browse."
 		}

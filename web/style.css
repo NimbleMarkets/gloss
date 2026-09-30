@@ -270,3 +270,11 @@ footer {
     opacity: 0;
   }
 }
+
+/* The story after the demo: what gloss opens, and the two ways to have it. */
+.formats dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:0}
+.formats dt{font-weight:700;color:#c44a27;margin-bottom:.25rem}
+.formats dd{margin:0;color:inherit}
+.install,.launch,.formats{margin:2.5rem 0}
+.launch .button{display:inline-block;margin-top:.75rem;padding:.6rem 1.2rem;border-radius:8px;background:#c44a27;color:#fff;text-decoration:none;font-weight:600}
+.launch .button:hover{filter:brightness(1.1)}

@@ -20,7 +20,7 @@ test('active tabs preserve the session while Restart explicitly reloads it', asy
   tabs[0].listeners.click();
   assert.equal(urls.length, 0);
   tabs[1].listeners.click();
-  assert.deepEqual(urls, ['demo.html?sample=landscape.heic']);
+  assert.deepEqual(urls, ['term.html?sample=landscape.heic']);
   tabs[1].listeners.click();
   assert.equal(urls.length, 1);
   restart.listeners.click();

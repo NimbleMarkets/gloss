@@ -1,18 +1,23 @@
 import { readWithProgress, downloadStatus } from './download.mjs';
 import { installDrop } from './drop.mjs';
 import { saveFile } from './save.mjs';
+import { bootConfig } from './boot.mjs';
+import { openLibrary } from './library.mjs';
+import { pickFiles, pickFolder, inputPicker } from './pickers.mjs';
+import { fetchDocument } from './remote.mjs';
 
-const status = document.querySelector('#status');
+const config = bootConfig(document.querySelector('#gloss-boot')?.textContent, location.href);
+const $ = selector => document.querySelector(selector);
+const status = $('#status');
 function message(text) {
   status.replaceChildren(document.createTextNode(text));
   const retry = document.createElement('button');
-  retry.textContent = 'Restart demo';
+  retry.textContent = config.mode === 'app' ? 'Restart' : 'Restart demo';
   retry.addEventListener('click', () => location.reload());
   status.append(retry);
   status.hidden = false;
 }
-// Dropped files stay in this tab's memory and are gone on reload.
-const hint = document.querySelector('#drop');
+const hint = $('#drop');
 const invitation = hint.textContent;
 let focus = () => {};
 function notice(text) {
@@ -20,26 +25,53 @@ function notice(text) {
   hint.hidden = false;
   setTimeout(() => { hint.hidden = true; hint.textContent = invitation; }, 4000);
 }
-installDrop(window, hint, (names, contents) => {
+
+// In app mode what is opened is kept in the browser's storage for this
+// site, and a later visit finds it again. The demo keeps nothing.
+const library = config.mode === 'app' ? await openLibrary() : null;
+async function tellLibrary() {
+  const line = $('#library');
+  if (!line || !library) return;
+  const kept = await library.list();
+  const size = kept.reduce((sum, f) => sum + f.size, 0);
+  line.textContent = kept.length ? `${kept.length} file${kept.length === 1 ? '' : 's'} kept in this browser (${(size / 2 ** 20).toFixed(1)} MiB)` : 'Nothing kept yet';
+  $('#forget').hidden = kept.length === 0;
+}
+async function open(names, contents, { keep = true } = {}) {
   if (typeof window.gloss_drop !== 'function') return notice('gloss is still loading.');
   window.gloss_drop(names, contents);
   focus();
-}, notice);
+  if (keep && library) {
+    for (let i = 0; i < names.length; i++) await library.keep(names[i], contents[i]);
+    await tellLibrary();
+  }
+}
+installDrop(window, hint, open, notice);
 window.gloss_save = (name, bytes) => saveFile(name, bytes);
-window.addEventListener('gloss-exit', () => message('You quit gloss. Restart to explore again.'));
+window.addEventListener('gloss-exit', () => message(config.mode === 'app' ? 'You quit gloss. Restart to open your files again.' : 'You quit gloss. Restart to explore again.'));
+
+if (config.mode === 'app') {
+  const chosen = async ([names, contents, skipped]) => {
+    if (skipped.length) notice(`Skipped ${skipped.join(', ')}`);
+    if (names.length) await open(names, contents);
+  };
+  const input = inputPicker(document);
+  $('#open-files')?.addEventListener('click', () => pickFiles(window, input).then(chosen, error => notice(error.message)));
+  $('#open-folder')?.addEventListener('click', () => pickFolder(window, input).then(chosen, error => notice(error.message)));
+  $('#forget')?.addEventListener('click', async () => { await library.forget(); await tellLibrary(); notice('The library is empty. Files already open stay until you restart.'); });
+  await tellLibrary();
+}
+
 try {
   const { BoobaTerminal } = await import('./booba/booba.js');
   await import('./booba-shim/pdfium/pdfium-shim.js');
   // PDF initialization is asynchronous; its Go bridge waits for readiness.
   window.boobaShim.pdfium.ready.catch(error => console.error('PDF renderer:', error));
   const go = new Go();
-  const sample = new URL(location.href).searchParams.get('sample');
-  const names = new Set(['landscape.png','landscape.heic','shapes.svg','field-guide.pdf','gloss.stl','readme.md']);
-  if (sample && !names.has(sample)) throw new Error('Unknown embedded sample.');
-  go.argv = ['gloss-demo', ...(sample ? ['--sample', sample] : [])];
+  go.argv = config.argv;
   status.textContent = 'Connecting to download gloss…';
   const response = await fetch('app.wasm');
-  if (!response.ok) throw new Error(`Demo download failed: HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
   const bytes = await readWithProgress(response, (loaded, total) => {
     status.textContent = downloadStatus(loaded, total);
   });
@@ -53,6 +85,21 @@ try {
   status.hidden = true;
   focus = () => terminal.focus();
   focus();
+  if (config.mode === 'app') {
+    // What was kept comes back first; then what the link asks for.
+    const [names, contents] = await library.load();
+    if (names.length) await open(names, contents, { keep: false });
+    if (config.src) {
+      const where = $('#notice');
+      try {
+        const [name, data] = await fetchDocument(config.src);
+        await open([name], [data]);
+        if (where) { where.textContent = `Opened ${name} from ${new URL(config.src).host}: fetched by your browser at this link's request. Nothing else was fetched, and nothing was uploaded.`; where.hidden = false; }
+      } catch (error) {
+        if (where) { where.textContent = `${error.message} (${config.src})`; where.hidden = false; }
+      }
+    }
+  }
 } catch (error) {
   console.error(error);
   message(`Unable to start gloss: ${error.message || error}`);

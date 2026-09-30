@@ -27,3 +27,11 @@ func TestDemoOpensOnASample(t *testing.T) {
 		t.Fatal("an unknown sample was accepted")
 	}
 }
+
+func TestAppModeStartsEmpty(t *testing.T) {
+	// The app is for the visitor's own files: no samples, a drop target.
+	opts, ok := appOptions()
+	if !ok || len(opts.Files) != 0 || opts.Menu || opts.Preview || opts.Render3D != "auto" {
+		t.Fatalf("%+v", opts)
+	}
+}

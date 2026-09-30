@@ -17,6 +17,12 @@ The live terminal runs the actual Go pager using WebAssembly and Booba, with
 embedded samples, one of each kind: PNG, HEIC, SVG, a two-page PDF, the block-built GLOSS sculpture (STL), a
 three-part lantern (3MF), Markdown, a saved HTML page, plain text, JSONL, a notebook, Word, Excel, and CSV. Choose a format
 or use the menu and preview pane. Click the terminal to focus its keyboard.
+The site's second page, [`app.html`](https://nimblemarkets.github.io/gloss/app.html),
+is gloss for your own files: drop them or open them with the browser's picker,
+and they are kept in your browser's storage for the site, so a later visit
+finds them again; `app.html?src=<url>` opens a document from an address that
+allows it. Nothing is uploaded: files are read, shown, and kept in the
+browser, and the page says so when a link makes it fetch something.
 GitHub READMEs cannot run interactive iframes; the image above opens the Pages demo.
 
 ## Build and run

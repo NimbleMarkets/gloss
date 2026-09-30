@@ -1,0 +1,21 @@
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden;background:#1e1e1e;color:#f4f1ea;font:14px/1.5 system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:1rem;padding:6px 12px;background:#141414;border-bottom:1px solid #2c2c2c;flex-wrap:wrap}
+.wordmark{color:#f4f1ea;text-decoration:none;font-weight:700;letter-spacing:.02em}
+.wordmark span{color:#c44a27;margin-left:2px}
+.actions{display:flex;gap:.5rem}
+button{font:inherit;padding:4px 10px;border:1px solid #3a3a3a;border-radius:6px;background:#262626;color:#f4f1ea;cursor:pointer}
+button:hover{background:#333}
+.library{display:flex;align-items:center;gap:.5rem;color:#a8a39a;margin-left:auto}
+.library button{padding:2px 8px}
+.assurance{color:#7fbf7f;border:1px solid #2f4f2f;border-radius:999px;padding:2px 10px;cursor:help}
+#notice{padding:6px 12px;background:#2a2412;color:#f0d78c;border-bottom:1px solid #4a3f1a;font-size:13px}
+#notice[hidden]{display:none}
+main{position:relative;flex:1;min-height:0}
+#terminal{height:100%;padding:4px}
+#status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;font:15px/1.6 system-ui,sans-serif;white-space:pre-wrap;background:#1e1e1e}
+#status[hidden]{display:none}
+#status button{margin-top:1rem;padding:10px}
+#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #c44a27;border-radius:8px;font:600 17px/1.6 system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}
+#drop[hidden]{display:none}

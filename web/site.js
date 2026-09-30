@@ -4,7 +4,7 @@ let sample = '';
 function openSample(value, restart = false) {
   if (value === sample && !restart) return;
   sample = value;
-  const url = `demo.html${sample ? `?sample=${encodeURIComponent(sample)}` : ''}`;
+  const url = `term.html${sample ? `?sample=${encodeURIComponent(sample)}` : ''}`;
   frame.src = url;
   document.querySelector('#standalone').href = url;
   for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.sample === sample));

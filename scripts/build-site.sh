@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 mkdir -p web/dist
-cp web/index.html web/demo.html web/style.css web/site.js web/runtime.js web/download.mjs web/drop.mjs web/save.mjs web/dist/
+cp web/index.html web/term.html web/demo.html web/app.html web/style.css web/app.css web/site.js web/runtime.js web/boot.mjs web/library.mjs web/pickers.mjs web/remote.mjs web/download.mjs web/drop.mjs web/save.mjs web/dist/
 cp examples/landscape.png web/dist/social-preview.png
 cp THIRD_PARTY_NOTICES.md web/dist/
 cd examples/demo

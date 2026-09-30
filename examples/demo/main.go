@@ -34,10 +34,22 @@ func options(sample string) (app.Options, bool) {
 	return app.Options{Save: saveExport, Files: files, STLCamera: &camera, Render: "auto", Render3D: "auto", Page: 1, DPI: 96, Menu: sample == "", Preview: sample == ""}, true
 }
 
+// appOptions opens the app: nothing embedded, a drop target for the
+// visitor's own files, which the page hands over.
+func appOptions() (app.Options, bool) {
+	opts, ok := options("")
+	opts.Files, opts.Menu, opts.Preview = nil, false, false
+	return opts, ok
+}
+
 func main() {
 	sample := pflag.String("sample", "", "initial embedded sample filename")
+	appMode := pflag.Bool("app", false, "start empty, for the visitor's own files, with no samples")
 	pflag.Parse()
 	settings, ok := options(*sample)
+	if *appMode {
+		settings, ok = appOptions()
+	}
 	if !ok {
 		fmt.Fprintln(os.Stderr, "unknown sample:", *sample)
 		return
