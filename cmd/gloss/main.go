@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"slices"
+	"strings"
 	"syscall"
 	"time"
 
@@ -39,6 +40,7 @@ type options struct {
 	Timeout       time.Duration
 	Info, JSON    bool
 	FetchAllowed  bool
+	Globs         []string
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -62,6 +64,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	partn := f.String("partn", "", "show only these parts of a 3MF, counted from 1: 2,4-6")
 	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
 	coln := f.String("coln", "", "show only these columns of a table, counted from 1: 2,4-6")
+	f.StringArrayVar(&opts.Globs, "glob", nil, "search the folders named, or the current one, for files: a glob, an extension, or a kind such as images (repeatable)")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
 	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
@@ -271,6 +274,11 @@ func run(args []string) error {
 			continue
 		}
 	}
+	if len(opts.Globs) > 0 {
+		if opts.Files, err = expandGlobs(opts.Files, opts.Globs, os.Stderr); err != nil {
+			return err
+		}
+	}
 	if opts.Info {
 		return describe(opts, os.Stdout, os.Stderr)
 	}
@@ -446,6 +454,37 @@ func inputs(paths []string, forced string, exporting bool, stderr io.Writer) (st
 	}
 	_, _ = stderr.Write(skipped.Bytes())
 	return "", files, err
+}
+
+// expandGlobs searches each folder named, or the working folder when none
+// is, for the files the patterns match, and puts them in the folder's
+// place; files named stay as they are. The search keeps to the limits
+// gloss sets for one, and says on stderr where it stopped short.
+func expandGlobs(paths, patterns []string, stderr io.Writer) ([]string, error) {
+	var out []string
+	folders := 0
+	for _, path := range paths {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			folders++
+			found, err := document.Find(path, patterns, document.Limits{})
+			if err != nil {
+				return nil, err
+			}
+			if found.Note != "" {
+				fmt.Fprintf(stderr, "gloss: %s: %s\n", path, found.Note)
+			}
+			if len(found.Paths) == 0 {
+				fmt.Fprintf(stderr, "gloss: %s: no match for %s\n", path, strings.Join(patterns, " "))
+			}
+			out = append(out, found.Paths...)
+			continue
+		}
+		out = append(out, path)
+	}
+	if folders == 0 && len(paths) == 0 {
+		return expandGlobs([]string{"."}, patterns, stderr)
+	}
+	return out, nil
 }
 
 // Unsupported arguments are skipped so shell globs can contain unrelated files.

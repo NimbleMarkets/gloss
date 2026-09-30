@@ -172,3 +172,42 @@ func TestColorFlag(t *testing.T) {
 		t.Fatal("accepted a bad color")
 	}
 }
+
+func TestGlobSearchesFolders(t *testing.T) {
+	opts, _, err := parse([]string{"--glob", "*.png", "--glob", "docs", "photos"}, &bytes.Buffer{})
+	if err != nil || !slices.Equal(opts.Globs, []string{"*.png", "docs"}) {
+		t.Fatalf("%+v %v", opts.Globs, err)
+	}
+	dir := t.TempDir()
+	for _, name := range []string{"a.png", "sub/b.png", "c.pdf", "d.txt"} {
+		path := filepath.Join(dir, filepath.FromSlash(name))
+		os.MkdirAll(filepath.Dir(path), 0700)
+		if err := os.WriteFile(path, []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Folders named are searched; files named are kept as they are.
+	var stderr bytes.Buffer
+	paths, err := expandGlobs([]string{dir, filepath.Join(dir, "d.txt")}, []string{"png"}, &stderr)
+	if err != nil || len(paths) != 3 || filepath.Base(paths[0]) != "a.png" || filepath.Base(paths[1]) != "b.png" || filepath.Base(paths[2]) != "d.txt" {
+		t.Fatalf("paths=%v err=%v", paths, err)
+	}
+	// With no folder named, the working folder is searched.
+	wd, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Chdir(wd)
+	paths, err = expandGlobs(nil, []string{"*.pdf"}, &stderr)
+	if err != nil || len(paths) != 1 || filepath.Base(paths[0]) != "c.pdf" {
+		t.Fatalf("cwd: paths=%v err=%v", paths, err)
+	}
+	// A bad pattern is an error; no match is an empty list, said on stderr.
+	if _, err := expandGlobs([]string{dir}, []string{"["}, &stderr); err == nil {
+		t.Fatal("a bad pattern was accepted")
+	}
+	paths, err = expandGlobs([]string{dir}, []string{"*.stl"}, &stderr)
+	if err != nil || len(paths) != 0 || !strings.Contains(stderr.String(), "no match") {
+		t.Fatalf("no match: paths=%v err=%v stderr=%q", paths, err, stderr.String())
+	}
+}

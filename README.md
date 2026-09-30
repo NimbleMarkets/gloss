@@ -56,6 +56,7 @@ gloss -X photo.png               # keep the scrollback; the picture stays after 
 gloss --serve report.pdf         # show the viewer on a web page instead
 gloss --serve --pick             # ask the user for a file; print its path
 gloss --pick --prompt "The invoice, please"   # and say what for
+gloss --glob images --glob meshes ~/models    # open every match under a folder
 gloss                            # no file yet; drop files or press o to browse
 gloss ~/Pictures                 # browse a folder for a file to open
 ```
@@ -159,6 +160,19 @@ kind; folders always come first, and the order is kept for the next browse.
 `G`, with nothing typed in the filter, asks for a folder's path, starting from
 the one shown: `Tab` completes it, `~/` starts from home, `Enter` goes there,
 and `Esc` comes back to the listing.
+
+`/`, likewise, searches the folder shown and those under it. Ask for globs
+(`*.png`, `report*`, `deep/*.pdf`), extensions (`png`), or kinds (`images`,
+`svg`, `pdf`, `docs`, `word`, `meshes`, `tables`, `excel`, `csv`, `markdown`,
+`html`, `text`, `json`, `notebooks`), several at once; names are matched
+without regard to case. `Enter` searches, then opens the file under the
+cursor; `Ctrl-A` adds every match; `Esc` returns to the listing. A search is
+kept safe by its limits: hidden folders and links are not entered, folders
+deeper than 6 are not searched, at most 10,000 entries are looked at and 500
+matches shown, and it stops after 3 seconds, saying which limit it met.
+`--glob pattern` does the same from the command line for the folders named,
+or the current one: `gloss --glob images --glob '*.stl' ~/models` opens every
+match, and with `-o` or `--info` exports or describes them all.
 The browser is [picky](https://github.com/pgavlin/picky), carried in
 `internal/picky` with those two additions; the embedded demo, which has no
 folders, does not offer it.

@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
 	"github.com/NimbleMarkets/gloss/internal/picky"
 )
@@ -97,6 +98,9 @@ type opener struct {
 	seen   int
 	dir    string // The folder being listed, for the status bar.
 	going  bool   // A folder's path is being typed, to go to.
+	find   *finder
+	width  int
+	height int
 }
 
 const filterPrompt, goPrompt = "  Filter: ", "  Go to: "
@@ -208,11 +212,20 @@ func (l *readLog) selectable(e fs.DirEntry) bool {
 	return true
 }
 
-func (o *opener) view() string { return o.picker.View() }
+func (o *opener) view() string {
+	if o.find != nil {
+		return o.find.view(o.width, o.height)
+	}
+	return o.picker.View()
+}
 
 func (o *opener) resize(w, h int) {
 	if o == nil {
 		return
+	}
+	o.width, o.height = w, h
+	if o.find != nil {
+		o.find.input.SetWidth(max(1, w-lipgloss.Width(o.find.input.Prompt)-1))
 	}
 	// The filter's text input cannot draw itself narrower than its
 	// placeholder; the view clips whatever does not fit.
@@ -263,7 +276,15 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 func (m *Model) browse(msg tea.Msg) tea.Cmd {
 	o := m.opener
 	if k, ok := msg.(tea.KeyPressMsg); ok {
+		if o.find != nil {
+			if cmd, ok := m.findKey(k); ok {
+				return cmd
+			}
+		}
 		switch {
+		case k.String() == "/" && !o.going && o.picker.FilterValue() == "":
+			o.find = newFinder(o.dir, o.width)
+			return nil
 		case k.String() == "G" && !o.going && o.picker.FilterValue() == "":
 			return o.goTo()
 		case k.String() == "enter" && o.going:

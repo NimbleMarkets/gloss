@@ -280,6 +280,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c":
 				return m, m.quit()
 			case "esc":
+				if m.opener.find != nil {
+					m.opener.find = nil
+					return m, nil
+				}
 				if m.opener.going {
 					m.opener.stopGoing()
 					return m, nil
@@ -340,6 +344,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case openResult:
 		return m, m.opened(v)
+	case findResult:
+		if m.opener != nil && m.opener.find != nil {
+			m.opener.find.answered(v)
+		}
+		return m, nil
 	case fetchResult:
 		return m, m.fetchedFile(v)
 	case partsResult:
@@ -887,9 +896,13 @@ func (m *Model) View() tea.View {
 		if m.noTextFiles {
 			text = "text"
 		}
-		hint = ansi.Truncate(" Enter open · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
+		hint = ansi.Truncate(" Enter open · / find · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
 		if m.opener.going {
 			hint = ansi.Truncate(" Type a folder's path · Tab complete · Enter go · Esc back", w, "")
+		}
+		if f := m.opener.find; f != nil {
+			bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Find · "+f.status(), w, "…"))
+			hint = ansi.Truncate(" Enter search, then open · ↑/↓ select · Ctrl-A add all · Esc back", w, "")
 		}
 	}
 	body = m.framed(body)

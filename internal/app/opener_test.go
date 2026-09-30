@@ -553,3 +553,56 @@ func TestOpenerOffersTextFilesUnlessToldNotTo(t *testing.T) {
 		t.Fatalf("opener=%v files=%q kind=%q", m.opener != nil, m.opts.Files, m.kind)
 	}
 }
+
+func TestSlashFindsFilesUnderTheFolder(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	send(m, press("/"))
+	view := ansi.Strip(m.View().Content)
+	if !strings.Contains(view, "Find: ") || !strings.Contains(plain(m)[len(plain(m))-1], "Enter search") {
+		t.Fatalf("no find prompt:\n%s", view)
+	}
+	send(m, typed("png")...)
+	send(m, enter)
+	view = ansi.Strip(m.View().Content)
+	for _, want := range []string{"alpha.png", "trips/coast.png", "2 found"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("missing %q:\n%s", want, view)
+		}
+	}
+	if strings.Contains(view, "beta.svg") {
+		t.Errorf("beta.svg found for png:\n%s", view)
+	}
+	// Enter opens the one under the cursor; the browser closes.
+	send(m, tea.KeyPressMsg{Code: tea.KeyDown}, enter)
+	if m.opener != nil || len(m.opts.Files) != 2 || filepath.Base(m.opts.Files[1]) != "coast.png" {
+		t.Fatalf("opener=%v files=%q", m.opener != nil, m.opts.Files)
+	}
+	// The browser reopens at the file's folder: a search there with
+	// nothing found says so.
+	send(m, press("O"), press("/"))
+	send(m, typed("*.stl")...)
+	send(m, enter)
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "nothing found") {
+		t.Fatalf("no match:\n%s", view)
+	}
+	// Ctrl-A adds every match.
+	m = browsing(t, dir)
+	send(m, press("/"))
+	send(m, typed("images svg")...)
+	send(m, enter, tea.KeyPressMsg{Code: 'a', Mod: tea.ModCtrl})
+	if m.opener != nil || len(m.opts.Files) != 3 {
+		t.Fatalf("after Ctrl-A: opener=%v files=%q", m.opener != nil, m.opts.Files)
+	}
+	m = browsing(t, dir)
+	send(m, press("/"), enter)
+	// Esc leaves the finder for the listing, then the listing for the viewer.
+	send(m, escape)
+	if m.opener == nil || strings.Contains(ansi.Strip(m.View().Content), "Find: ") {
+		t.Fatal("Esc did not return to the listing")
+	}
+	send(m, escape)
+	if m.opener != nil {
+		t.Fatal("Esc did not close the browser")
+	}
+}

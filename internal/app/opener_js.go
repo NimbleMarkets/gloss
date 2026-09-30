@@ -9,7 +9,16 @@ import tea "charm.land/bubbletea/v2"
 type opener struct {
 	dir   string
 	going bool
+	find  *finder
 }
+
+// The browser has no folders to search either.
+type finder struct{}
+
+type findResult struct{}
+
+func (f *finder) answered(findResult) {}
+func (f *finder) status() string      { return "" }
 
 type openResult struct{}
 
