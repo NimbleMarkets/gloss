@@ -202,6 +202,7 @@ func (m *Model) menuView() string {
 		w -= pw + 1
 	}
 	start := max(0, min(m.selection-h/2, len(m.opts.Files)-h))
+	digits := len(strconv.Itoa(len(m.opts.Files))) // Numbers stand right-aligned, names in one column.
 	lines := make([]string, 0, h)
 	for i := start; i < len(m.opts.Files) && len(lines) < h; i++ {
 		cursor, current := " ", " "
@@ -215,7 +216,7 @@ func (m *Model) menuView() string {
 		if pw > 0 {
 			name = safe(filepath.Base(m.opts.Files[i])) // The preview says the rest.
 		}
-		line := ansi.Truncate(fmt.Sprintf("%s%s %d  %s", cursor, current, i+1, name), w, "…")
+		line := ansi.Truncate(fmt.Sprintf("%s%s %*d  %s", cursor, current, digits, i+1, name), w, "…")
 		style := lipgloss.NewStyle().Width(w)
 		if i == m.selection {
 			style = style.Reverse(true)

@@ -264,3 +264,24 @@ func TestPreviewIsOnlyThePicture(t *testing.T) {
 		t.Errorf("hints: %s", hints)
 	}
 }
+
+func TestListColumnsAreJustified(t *testing.T) {
+	files := make([]string, 12)
+	for i := range files {
+		files[i] = samples + "shapes.svg"
+	}
+	m := viewing(t, Options{Files: files, Menu: true}, "svg")
+	send(m, tea.WindowSizeMsg{Width: 60, Height: 30})
+	lines := plain(m)
+	// Every name starts in the same column, whether its number has one
+	// digit or two.
+	col := strings.Index(lines[0], "shapes.svg")
+	for i := 0; i < 12; i++ {
+		if strings.Index(lines[i], "shapes.svg") != col {
+			t.Fatalf("row %d: %q", i+1, lines[i])
+		}
+	}
+	if !strings.HasPrefix(lines[8], "    9  ") || !strings.HasPrefix(lines[9], "   10  ") {
+		t.Fatalf("numbers not right-aligned:\n%s\n%s", lines[8], lines[9])
+	}
+}
