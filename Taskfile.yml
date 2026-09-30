@@ -10,12 +10,11 @@ tasks:
     desc: List available tasks
     cmds: [task --list]
   build:
-    desc: Build bin/gloss
+    desc: Build ./gloss
     env:
       GLOSS_VERSION: '{{.VERSION}}'
     cmds:
-      - mkdir -p bin
-      - go build -mod=readonly -trimpath -ldflags "-X main.version=$GLOSS_VERSION" -o bin/gloss ./cmd/gloss
+      - go build -mod=readonly -trimpath -ldflags "-X main.version=$GLOSS_VERSION" -o gloss ./cmd/gloss
   run:
     desc: Run gloss (pass arguments after --)
     cmds: ['go run ./cmd/gloss {{.CLI_ARGS}}']

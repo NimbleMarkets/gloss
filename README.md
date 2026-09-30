@@ -21,15 +21,15 @@ GitHub READMEs cannot run interactive iframes; the image above opens the Pages d
 ## Build and run
 
 Requires Go **1.26.8+** and [Task](https://taskfile.dev/) for the development commands.
-Without Task, build with `go build -o bin/gloss ./cmd/gloss`. Go's automatic toolchain selection can download that
+Without Task, build with `go build -o gloss ./cmd/gloss`. Go's automatic toolchain selection can download that
 version. Dependencies are pinned in `go.mod`; sibling checkouts aren't needed.
 
 ```sh
 task build
-./bin/gloss photo.png drawing.svg report.pdf model.stl
-./bin/gloss examples/shapes.svg examples/tetrahedron.stl
-./bin/gloss --menu photo.png report.pdf model.stl
-./bin/gloss --preview photo.png report.pdf model.stl
+./gloss photo.png drawing.svg report.pdf model.stl
+./gloss examples/shapes.svg examples/tetrahedron.stl
+./gloss --menu photo.png report.pdf model.stl
+./gloss --preview photo.png report.pdf model.stl
 task install                     # installs gloss into your Go bin directory
 ```
 
@@ -425,7 +425,7 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
 ```sh
 task test
 task ci                         # formatting, modules, race tests, vet, build
-go build -ldflags '-X main.version=0.1.0' -o bin/gloss ./cmd/gloss
+go build -ldflags '-X main.version=0.1.0' -o gloss ./cmd/gloss
 ```
 
 Tests cover CLI validation, malformed files, STL geometry, PDF rendering and
