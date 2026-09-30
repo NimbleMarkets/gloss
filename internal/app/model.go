@@ -32,6 +32,8 @@ type Options struct {
 	Browse                 string // Folder to open the file browser in at the start.
 	KeepScreen             bool   // Draw on the main screen; the last view stays after quitting.
 	Pick                   bool   // The caller waits for files: Enter sends them, and ends the viewer.
+	Prompt                 string // What the caller asks of the user, shown in a box throughout.
+	PromptTop              bool   // The box above the body, rather than below it.
 	// Drops delivers files handed over from outside the terminal, as the
 	// page serving the viewer does with what is dropped on it.
 	Drops <-chan []string
@@ -172,7 +174,7 @@ func (m *Model) load(reload bool) tea.Cmd {
 	}
 }
 
-func (m *Model) bodyHeight() int { return max(1, m.height-2) }
+func (m *Model) bodyHeight() int { return max(1, m.height-2-m.promptHeight()) }
 
 func (m *Model) switchFile(delta int) tea.Cmd {
 	i := m.index + delta
@@ -266,6 +268,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 	}
+	msg = m.onBody(msg)
 	if mouse, ok := msg.(tea.MouseMsg); ok && m.menu {
 		if m.help {
 			return m, nil
@@ -617,7 +620,7 @@ func (m *Model) View() tea.View {
 			// Padded to one width, the lines stay aligned once centred.
 			body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n"))
 		case h >= 5:
-			body += "\n\n" + document.FormatsShort
+			body += "\n\n" + lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
 		}
 	case m.menu:
 		body = m.menuView()
@@ -778,6 +781,7 @@ func (m *Model) View() tea.View {
 		}
 		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-T "+unsupported+" · Esc cancel", w, "")
 	}
+	body = m.framed(body)
 	content := body + "\n" + bar + "\n" + hint
 	if m.quitting {
 		// Keys no longer answer. The frame keeps its height, or Bubble Tea

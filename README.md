@@ -54,6 +54,7 @@ gloss -- -filename.png
 gloss -X photo.png               # keep the scrollback; the picture stays after q
 gloss --serve report.pdf         # show the viewer on a web page instead
 gloss --serve --pick             # ask the user for a file; print its path
+gloss --pick --prompt "The invoice, please"   # and say what for
 gloss                            # no file yet; drop files or press o to browse
 gloss ~/Pictures                 # browse a folder for a file to open
 ```
@@ -188,6 +189,12 @@ gloss --pick                     # the same question, asked in the terminal
 in your browser, and ends when you quit the viewer or close the tab. The page is
 the native viewer, not the demo: `o` browses your own folders, and a pasted path
 is read from your disk. Files dropped on the page are handed to gloss.
+
+`--prompt "Drop the March invoice here"` shows the request in a box under the
+viewer, where it stays through the whole pick, so that whoever launched gloss
+can say what they are after; `--prompt-loc top` puts it above the viewer
+instead. The box is shown wherever the viewer is, in the terminal or the
+served page.
 
 `--pick` waits for you to hand files over by dropping them, pasting their
 paths, or choosing them with `o`. The viewer shows what you gave and says what

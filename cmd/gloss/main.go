@@ -55,6 +55,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	view := f.String("view", "", "views of a mesh: front, back, left, right, top, bottom, iso, all; several, as front,top, export as one sheet")
 	camera := f.String("camera", "", "camera for a mesh, as elevation,azimuth or elevation,azimuth,distance in degrees")
 	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
+	f.StringVar(&opts.Prompt, "prompt", "", "show this request to the user in a box, to say what to pick or look at")
+	promptLoc := f.String("prompt-loc", "bottom", "where the prompt box goes: bottom or top")
 	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
 	coln := f.String("coln", "", "show only these columns of a table, counted from 1: 2,4-6")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
@@ -110,6 +112,15 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if opts.Columns, err = document.ParseColumns(*cols, *coln); err != nil {
 		return opts, false, err
 	}
+	switch {
+	case *promptLoc != "bottom" && *promptLoc != "top":
+		return opts, false, fmt.Errorf("--prompt-loc must be bottom or top")
+	case f.Changed("prompt-loc") && opts.Prompt == "":
+		return opts, false, fmt.Errorf("--prompt-loc needs --prompt")
+	case (opts.Output != "" || opts.OutputDir != "") && opts.Prompt != "":
+		return opts, false, fmt.Errorf("--prompt cannot be combined with an export, which shows nothing")
+	}
+	opts.PromptTop = *promptLoc == "top"
 	switch {
 	case *view != "" && *camera != "":
 		return opts, false, fmt.Errorf("choose --view or --camera")

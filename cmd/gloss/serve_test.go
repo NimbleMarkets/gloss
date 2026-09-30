@@ -453,3 +453,19 @@ func TestFetchedFilesAreRemovedUnlessPicked(t *testing.T) {
 		t.Error("an emptied folder was kept")
 	}
 }
+
+func TestPromptFlags(t *testing.T) {
+	opts, _, err := parse([]string{"--pick", "--prompt", "Choose the March invoice"}, &bytes.Buffer{})
+	if err != nil || opts.Prompt != "Choose the March invoice" || opts.PromptTop {
+		t.Fatalf("%+v %v", opts, err)
+	}
+	opts, _, err = parse([]string{"--prompt", "Choose", "--prompt-loc", "top", "a.png"}, &bytes.Buffer{})
+	if err != nil || !opts.PromptTop {
+		t.Fatalf("top: %+v %v", opts, err)
+	}
+	for _, args := range [][]string{{"--prompt-loc", "left", "--prompt", "x"}, {"--prompt-loc", "top"}, {"--prompt", "x", "-o", "out.png", "a.png"}} {
+		if _, _, err := parse(args, &bytes.Buffer{}); err == nil {
+			t.Errorf("accepted %v", args)
+		}
+	}
+}
