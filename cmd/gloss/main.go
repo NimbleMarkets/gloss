@@ -47,7 +47,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.SetOutput(out)
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
-	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, markdown (or md)")
+	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, markdown (or md)")
 	f.IntVarP(&opts.Page, "page", "p", 1, "initial PDF page (1-based)")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
@@ -101,8 +101,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if opts.Type == "md" {
 		opts.Type = "markdown"
 	}
-	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "csv", "json", "ipynb", "html", "markdown"}, opts.Type) {
-		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, or markdown")
+	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "csv", "json", "ipynb", "html", "text", "markdown"}, opts.Type) {
+		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, or markdown")
 	}
 	if opts.Page < 1 {
 		return opts, false, fmt.Errorf("--page must be at least 1")

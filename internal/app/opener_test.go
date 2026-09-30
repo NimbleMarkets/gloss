@@ -106,8 +106,8 @@ func folder(t *testing.T) string {
 	if err := os.Mkdir(filepath.Join(dir, "trips"), 0700); err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"notes.dmg", "LICENSE", "trips/itinerary.txt"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("junk"), 0600); err != nil {
+	for name, content := range map[string]string{"notes.dmg": "\x00\x01junk", "LICENSE": "MIT", "trips/itinerary.txt": "day one"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -241,7 +241,7 @@ func TestOpenerGreysNothingWhenTheTypeIsForced(t *testing.T) {
 func TestOpenerHidesWhatItCannotShowOnRequest(t *testing.T) {
 	dir := folder(t)
 	m := browsing(t, dir)
-	if view := m.View().Content; !strings.Contains(view, "Ctrl-T hide unsupported") {
+	if view := m.View().Content; !strings.Contains(view, "Ctrl-T hide greyed") {
 		t.Fatalf("hint:\n%s", view)
 	}
 	send(m, toggleHidden)
@@ -250,7 +250,7 @@ func TestOpenerHidesWhatItCannotShowOnRequest(t *testing.T) {
 			t.Errorf("%s listed=%v, want %v:\n%s", name, got, want, ansi.Strip(m.View().Content))
 		}
 	}
-	if view := m.View().Content; !strings.Contains(view, "Ctrl-T show all") {
+	if view := m.View().Content; !strings.Contains(view, "Ctrl-T show greyed") {
 		t.Fatalf("hint:\n%s", view)
 	}
 	if m.opener.picker.FilterValue() != "" {
@@ -258,7 +258,7 @@ func TestOpenerHidesWhatItCannotShowOnRequest(t *testing.T) {
 	}
 	// A typed path lists another folder; the choice applies there too.
 	send(m, typed("trips/")...)
-	if !listed(m, "coast.png") || listed(m, "itinerary.txt") {
+	if !listed(m, "coast.png") || !listed(m, "itinerary.txt") {
 		t.Fatalf("typed path:\n%s", ansi.Strip(m.View().Content))
 	}
 	send(m, toggleHidden)
@@ -273,13 +273,11 @@ func TestOpenerHidesWhatItCannotShowOnRequest(t *testing.T) {
 
 func TestOpenerStaysOpenOnAFileItCannotShow(t *testing.T) {
 	m := browsing(t, folder(t))
-	send(m, typed("LICENSE")...)
+	send(m, typed("notes.dmg")...)
 	send(m, enter)
+	// A binary file is greyed: Enter on it does nothing.
 	if m.opener == nil || len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 2 {
 		t.Fatalf("opener=%v files=%q", m.opener != nil, m.opts.Files)
-	}
-	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "LICENSE: unsupported format") {
-		t.Fatalf("no reason given:\n%s", view)
 	}
 	if len(m.Skipped()) != 0 {
 		t.Fatalf("a browsing misstep is not worth reporting on exit: %q", m.Skipped())
@@ -343,11 +341,9 @@ func TestOpenerStatusKeepsTheEndOfALongPath(t *testing.T) {
 	dir := folder(t)
 	m := browsing(t, dir)
 	send(m, tea.WindowSizeMsg{Width: 50, Height: 20})
-	send(m, typed("LICENSE")...)
-	send(m, enter)
 	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
 	status := lines[len(lines)-2]
-	if !strings.Contains(status, "…") || !strings.Contains(status, "LICENSE: unsupported format") || strings.Contains(status, "/private") {
+	if !strings.Contains(status, "…") || !strings.Contains(status, filepath.Base(dir)) || !strings.Contains(status, "by name") || strings.Contains(status, "/private") {
 		t.Fatalf("status: %q", status)
 	}
 }
@@ -517,5 +513,43 @@ func TestGoToExpandsHome(t *testing.T) {
 	send(m, enter)
 	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "Open · "+home) {
 		t.Fatalf("status: %s", status)
+	}
+}
+
+func TestOpenerOffersTextFilesUnlessToldNotTo(t *testing.T) {
+	dir := folder(t)
+	if err := os.WriteFile(filepath.Join(dir, "Makefile"), []byte("all:\n\tgo build\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := browsing(t, dir)
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Ctrl-X no text") {
+		t.Fatalf("hints: %s", hints)
+	}
+	// Only the binary file is greyed: text of any name can be chosen.
+	send(m, toggleHidden)
+	for name, want := range map[string]bool{"notes.dmg": false, "LICENSE": true, "Makefile": true, "alpha.png": true} {
+		if got := listed(m, name); got != want {
+			t.Errorf("%s listed=%v, want %v:\n%s", name, got, want, ansi.Strip(m.View().Content))
+		}
+	}
+	// Ctrl-X sets text files aside, and again takes them back.
+	send(m, tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	for name, want := range map[string]bool{"LICENSE": false, "Makefile": false, "alpha.png": true} {
+		if got := listed(m, name); got != want {
+			t.Errorf("without text, %s listed=%v, want %v:\n%s", name, got, want, ansi.Strip(m.View().Content))
+		}
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Ctrl-X text") {
+		t.Fatalf("hints: %s", hints)
+	}
+	send(m, tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	if !listed(m, "Makefile") {
+		t.Fatal("text files did not come back")
+	}
+	// A text file chosen opens as text.
+	send(m, typed("Makef")...)
+	send(m, enter)
+	if m.opener != nil || len(m.opts.Files) != 2 || m.kind != "text" {
+		t.Fatalf("opener=%v files=%q kind=%q", m.opener != nil, m.opts.Files, m.kind)
 	}
 }

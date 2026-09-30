@@ -145,8 +145,9 @@ func TestExtensionsAreTheOnesDetected(t *testing.T) {
 	if !slices.Contains(Extensions, ".3mf") {
 		t.Error("3MF is missing")
 	}
-	for _, name := range []string{"file.dmg", "file.txt", "file", "file.go", "file.zip"} {
-		if _, err := Detect(name, []byte("no telling"), ""); !errors.Is(err, ErrUnsupported) || slices.Contains(Extensions, filepath.Ext(name)) {
+	// Binary content is refused by any name; the names alone say nothing.
+	for _, name := range []string{"file.dmg", "file.rtf", "file", "file.go", "file.zip"} {
+		if _, err := Detect(name, []byte("no\x00telling"), ""); !errors.Is(err, ErrUnsupported) || slices.Contains(Extensions, filepath.Ext(name)) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

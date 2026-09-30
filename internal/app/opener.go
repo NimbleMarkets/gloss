@@ -3,8 +3,10 @@
 package app
 
 import (
+	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -30,7 +32,7 @@ var orderNames = []string{"name", "date", "kind"}
 var kindMarks = map[string]string{
 	".png": "📷", ".jpg": "📷", ".jpeg": "📷", ".gif": "📷", ".webp": "📷", ".bmp": "📷", ".tif": "📷", ".tiff": "📷", ".heic": "📷", ".heif": "📷", ".hif": "📷",
 	".svg": "🎨", ".pdf": "📕", ".stl": "🧊", ".3mf": "🧊",
-	".md": "📝", ".markdown": "📝", ".mdown": "📝", ".html": "📝", ".htm": "📝",
+	".md": "📝", ".markdown": "📝", ".mdown": "📝", ".html": "📝", ".htm": "📝", ".txt": "📝", ".text": "📝", ".log": "📝",
 	".json": "🧾", ".jsonl": "🧾", ".ndjson": "🧾", ".ipynb": "📓",
 	".docx": "📄", ".docm": "📄", ".xlsx": "📊", ".xlsm": "📊", ".csv": "📊", ".tsv": "📊",
 }
@@ -42,6 +44,9 @@ func mark(e fs.DirEntry) string {
 	}
 	if m, ok := kindMarks[strings.ToLower(filepath.Ext(e.Name()))]; ok {
 		return m
+	}
+	if s, ok := e.(sniffed); ok && s.text {
+		return "📃" // Text by its content, whatever its name.
 	}
 	return "  "
 }
@@ -74,7 +79,7 @@ func ordering(by int) func(a, b fs.DirEntry) int {
 
 // The kinds in the order they are listed: pictures, drawings, documents,
 // meshes, text, data, notebooks, Word, and tables; the unmarked last.
-var kindRanks = []string{"📷", "🎨", "📕", "🧊", "📝", "🧾", "📓", "📄", "📊"}
+var kindRanks = []string{"📷", "🎨", "📕", "🧊", "📝", "📃", "🧾", "📓", "📄", "📊"}
 
 // kindOrder groups files by kind, then extension.
 func kindOrder(e fs.DirEntry) string {
@@ -147,20 +152,60 @@ type readLog struct {
 	count   int
 	allowed []string // Extensions the picker does not grey; nil allows all.
 	hide    bool
+	text    bool // Files that read as text may be chosen, whatever their name.
 }
 
+// A file as listed, with what a look at its start said of it.
+type sniffed struct {
+	fs.DirEntry
+	text bool
+}
+
+// ReadDir lists a folder, each file that no extension accounts for looked
+// at to see whether it is text, and the files that cannot be chosen left
+// out when that is asked for.
 func (l *readLog) ReadDir(name string) ([]fs.DirEntry, error) {
 	l.mu.Lock()
 	l.dir, l.count = name, l.count+1
-	hide := l.hide && l.allowed != nil
+	hide, allowed := l.hide && l.allowed != nil, l.allowed
 	l.mu.Unlock()
 	entries, err := l.ReadDirFS.ReadDir(name)
+	if allowed == nil {
+		return entries, err
+	}
+	for i, e := range entries {
+		if e.IsDir() || slices.Contains(allowed, strings.ToLower(filepath.Ext(e.Name()))) {
+			continue
+		}
+		entries[i] = sniffed{e, l.readsAsText(path.Join(name, e.Name()))}
+	}
 	if !hide {
 		return entries, err
 	}
-	return slices.DeleteFunc(entries, func(e fs.DirEntry) bool {
-		return !e.IsDir() && !slices.Contains(l.allowed, strings.ToLower(filepath.Ext(e.Name())))
-	}), err
+	return slices.DeleteFunc(entries, func(e fs.DirEntry) bool { return !e.IsDir() && !l.selectable(e) }), err
+}
+
+// readsAsText looks at the start of a file.
+func (l *readLog) readsAsText(name string) bool {
+	f, err := l.Open(name)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	head := make([]byte, document.TextSniff+1)
+	n, _ := io.ReadFull(f, head)
+	return document.IsText(head[:n])
+}
+
+// selectable says whether a listed file may be chosen: one of gloss's
+// kinds by extension, or text while text files are offered.
+func (l *readLog) selectable(e fs.DirEntry) bool {
+	if s, ok := e.(sniffed); ok {
+		l.mu.Lock()
+		defer l.mu.Unlock()
+		return s.text && l.text
+	}
+	return true
 }
 
 func (o *opener) view() string { return o.picker.View() }
@@ -203,13 +248,12 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 	if err != nil || !m.canBrowse() {
 		return nil
 	}
-	reads := &readLog{ReadDirFS: os.DirFS(string(filepath.Separator)).(fs.ReadDirFS), hide: m.hideUnsupported}
+	reads := &readLog{ReadDirFS: os.DirFS(string(filepath.Separator)).(fs.ReadDirFS), hide: m.hideUnsupported, text: !m.noTextFiles}
 	options := []picky.Option{picky.WithFS(reads), picky.WithMarker(mark), picky.WithSort(ordering(m.sortBy))}
 	if m.opts.Type == "" {
-		// Judged by name alone. A file without an extension may still be
-		// recognized by its content, so it is left for the taking.
-		reads.allowed = append([]string{""}, document.Extensions...)
-		options = append(options, picky.WithAllowedTypes(reads.allowed))
+		// Judged by name where the name says; the rest by a look inside.
+		reads.allowed = document.Extensions
+		options = append(options, picky.WithSelectable(reads.selectable))
 	}
 	m.opener = &opener{picker: picky.New(filepath.ToSlash(dir), options...), reads: reads, dir: dir}
 	m.opener.resize(m.width, m.bodyHeight())
@@ -258,10 +302,21 @@ func (m *Model) reorder() tea.Cmd {
 }
 
 func (m *Model) toggleUnsupported() tea.Cmd {
-	o := m.opener
 	m.hideUnsupported = !m.hideUnsupported
+	return m.reread()
+}
+
+// toggleText offers text files, or sets them aside.
+func (m *Model) toggleText() tea.Cmd {
+	m.noTextFiles = !m.noTextFiles
+	return m.reread()
+}
+
+// reread lists the folder again under the choices made.
+func (m *Model) reread() tea.Cmd {
+	o := m.opener
 	o.reads.mu.Lock()
-	o.reads.hide = m.hideUnsupported
+	o.reads.hide, o.reads.text = m.hideUnsupported, !m.noTextFiles
 	o.reads.mu.Unlock()
 	cmd := o.picker.Init() // Reads the folder again.
 	// The folder of a typed path is read only when the text changes, so its

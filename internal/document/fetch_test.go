@@ -93,7 +93,7 @@ func TestFetch(t *testing.T) {
 			time.Sleep(2 * time.Second)
 		case "/blob":
 			w.Header().Set("Content-Type", "application/octet-stream")
-			w.Write([]byte("not a picture, nor anything else gloss shows"))
+			w.Write([]byte("\x00\x01\x02 not a picture, nor anything else gloss shows"))
 		default:
 			http.NotFound(w, r)
 		}

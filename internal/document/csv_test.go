@@ -70,9 +70,9 @@ func TestCSVIsDetectedByName(t *testing.T) {
 			t.Errorf("Detect(%s) = %q, %v", name, kind, err)
 		}
 	}
-	// Text alone does not make a table: a .txt of commas is not one.
-	if kind, err := Detect("t.txt", data, ""); err == nil {
-		t.Errorf("Detect(t.txt) = %q", kind)
+	// Text alone does not make a table: a .txt of commas is plain text.
+	if kind, err := Detect("t.txt", data, ""); err != nil || kind != "text" {
+		t.Errorf("Detect(t.txt) = %q, %v", kind, err)
 	}
 	l := &Loader{}
 	defer l.Close()

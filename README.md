@@ -1,7 +1,7 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, HTML, JSON,
-Jupyter notebooks, Word, Excel, and CSV files.
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, HTML, plain
+text, JSON, Jupyter notebooks, Word, Excel, and CSV files.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -61,7 +61,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|text|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -146,10 +146,12 @@ and `Esc` cancels. The chosen file joins the list like a dropped one.
 skipped, so globs stay safe.
 
 Files gloss cannot show are greyed and cannot be chosen; `Ctrl-T` hides them,
-and again shows them. They are judged by extension, so a file with none stays
-available: gloss may still recognize its content. With `--type`, nothing is
+and again shows them. Known kinds are judged by extension; any other file is
+looked into as the folder is listed, and offered when it reads as text, so
+only binary files are greyed. `Ctrl-X` sets text files aside, for folders
+where they are clutter, and offers them again. With `--type`, nothing is
 greyed. Each file is marked by kind: 📁 folders, 📷 pictures, 🎨 SVG, 📕 PDF,
-🧊 meshes, 📝 Markdown and HTML, 🧾 JSON, 📓 notebooks, 📄 Word, 📊 tables.
+🧊 meshes, 📝 Markdown, HTML, and text, 📃 text by content, 🧾 JSON, 📓 notebooks, 📄 Word, 📊 tables.
 `Ctrl-S` changes the order: by name, by date with the newest first, or by
 kind; folders always come first, and the order is kept for the next browse.
 `G`, with nothing typed in the filter, asks for a folder's path, starting from
@@ -182,6 +184,7 @@ and modification time, followed by:
 | JSON | Whether it is one value or lines of records, how many, the top-level kind and first keys |
 | Notebook | Format version, language, kernel, cells by kind, outputs, pictures |
 | HTML | Title, and the lines, words, headings, links, and images of the text |
+| Text | Lines, words, characters |
 
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
@@ -408,6 +411,13 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   encrypted content are not read. The same 932,067-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
   hold 4,096 entries and unpack to 128 MiB.
+- Plain text (`.txt`, `.text`, `.log`, and any file that is not binary):
+  shown as it is, in the document view, so that no line of it is read as a
+  heading, a list, or emphasis. Returns and a byte order mark are dropped,
+  bytes that are not UTF-8 stand as �, and a file longer than 2 MiB is cut.
+  A file of no known kind is read as text when its first 8 KiB hold no NUL
+  byte, are UTF-8, and are mostly printable, as `less` would show it; source
+  code and configuration open that way. Only binary files are unsupported.
 - JSON (`.json`, `.jsonl`, `.ndjson`): pretty-printed and highlighted as a
   fenced block; `s` shows it as it is in the file. A file with one value to a
   line, such as a training set, a batch request, or a log export, is shown as

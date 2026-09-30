@@ -50,7 +50,7 @@ func TestHTMLIsDetected(t *testing.T) {
 		{"data", `{"a": [1, 2]}`, "json"},
 		{"nb.ipynb", "", "ipynb"},
 		{"nb", `{"cells": [], "nbformat": 4}`, "ipynb"},
-		{"data", "{not json", ""},
+		{"data", "{not json", "text"},
 	} {
 		kind, err := Detect(tt.path, []byte(tt.data), "")
 		if kind != tt.kind || (err == nil) != (tt.kind != "") {

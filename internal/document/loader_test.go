@@ -170,9 +170,15 @@ func TestPDFRenderingNavigationAndClose(t *testing.T) {
 }
 
 func TestInvalidInputAndTerminalSanity(t *testing.T) {
-	for _, data := range [][]byte{nil, []byte("hello"), []byte("<div/>"), []byte("{not json")} {
+	for _, data := range [][]byte{nil, []byte("\x00\x01"), []byte("caf\xe9"), []byte("\x89PNG\r\n\x1a\n\x00")} {
 		if _, err := Detect("unknown", data, ""); err == nil {
-			t.Fatal("accepted unsupported format")
+			t.Fatalf("accepted %q", data)
+		}
+	}
+	// What is not binary is text, whatever else it fails to be.
+	for _, data := range [][]byte{[]byte("hello"), []byte("<div/>"), []byte("{not json")} {
+		if kind, err := Detect("unknown", data, ""); err != nil || kind != "text" {
+			t.Fatalf("%q: %q %v", data, kind, err)
 		}
 	}
 	if _, err := ReadFile(t.TempDir()); err == nil {
@@ -211,7 +217,7 @@ func TestProbeExtensionless(t *testing.T) {
 	}
 	for _, suffix := range []string{".dmg", ".zip", ".xyz", ""} {
 		path := filepath.Join(t.TempDir(), "unsupported"+suffix)
-		if err := os.WriteFile(path, []byte("unrecognized content"), 0600); err != nil {
+		if err := os.WriteFile(path, []byte("unrecognized\x00content"), 0600); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := Probe(path, ""); !errors.Is(err, ErrUnsupported) {

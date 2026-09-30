@@ -87,7 +87,7 @@ func TestPasteThatIsNotAPathIsIgnored(t *testing.T) {
 
 func TestDropWithNothingUsableKeepsTheView(t *testing.T) {
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("plain text"), 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "notes.bin"), []byte("\x00\x01 binary"), 0600); err != nil {
 		t.Fatal(err)
 	}
 	huge := filepath.Join(dir, "huge.png")
@@ -105,7 +105,7 @@ func TestDropWithNothingUsableKeepsTheView(t *testing.T) {
 	m := New(Options{Files: []string{samples + "shapes.svg"}, Render: "glyph", Page: 1})
 	defer m.Close()
 	m.kind, m.zoom = "svg", 3
-	if !deliver(m, tea.PasteMsg{Content: filepath.Join(dir, "notes.txt") + "\n" + huge + "\n" + filepath.Join(dir, "missing.png")}) {
+	if !deliver(m, tea.PasteMsg{Content: filepath.Join(dir, "notes.bin") + "\n" + huge + "\n" + filepath.Join(dir, "missing.png")}) {
 		t.Fatal("paths were not probed")
 	}
 	if len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 3 || m.menu || m.loading || m.opener != nil {

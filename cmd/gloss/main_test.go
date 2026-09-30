@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -61,6 +63,11 @@ func TestBareGlossIsNotAnError(t *testing.T) {
 func TestInputs(t *testing.T) {
 	first, second := t.TempDir(), t.TempDir()
 	svg, md := "../../examples/shapes.svg", "../../examples/readme.md"
+	// Source is text, which gloss shows; a binary blob is not.
+	blob := filepath.Join(first, "blob.bin")
+	if err := os.WriteFile(blob, []byte("\x00\x01\x02"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	for _, tt := range []struct {
 		name            string
 		paths           []string
@@ -74,8 +81,9 @@ func TestInputs(t *testing.T) {
 		{name: "a folder is browsed", paths: []string{first}, dir: first},
 		{name: "the first of several folders is browsed", paths: []string{first, second}, dir: first, skipped: second},
 		{name: "folders among files are skipped, as a glob needs", paths: []string{svg, first, md}, files: []string{svg, md}, skipped: first},
-		{name: "a folder beside something unsupported is browsed", paths: []string{"main.go", first}, dir: first, skipped: "main.go"},
-		{name: "something unsupported alone", paths: []string{"main.go"}, skipped: "main.go", failed: "no supported input files"},
+		{name: "source is text, and shown", paths: []string{"main.go"}, files: []string{"main.go"}},
+		{name: "a folder beside something unsupported is browsed", paths: []string{blob, first}, dir: first, skipped: blob},
+		{name: "something unsupported alone", paths: []string{blob}, skipped: blob, failed: "no supported input files"},
 		{name: "a missing file", paths: []string{"missing.png"}, failed: "missing.png"},
 		{name: "a missing file beside a folder", paths: []string{first, "missing.png"}, skipped: first, failed: "missing.png"},
 		{name: "an export of nothing", exporting: true, failed: "no input"},

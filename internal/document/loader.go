@@ -31,20 +31,20 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".txt", ".text", ".log", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
 // Formats says, for people, what gloss opens: labelled lines, and a short
 // line for when there is no room for them.
 var Formats = []string{
 	"Images: PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC",
 	"Doc:    SVG, PDF, Word, Excel, Jupyter",
-	"Text:   Markdown, HTML, JSON and JSONL, CSV",
+	"Text:   Markdown, HTML, JSON, CSV, plain text and source",
 	"3D:     STL and 3MF meshes",
 }
 
-const FormatsShort = "Images, SVG, PDF, Word, Excel, Jupyter, Markdown, HTML, JSON, CSV, STL, 3MF"
+const FormatsShort = "Images, SVG, PDF, Word, Excel, Jupyter, Markdown, HTML, text, JSON, CSV, STL, 3MF"
 
-var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, or CSV")
+var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, CSV, or text")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
 
@@ -292,6 +292,15 @@ func (l *Loader) Load(q Request) (out Result) {
 		// The outputs' pictures are kept beside the Markdown, in memory.
 		out.Markdown, out.Err = loadMarkdownFrom("notebook.md", nb.Markdown, ".", nb.Files)
 		details = nb.fields
+	case "text":
+		details = func() []Field { return Section("Text", Field{"Format", "Plain text"}) }
+		doc, err := ReadText(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		out.Markdown, out.Err = loadMarkdownFrom(q.Path, doc.Markdown, q.BaseDir, l.Files)
+		details = doc.fields
 	case "html":
 		details = func() []Field { return Section("Page", Field{"Format", "HTML"}) }
 		page, err := ReadHTML(data)
@@ -521,10 +530,16 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "ipynb", nil
 	case ".html", ".htm":
 		return "html", nil
+	case ".txt", ".text", ".log":
+		return "text", nil
 	case ".docx", ".docm":
 		return "docx", nil
 	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":
 		return "image", nil
+	}
+	// Whatever is not binary can be read as text, as less would.
+	if IsText(data) {
+		return "text", nil
 	}
 	return "", ErrUnsupported
 }

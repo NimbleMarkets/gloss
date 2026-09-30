@@ -97,6 +97,7 @@ type Model struct {
 	opener                   *opener
 	hideUnsupported          bool         // The browser's choice outlasts any one visit.
 	sortBy                   int          // The order the browser lists in; kept likewise.
+	noTextFiles              bool         // The browser sets text files aside; kept likewise.
 	quitting                 bool         // The view being drawn is the one left behind.
 	added                    []string     // What the user has handed over, by full path.
 	fetched                  []fetchedDoc // Files fetched from the web this session.
@@ -289,6 +290,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.toggleUnsupported()
 			case "ctrl+s":
 				return m, m.reorder()
+			case "ctrl+x":
+				return m, m.toggleText()
 			}
 			return m, m.browse(msg)
 		case tea.MouseMsg:
@@ -779,7 +782,7 @@ func (m *Model) View() tea.View {
 		if m.markdown.raw {
 			mode = "source"
 		}
-		format := map[string]string{"docx": "Word", "json": "JSON", "ipynb": "notebook", "html": "HTML"}[m.kind]
+		format := map[string]string{"docx": "Word", "json": "JSON", "ipynb": "notebook", "html": "HTML", "text": "text"}[m.kind]
 		if format == "" {
 			format = "Markdown"
 		}
@@ -863,11 +866,14 @@ func (m *Model) View() tea.View {
 			dir = "…" + ansi.TruncateLeft(dir, over+1, "")
 		}
 		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Open · "+dir+note, w, "…"))
-		unsupported := "hide unsupported"
+		greyed, text := "hide greyed", "no text"
 		if m.hideUnsupported {
-			unsupported = "show all"
+			greyed = "show greyed"
 		}
-		hint = ansi.Truncate(" ↑/↓ select · Enter open · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+unsupported+" · Esc cancel", w, "")
+		if m.noTextFiles {
+			text = "text"
+		}
+		hint = ansi.Truncate(" Enter open · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
 		if m.opener.going {
 			hint = ansi.Truncate(" Type a folder's path · Tab complete · Enter go · Esc back", w, "")
 		}

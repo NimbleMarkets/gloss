@@ -25,4 +25,5 @@ func (m *Model) browse(tea.Msg) tea.Cmd     { return nil }
 func (m *Model) browseFrom(string) tea.Cmd  { return nil }
 func (m *Model) toggleUnsupported() tea.Cmd { return nil }
 func (m *Model) reorder() tea.Cmd           { return nil }
+func (m *Model) toggleText() tea.Cmd        { return nil }
 func (m *Model) opened(openResult) tea.Cmd  { return nil }

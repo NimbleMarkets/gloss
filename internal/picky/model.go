@@ -139,6 +139,14 @@ func DefaultKeyMap() KeyMap {
 }
 
 // WithKeyMap sets the Picker's key bindings.
+// WithSelectable says which files may be chosen, by whatever the caller
+// knows of them, in place of a list of allowed extensions.
+func WithSelectable(can func(fs.DirEntry) bool) Option {
+	return func(p *Model) {
+		p.selectable = can
+	}
+}
+
 // WithMarker shows what mark returns for an entry, such as an icon, in
 // place of its permissions. Marks should be of one width.
 func WithMarker(mark func(fs.DirEntry) string) Option {
@@ -251,6 +259,7 @@ type Model struct {
 	styles       Styles
 	keyMap       KeyMap
 	marker       func(fs.DirEntry) string   // In place of the permission column.
+	selectable   func(fs.DirEntry) bool     // Which files may be chosen, over allowed types.
 	sort         func(a, b fs.DirEntry) int // Among folders, and among files; nil is by name.
 
 	// Path mode state (ephemeral — does not affect dir or nav stacks).
@@ -545,12 +554,16 @@ func longestCommonPrefix(entries []fs.DirEntry) string {
 	return string(prefix)
 }
 
-// canSelect checks if a filename has an allowed extension.
-func (p *Model) canSelect(name string) bool {
+// canSelect says whether a file may be chosen: as the selectable option
+// judges, else by its extension being allowed.
+func (p *Model) canSelect(entry fs.DirEntry) bool {
+	if p.selectable != nil {
+		return p.selectable(entry)
+	}
 	if len(p.allowedTypes) == 0 {
 		return true
 	}
-	return slices.Contains(p.allowedTypes, strings.ToLower(filepath.Ext(name)))
+	return slices.Contains(p.allowedTypes, strings.ToLower(filepath.Ext(entry.Name())))
 }
 
 // Update handles messages and returns the updated model and any commands.
@@ -701,7 +714,7 @@ func (p Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				return p, p.readDir()
 			}
 			// File: check if allowed.
-			if p.canSelect(entry.Name()) {
+			if p.canSelect(entry) {
 				p.selected = filepath.Join(p.dir, entry.Name())
 			}
 			return p, nil
@@ -830,7 +843,7 @@ func (p Model) View() string {
 			if !isDir {
 				size = strings.Replace(humanize.Bytes(uint64(info.Size())), " ", "", 1) //nolint:gosec
 			}
-			disabled := !p.canSelect(name) && !isDir
+			disabled := !p.canSelect(entry) && !isDir
 
 			sizeCol := p.styles.FileSize.GetWidth()
 			mark := info.Mode().String()
