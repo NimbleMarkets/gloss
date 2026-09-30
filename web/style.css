@@ -38,6 +38,11 @@ nav {
 nav a,.wordmark {
   text-decoration:none
 }
+nav .github {
+  display:inline-flex;
+  align-items:center;
+  gap:6px
+}
 .wordmark {
   font-size:24px;
   font-weight:800;
