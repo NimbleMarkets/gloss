@@ -181,3 +181,27 @@ func TestViewsFitTheMeshToThePicture(t *testing.T) {
 		t.Errorf("at distance 6 a cube covers %.2f of the picture", wide)
 	}
 }
+
+func TestCameraFitsTheFrameItIsFor(t *testing.T) {
+	// A wide, low mesh: in a wide frame the camera can come closer than in
+	// a square one, and in a tall frame it must stand further off.
+	wide := &Mesh{}
+	wide.add([3]math3d.Vec3{{X: 0, Y: 0, Z: 0}, {X: 0, Y: 10, Z: 0}, {X: 1, Y: 10, Z: 1}}, meshColor)
+	front := View{Name: "front", Alpha: 0, Beta: 0}
+	square := front.Camera(wide).Distance
+	if w := front.CameraFor(wide, 3).Distance; w >= square {
+		t.Errorf("wide frame %v, square %v", w, square)
+	}
+	if n := front.CameraFor(wide, .5).Distance; n <= square {
+		t.Errorf("tall frame %v, square %v", n, square)
+	}
+	// Perspective fits the same way.
+	front.Projection = charts.Perspective
+	if w, s := front.CameraFor(wide, 3).Distance, front.Camera(wide).Distance; w >= s {
+		t.Errorf("perspective: wide %v, square %v", w, s)
+	}
+	// An aspect that says nothing means a square frame.
+	if front.CameraFor(wide, 0) != front.Camera(wide) {
+		t.Error("aspect 0 is not square")
+	}
+}

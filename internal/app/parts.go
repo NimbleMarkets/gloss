@@ -132,7 +132,7 @@ func (m *Model) assembled(r partsResult) tea.Cmd {
 	}
 	// The part fills the picture, seen from where the camera was.
 	camera := m.chart.Camera()
-	fit := document.View{Alpha: camera.Alpha, Beta: camera.Beta, Projection: camera.Projection}.Camera(r.mesh)
+	fit := document.View{Alpha: camera.Alpha, Beta: camera.Beta, Projection: camera.Projection}.CameraFor(r.mesh, m.frameAspect())
 	return tea.Batch(shown, m.chart.SetCamera(fit))
 }
 
@@ -166,6 +166,34 @@ func (m *Model) partsView(w, h int) string {
 		lines = append(lines, style.Render(strings.TrimRight(line, " ")))
 	}
 	return box(lines)
+}
+
+// refit fits the home to the frame as it now is, and takes the camera
+// there too while it still stands at home: a mesh may have come before
+// the terminal said its size.
+func (m *Model) refit() tea.Cmd {
+	if m.chart == nil || m.mesh == nil || m.homeView == nil {
+		return nil
+	}
+	atHome := m.chart.Camera() == m.home
+	m.home = m.homeView.CameraFor(m.mesh, m.frameAspect())
+	if !atHome {
+		return nil
+	}
+	return m.chart.SetCamera(m.home)
+}
+
+// frameAspect is the mesh's picture's width over its height in pixels:
+// the plot's cells, less the chart's title and footer rows, by the size
+// of a cell, which is taken as twice as tall as wide until the terminal
+// says.
+func (m *Model) frameAspect() float64 {
+	cw, ch := m.pic.CellPixelSize()
+	if cw <= 1 || ch <= 1 {
+		cw, ch = 8, 16
+	}
+	rows := max(1, m.bodyHeight()-2)
+	return float64(max(1, m.width)*cw) / float64(rows*ch)
 }
 
 // meshFrame keeps the chart's picture and replaces the rows it writes

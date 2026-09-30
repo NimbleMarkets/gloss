@@ -12,7 +12,6 @@ import (
 	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/NimbleMarkets/gloss/internal/document"
 	booba "github.com/NimbleMarkets/go-booba"
-	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/spf13/pflag"
 )
 
@@ -27,11 +26,10 @@ func options(sample string) (app.Options, bool) {
 		}
 		files = append(files[i:], files[:i]...)
 	}
-	camera := charts.DefaultCamera()
-	camera.Distance = 1.6 // Frame the wide block-letter sculpture more closely.
 	// Meshes are drawn with WebGPU where the browser has it; NTCharts3d
-	// falls back to software, and then wireframe, where it does not.
-	return app.Options{Save: saveExport, Files: files, STLCamera: &camera, Render: "auto", Render3D: "auto", Page: 1, DPI: 96, Menu: sample == "", Preview: sample == ""}, true
+	// falls back to software, and then wireframe, where it does not. Each
+	// starts fitted to its frame.
+	return app.Options{Save: saveExport, Files: files, Render: "auto", Render3D: "auto", Page: 1, DPI: 96, Menu: sample == "", Preview: sample == ""}, true
 }
 
 // appOptions opens the app: nothing embedded, a drop target for the

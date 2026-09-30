@@ -102,8 +102,9 @@ type Model struct {
 	fetched                  []fetchedDoc // Files fetched from the web this session.
 	savedSheet               *sheetView   // The cell to return to when a fetched file closes.
 	picked                   []string
-	home                     charts.Camera // Where the camera starts, and returns on reset.
-	skipped                  []string      // Reported on stderr once the terminal is restored.
+	home                     charts.Camera  // Where the camera starts, and returns on reset.
+	homeView                 *document.View // The view the home is fitted from, when it is a fit.
+	skipped                  []string       // Reported on stderr once the terminal is restored.
 }
 
 var nextModelID atomic.Int64
@@ -313,7 +314,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.opener.resize(m.width, m.bodyHeight())
 		cmd := tea.Batch(m.pic.SetSize(m.width, m.bodyHeight()), m.resizePreview(), m.layoutMarkdown(), m.layoutGrid())
 		if m.chart != nil {
-			return m, tea.Batch(cmd, m.chart.SetSize(m.width, m.bodyHeight()))
+			return m, tea.Batch(cmd, m.chart.SetSize(m.width, m.bodyHeight()), m.refit())
 		}
 		return m, cmd
 	case tea.PasteMsg:
@@ -396,18 +397,28 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.mesh = v.Mesh
 			m.parts, m.assemble, m.partsShown = v.Parts, v.Assemble, v.Shown
 			m.keepLayer()
-			m.home = charts.DefaultCamera()
+			// The start, and where f returns to, is fitted to this mesh: the
+			// view asked for, or the default angles at a distance that shows
+			// the whole of it, as an export would.
+			d := charts.DefaultCamera()
+			home := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}
+			m.homeView = &home
 			switch {
 			case len(m.opts.Views) > 0:
-				// Fitted to this mesh, so worked out once it is known.
-				m.home = m.opts.Views[0].Camera(v.Mesh)
+				m.homeView = &m.opts.Views[0]
 			case m.opts.STLCamera != nil:
+				m.homeView = nil
+			}
+			if m.opts.STLCamera != nil {
 				m.home = *m.opts.STLCamera
+			}
+			if m.homeView != nil {
+				m.home = m.homeView.CameraFor(v.Mesh, m.frameAspect())
 			}
 			if m.savedCamera != nil {
 				setup = append(setup, m.chart.SetCamera(*m.savedCamera))
 				m.savedCamera = nil
-			} else if m.home != charts.DefaultCamera() {
+			} else {
 				setup = append(setup, m.chart.SetCamera(m.home))
 			}
 			// Apply a capability already established before this chart existed.

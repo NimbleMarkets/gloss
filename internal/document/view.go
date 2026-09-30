@@ -105,10 +105,19 @@ func (v View) light() math3d.Vec3 {
 	return math3d.Vec3{X: float32(l[0]), Y: float32(l[1]), Z: float32(l[2])}.Normalize()
 }
 
-// Camera places NTCharts3d's camera for the view. Where no distance was
-// asked for, the mesh fills nine tenths of the picture; without a mesh, the
-// distance is NTCharts3d's own.
-func (v View) Camera(mesh *Mesh) charts.Camera {
+// Camera places NTCharts3d's camera for the view of a square picture, as
+// an export is. Where no distance was asked for, the mesh fills nine tenths
+// of it; without a mesh, the distance is NTCharts3d's own.
+func (v View) Camera(mesh *Mesh) charts.Camera { return v.CameraFor(mesh, 1) }
+
+// CameraFor is Camera for a picture of the given aspect, its width over
+// its height in pixels: in a wide frame a wide mesh is fitted by its
+// height, and the camera comes as close as that allows. An aspect that
+// says nothing means a square.
+func (v View) CameraFor(mesh *Mesh, aspect float64) charts.Camera {
+	if aspect <= 0 || math.IsNaN(aspect) || math.IsInf(aspect, 0) {
+		aspect = 1
+	}
 	camera := charts.DefaultCamera()
 	camera.Alpha, camera.Beta, camera.Projection, camera.AutoRotate = math.Max(-89, math.Min(89, v.Alpha)), v.Beta, v.Projection, false
 	if v.Distance > 0 {
@@ -131,7 +140,8 @@ func (v View) Camera(mesh *Mesh) charts.Camera {
 	reach := func(axis [3]float64) float64 {
 		return math.Abs(axis[0])*half[0] + math.Abs(axis[1])*half[1] + math.Abs(axis[2])*half[2]
 	}
-	across, near := math.Max(reach(right), reach(up)), reach(toward)
+	// The picture is as tall as the fit says, and aspect times as wide.
+	across, near := math.Max(reach(right)/aspect, reach(up)), reach(toward)
 	const fill = .9
 	if v.Projection == charts.Perspective {
 		// The field of view is 45 degrees, and what is nearest looks largest.

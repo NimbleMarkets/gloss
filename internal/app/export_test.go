@@ -208,7 +208,7 @@ func TestViewerStartsFromTheViewAskedFor(t *testing.T) {
 	}
 	m := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software", Views: views}, "")
 	m.Update(document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
-	want := views[0].Camera(mesh)
+	want := views[0].CameraFor(mesh, m.frameAspect())
 	if got := m.chart.Camera(); got.Alpha != 89 || got.Beta != -90 || got.Distance != want.Distance {
 		t.Fatalf("camera %+v, want the first view asked for, fitted: %+v", got, want)
 	}
@@ -220,7 +220,11 @@ func TestViewerStartsFromTheViewAskedFor(t *testing.T) {
 	}
 	plain := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software"}, "")
 	plain.Update(document.Result{Generation: plain.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
-	if got := plain.chart.Camera(); got.Alpha != charts.DefaultCamera().Alpha || got.Distance != charts.DefaultCamera().Distance {
-		t.Fatalf("with no view asked for: %+v", got)
+	// With no view asked for, the default angles, at a distance fitted to
+	// the mesh rather than NTCharts3d's own.
+	d := charts.DefaultCamera()
+	fitted := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}.CameraFor(mesh, plain.frameAspect())
+	if got := plain.chart.Camera(); got.Alpha != d.Alpha || got.Distance != fitted.Distance || got.Distance == d.Distance {
+		t.Fatalf("with no view asked for: %+v, want %+v", got, fitted)
 	}
 }

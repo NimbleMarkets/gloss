@@ -13,6 +13,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/document"
+	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -223,5 +224,56 @@ func TestMeshViewKeepsRendererDetailsForTheInfoBox(t *testing.T) {
 	m = loaded(t, "photos/landscape.png")
 	if status := plain(m)[len(plain(m))-2]; strings.Contains(status, "glyph") || strings.Contains(status, "kitty") || !strings.Contains(status, "png · 1x") {
 		t.Errorf("picture status %q", status)
+	}
+}
+
+func TestMeshStartsFittedToTheFrame(t *testing.T) {
+	// A tall, flat model needs the camera further off than the default to
+	// be seen whole: the start is fitted, as an export's view is.
+	tall := "solid t\n" + strings.Repeat("facet normal 0 0 0\nouter loop\nvertex 0 0 0\nvertex 1 0 0\nvertex 0 1 20\nendloop\nendfacet\n", 1) + "endsolid t\n"
+	mesh, err := document.ParseSTL([]byte(tall))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := viewing(t, Options{Files: []string{"tall.stl"}, Render3D: "software"}, "")
+	send(m, tea.WindowSizeMsg{Width: 100, Height: 30})
+	send(m, document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
+	d := charts.DefaultCamera()
+	want := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}.CameraFor(mesh, m.frameAspect())
+	if got := m.chart.Camera(); got.Distance != want.Distance || got.Alpha != d.Alpha {
+		t.Fatalf("start camera %+v, want fitted %+v", got, want)
+	}
+	// f goes back to that fitted start.
+	c := m.chart.Camera()
+	c.Distance *= 3
+	send(m, m.chart.SetCamera(c))
+	send(m, press("f"))
+	if m.chart.Camera().Distance != want.Distance {
+		t.Fatalf("f did not return to the fitted view: %+v", m.chart.Camera())
+	}
+}
+
+func TestFitFollowsTheFrameUntilTheCameraMoves(t *testing.T) {
+	// In the browser the mesh may load before the terminal says its size:
+	// the fit is made again for the frame that comes, and the home with
+	// it. Once the camera has been moved, a resize leaves it alone.
+	mesh, _ := document.ParseSTL([]byte(facet))
+	m := viewing(t, Options{Files: []string{"part.stl"}, Render3D: "software"}, "")
+	send(m, document.Result{Generation: m.generation, Kind: "stl", Page: 1, Pages: 1, Mesh: mesh})
+	send(m, tea.WindowSizeMsg{Width: 160, Height: 30})
+	d := charts.DefaultCamera()
+	want := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}.CameraFor(mesh, m.frameAspect())
+	if got := m.chart.Camera(); got.Distance != want.Distance || m.home.Distance != want.Distance {
+		t.Fatalf("after the size came: camera %v home %v, want %v", got.Distance, m.home.Distance, want.Distance)
+	}
+	moved := m.chart.Camera()
+	moved.Alpha += 10
+	send(m, m.chart.SetCamera(moved))
+	send(m, tea.WindowSizeMsg{Width: 60, Height: 40})
+	if got := m.chart.Camera(); got.Alpha != moved.Alpha || got.Distance != moved.Distance {
+		t.Fatalf("a resize moved the camera the user had placed: %+v", got)
+	}
+	if m.home.Distance == want.Distance {
+		t.Fatal("the home did not follow the new frame")
 	}
 }
