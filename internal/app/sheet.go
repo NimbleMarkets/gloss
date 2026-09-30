@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -18,15 +19,21 @@ const (
 // sheetView shows a sheet as a grid with a cursor on one cell. The grid
 // scrolls to keep the cursor in view; its columns are lettered and its rows
 // numbered as in the spreadsheet.
+//
+// Columns can be hidden: cols lists those shown, and the corner and cursor
+// hold places in cols, not columns of the sheet.
 type sheetView struct {
 	sheet    *document.Sheet
-	row, col int    // The cell in the top-left corner.
-	at       [2]int // The cell under the cursor.
+	row, col int    // The cell in the top-left corner: a row and a place in cols.
+	at       [2]int // The cell under the cursor: a row and a place in cols.
 	widths   []int  // Of each column, in cells.
+	hidden   []bool // Of each column.
+	cols     []int  // The columns shown, in order.
+	picker   *columnPicker
 }
 
 func newSheetView(s *document.Sheet) *sheetView {
-	v := &sheetView{sheet: s, widths: make([]int, s.Columns)}
+	v := &sheetView{sheet: s, widths: make([]int, s.Columns), hidden: make([]bool, s.Columns)}
 	// Sized to the first rows, so that a long sheet need not be read twice.
 	for c := range v.widths {
 		v.widths[c] = max(minColumnWidth, len(document.ColumnName(c)))
@@ -36,10 +43,74 @@ func newSheetView(s *document.Sheet) *sheetView {
 			}
 		}
 	}
+	v.rebuild()
 	return v
 }
 
 func (v *sheetView) rows() int { return len(v.sheet.Rows) }
+
+// column is the sheet column under the cursor.
+func (v *sheetView) column() int {
+	if len(v.cols) == 0 {
+		return 0
+	}
+	return v.cols[min(v.at[1], len(v.cols)-1)]
+}
+
+// rebuild lists the shown columns anew, keeping the cursor and the corner on
+// their columns, or the nearest shown after them.
+func (v *sheetView) rebuild() {
+	at, corner := 0, 0
+	if len(v.cols) > 0 {
+		at, corner = v.cols[min(v.at[1], len(v.cols)-1)], v.cols[min(v.col, len(v.cols)-1)]
+	}
+	v.cols = v.cols[:0]
+	for c, hidden := range v.hidden {
+		if !hidden {
+			v.cols = append(v.cols, c)
+		}
+	}
+	v.at[1], v.col = v.place(at), v.place(corner)
+}
+
+// place is where column c, or the first shown after it, stands in cols.
+func (v *sheetView) place(c int) int {
+	for p, col := range v.cols {
+		if col >= c {
+			return p
+		}
+	}
+	return max(0, len(v.cols)-1)
+}
+
+// setHidden hides the columns marked in hidden, all of them shown when it
+// is nil. One column is always left, so the grid shows something.
+func (v *sheetView) setHidden(hidden []bool) {
+	for c := range v.hidden {
+		v.hidden[c] = hidden != nil && c < len(hidden) && hidden[c]
+	}
+	if !slices.Contains(v.hidden, false) && len(v.hidden) > 0 {
+		v.hidden[len(v.hidden)-1] = false
+	}
+	v.rebuild()
+}
+
+// hide takes column c out of the grid, unless it is the last one shown.
+func (v *sheetView) hide(c int) {
+	if len(v.cols) > 1 && c < len(v.hidden) && !v.hidden[c] {
+		v.hidden[c] = true
+		v.rebuild()
+	}
+}
+
+// showAll brings every column back, the grid starting again from the left.
+func (v *sheetView) showAll() {
+	v.setHidden(nil)
+	v.col = 0
+}
+
+// hiding counts the hidden columns.
+func (v *sheetView) hiding() int { return len(v.hidden) - len(v.cols) }
 
 // gutter is the width of the row numbers.
 func (v *sheetView) gutter() int {
@@ -49,8 +120,8 @@ func (v *sheetView) gutter() int {
 // shown counts the columns that fit across w cells from column first.
 func (v *sheetView) shown(first, w int) int {
 	room, n := w-v.gutter()-1, 0
-	for c := first; c < len(v.widths) && (n == 0 || room >= v.widths[c]); c++ {
-		room -= v.widths[c] + 1
+	for p := first; p < len(v.cols) && (n == 0 || room >= v.widths[v.cols[p]]); p++ {
+		room -= v.widths[v.cols[p]] + 1
 		n++
 	}
 	return n
@@ -61,9 +132,9 @@ func (v *sheetView) shown(first, w int) int {
 func (v *sheetView) settle(w, h int) {
 	h = max(1, h)
 	v.at[0] = max(0, min(v.at[0], v.rows()-1))
-	v.at[1] = max(0, min(v.at[1], len(v.widths)-1))
+	v.at[1] = max(0, min(v.at[1], len(v.cols)-1))
 	v.row = max(0, min(v.row, v.rows()-h))
-	v.col = max(0, min(v.col, len(v.widths)-1))
+	v.col = max(0, min(v.col, len(v.cols)-1))
 	if v.at[0] < v.row {
 		v.row = v.at[0]
 	}
@@ -86,9 +157,20 @@ func (v *sheetView) scroll(rows, w, h int) {
 	v.settle(w, h)
 }
 
-// key moves the cursor, and reports whether the key was one of its own.
+// key moves the cursor, hides and shows columns, and reports whether the
+// key was one of its own.
 func (v *sheetView) key(k string, w, h int) bool {
+	if v.picker != nil {
+		return v.picker.key(v, k)
+	}
 	switch k {
+	case "x":
+		v.hide(v.column())
+	case "X":
+		v.showAll()
+	case "c":
+		v.picker = &columnPicker{at: v.column()}
+		return true
 	case "j", "down":
 		v.at[0]++
 	case "k", "up":
@@ -115,7 +197,7 @@ func (v *sheetView) key(k string, w, h int) bool {
 }
 
 // url is the web address under the cursor, if any.
-func (v *sheetView) url() string { return v.sheet.URL(v.at[0], v.at[1]) }
+func (v *sheetView) url() string { return v.sheet.URL(v.at[0], v.column()) }
 
 func (v *sheetView) view(w, h int) string {
 	if v.rows() == 0 {
@@ -126,20 +208,20 @@ func (v *sheetView) view(w, h int) string {
 	gutter, n := v.gutter(), v.shown(v.col, w)
 	var lines []string
 	head := strings.Repeat(" ", gutter)
-	for c := v.col; c < v.col+n; c++ {
+	for _, c := range v.cols[v.col : v.col+n] {
 		head += " " + fit(document.ColumnName(c), v.widths[c])
 	}
 	lines = append(lines, dim.Render(ansi.Truncate(head, w, "")))
 	for r := v.row; r < v.rows() && len(lines) < h; r++ {
 		line := dim.Render(fmt.Sprintf("%*d", gutter, r+1))
 		row := v.sheet.Rows[r]
-		for c := v.col; c < v.col+n; c++ {
+		for p, c := range v.cols[v.col : v.col+n] {
 			cell := ""
 			if c < len(row) {
 				cell = safe(row[c])
 			}
 			cell = fit(cell, v.widths[c])
-			if r == v.at[0] && c == v.at[1] {
+			if r == v.at[0] && v.col+p == v.at[1] {
 				cell = mark.Render(cell)
 			}
 			line += " " + cell
@@ -172,11 +254,15 @@ func (v *sheetView) status(w, h int) string {
 		rows = fmt.Sprintf("row %d/%s", v.row+1, grouped(v.rows()+v.sheet.MoreRows))
 	}
 	n := v.shown(v.col, w)
-	cols := fmt.Sprintf("col %s–%s/%s", document.ColumnName(v.col), document.ColumnName(v.col+n-1), document.ColumnName(len(v.widths)+v.sheet.MoreColumns-1))
+	end := document.ColumnName(len(v.widths) + v.sheet.MoreColumns - 1)
+	cols := fmt.Sprintf("col %s–%s/%s", document.ColumnName(v.cols[v.col]), document.ColumnName(v.cols[v.col+n-1]), end)
 	if n == 1 {
-		cols = fmt.Sprintf("col %s/%s", document.ColumnName(v.col), document.ColumnName(len(v.widths)+v.sheet.MoreColumns-1))
+		cols = fmt.Sprintf("col %s/%s", document.ColumnName(v.cols[v.col]), end)
 	}
-	out := fmt.Sprintf("cell %s%d · %s · %s", document.ColumnName(v.at[1]), v.at[0]+1, rows, cols)
+	out := fmt.Sprintf("cell %s%d · %s · %s", document.ColumnName(v.column()), v.at[0]+1, rows, cols)
+	if v.hiding() > 0 {
+		out += fmt.Sprintf(" · cols %d/%d", len(v.cols), len(v.hidden))
+	}
 	if v.sheet.MoreRows > 0 {
 		out += fmt.Sprintf(" · first %s rows read", grouped(v.rows()))
 	}

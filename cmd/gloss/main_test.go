@@ -121,3 +121,16 @@ func TestMainScreenFlag(t *testing.T) {
 		t.Fatal("-X accepted with an export, which draws nothing")
 	}
 }
+
+func TestColumnFlags(t *testing.T) {
+	opts, _, err := parse([]string{"--cols", "Name, city", "--coln", "2,4-5", "a.csv"}, &bytes.Buffer{})
+	if err != nil || !slices.Equal(opts.Columns.Names, []string{"Name", "city"}) || !slices.Equal(opts.Columns.Indexes, []int{2, 4, 5}) {
+		t.Fatalf("%+v %v", opts.Columns, err)
+	}
+	if opts, _, err := parse([]string{"a.csv"}, &bytes.Buffer{}); err != nil || !opts.Columns.Empty() {
+		t.Fatalf("default: %+v %v", opts.Columns, err)
+	}
+	if _, _, err := parse([]string{"--coln", "x", "a.csv"}, &bytes.Buffer{}); err == nil || !strings.Contains(err.Error(), "--coln") {
+		t.Fatalf("bad --coln: %v", err)
+	}
+}

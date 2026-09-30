@@ -279,3 +279,67 @@ func TestEscapeClosesAFetchedFileAndReturnsToItsCell(t *testing.T) {
 		t.Fatalf("files=%q sheet=%v", m.opts.Files, m.sheet != nil)
 	}
 }
+
+func TestColumnsCanBeHiddenFromTheGrid(t *testing.T) {
+	m := tabulated(t, table(3, 3), 1, 1)
+	header := func() string { return strings.Join(strings.Fields(plain(m)[0]), " ") }
+	status := func() string { return plain(m)[len(plain(m))-2] }
+	send(m, press("l"), press("x"))
+	if header() != "A C" || !strings.Contains(status(), "cell C1") || !strings.Contains(status(), "cols 2/3") {
+		t.Fatalf("after x: header %q status %q", header(), status())
+	}
+	if row := strings.Fields(plain(m)[1]); len(row) != 3 || row[1] != "r1c1" || row[2] != "r1c3" {
+		t.Fatalf("row 1: %q", row)
+	}
+	// The cursor moves across visible columns only.
+	send(m, press("h"))
+	if !strings.Contains(status(), "cell A1") {
+		t.Fatalf("after h: %s", status())
+	}
+	// The last column stays: a grid must show something.
+	send(m, press("x"), press("x"))
+	if header() != "C" || strings.Contains(status(), "cols 0/3") {
+		t.Fatalf("after hiding all: header %q status %q", header(), status())
+	}
+	send(m, press("X"))
+	if header() != "A B C" || strings.Contains(status(), "cols ") {
+		t.Fatalf("after X: header %q status %q", header(), status())
+	}
+}
+
+func TestColumnPickerListsAndTogglesColumns(t *testing.T) {
+	sheet := table(3, 3)
+	sheet.Rows[0] = []string{"Name", "Age", "City"}
+	m := tabulated(t, sheet, 1, 1)
+	view := func() string { return ansi.Strip(m.View().Content) }
+	send(m, press("c"))
+	if v := view(); !strings.Contains(v, "[x] A  Name") || !strings.Contains(v, "[x] B  Age") || !strings.Contains(v, "[x] C  City") {
+		t.Fatalf("picker:\n%s", v)
+	}
+	send(m, press("j"), press(" "))
+	if v := view(); !strings.Contains(v, "[ ] B  Age") {
+		t.Fatalf("after toggling B:\n%s", v)
+	}
+	send(m, press("n"))
+	if v := view(); !strings.Contains(v, "[ ] A  Name") || !strings.Contains(v, "[x] C  City") {
+		t.Fatalf("none keeps one column:\n%s", v)
+	}
+	send(m, press("a"), press(" "), tea.KeyPressMsg{Code: tea.KeyEscape})
+	if v := view(); strings.Contains(v, "[x]") || strings.Contains(v, "Age") || !strings.Contains(v, "City") {
+		t.Fatalf("after closing:\n%s", v)
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "c columns") {
+		t.Fatalf("hints: %s", hints)
+	}
+}
+
+func TestColumnsOptionHidesColumnsOnLoad(t *testing.T) {
+	sheet := table(3, 3)
+	sheet.Rows[0] = []string{"Name", "Age", "City"}
+	filter, _ := document.ParseColumns("city", "1")
+	m := viewing(t, Options{Files: []string{"book.xlsx"}, Columns: filter}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "xlsx", Page: 1, Pages: 1, Sheet: sheet})
+	if header := strings.Join(strings.Fields(plain(m)[0]), " "); header != "A C" {
+		t.Fatalf("header %q", header)
+	}
+}

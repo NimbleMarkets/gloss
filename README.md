@@ -94,6 +94,8 @@ gloss photo.png drawing.svg model.stl -mP
 | `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page or sheet; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
 | Arrows, `h j k l` | Move about a spreadsheet by row and column |
+| `x`, `X` | Hide the column under the cursor / show every column |
+| `c` | List the columns, to show and hide them: `Space` toggles, `a` all, `n` none |
 | `Enter` | With `--fetch`, open the web address under the cursor |
 | `Esc` | Close a fetched file and return to its cell |
 | `+`, `-` | Zoom in / out |
@@ -373,6 +375,11 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   file: a comma, tab, semicolon, or pipe, whichever the first lines agree on;
   a `.tsv` is read as tabs. Quoted values may hold the separator and line
   breaks. Only the file's name says it is a table: text is not sniffed.
+- Columns of a table: `x` hides the one under the cursor, `X` brings them all
+  back, and `c` lists them to tick and untick. Hidden columns keep their
+  letters, and one column always stays. `--cols Name,City` shows only the
+  columns with those headers (or letters), and `--coln 2,4-6` those numbered
+  so, in every table opened; a table with none of them is shown whole.
 - Web addresses in tables: a sheet has a cursor, and the status bar shows the
   address a cell holds or, in Excel, links to. With `--fetch`, `Enter` on such
   a cell downloads what it names and opens it like a dropped file; a picture

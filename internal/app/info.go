@@ -20,9 +20,8 @@ func (m *Model) infoBox(w, h int) string {
 			labels = max(labels, lipgloss.Width(f.Label))
 		}
 	}
-	shade := lipgloss.Color("235")
-	text := lipgloss.NewStyle().Background(shade).Foreground(lipgloss.Color("252"))
-	heading, label := text.Bold(true).Foreground(lipgloss.Color("231")), text.Foreground(lipgloss.Color("245"))
+	text := boxText
+	heading, label := text.Bold(true).Foreground(lipgloss.Color("231")), boxDim
 	var lines []string
 	for _, f := range m.fields {
 		if f.Value == "" {
@@ -44,6 +43,19 @@ func (m *Model) infoBox(w, h int) string {
 	if len(lines) > rows {
 		lines = append(lines[:rows-1], text.Render("…"))
 	}
+	return box(lines)
+}
+
+// The corner boxes' colours: a shade, plain text on it, and dim text.
+var (
+	boxShade = lipgloss.Color("235")
+	boxText  = lipgloss.NewStyle().Background(boxShade).Foreground(lipgloss.Color("252"))
+	boxDim   = boxText.Foreground(lipgloss.Color("245"))
+)
+
+// box frames styled lines as a shaded corner box, each padded to the widest.
+func box(lines []string) string {
+	shade, text := boxShade, boxText
 	width := 0
 	for _, line := range lines {
 		width = max(width, lipgloss.Width(line))

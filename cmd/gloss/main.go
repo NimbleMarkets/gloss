@@ -55,6 +55,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	view := f.String("view", "", "views of a mesh: front, back, left, right, top, bottom, iso, all; several, as front,top, export as one sheet")
 	camera := f.String("camera", "", "camera for a mesh, as elevation,azimuth or elevation,azimuth,distance in degrees")
 	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
+	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
+	coln := f.String("coln", "", "show only these columns of a table, counted from 1: 2,4-6")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
 	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
@@ -105,6 +107,9 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	}
 	opts.Files = f.Args()
 	var err error
+	if opts.Columns, err = document.ParseColumns(*cols, *coln); err != nil {
+		return opts, false, err
+	}
 	switch {
 	case *view != "" && *camera != "":
 		return opts, false, fmt.Errorf("choose --view or --camera")

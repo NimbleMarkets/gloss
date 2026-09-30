@@ -37,7 +37,9 @@ type Options struct {
 	Drops <-chan []string
 	// Fetch downloads a web address to a file and returns its path. Nil
 	// leaves the network alone, which is the default.
-	Fetch      func(address string) (string, error)
+	Fetch func(address string) (string, error)
+	// Columns picks the columns of every sheet to show; the rest are hidden.
+	Columns    document.ColumnFilter
 	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
@@ -320,7 +322,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
 		if v.Sheet != nil {
 			m.source, m.sheet = nil, newSheetView(v.Sheet)
+			m.sheet.setHidden(m.opts.Columns.Hidden(v.Sheet))
 			if m.savedSheet != nil {
+				m.sheet.setHidden(m.savedSheet.hidden)
 				m.sheet.row, m.sheet.col, m.sheet.at = m.savedSheet.row, m.savedSheet.col, m.savedSheet.at
 				m.sheet.settle(m.width, m.bodyHeight()-1)
 				m.savedSheet = nil
@@ -389,7 +393,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case tea.KeyPressMsg:
 		m.note = ""
-		if k := v.String(); (k == "o" || k == "O") && !m.help {
+		if k := v.String(); (k == "o" || k == "O") && !m.help && !m.pickingColumns() {
 			return m, m.openBrowser()
 		}
 		switch v.String() {
@@ -401,6 +405,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			if !m.help && m.menu {
 				return m, m.closeMenu(false)
+			}
+			if m.pickingColumns() {
+				m.sheet.picker = nil
+				return m, nil
 			}
 			if !m.help && !m.info {
 				if cmd, ok := m.closeFetched(); ok {
@@ -647,6 +655,9 @@ func (m *Model) View() tea.View {
 		}
 		body = overlay(body, m.infoBox(w, h-top), w, top)
 	}
+	if m.pickingColumns() && !m.help && !m.menu {
+		body = overlay(body, m.sheet.picker.view(m.sheet, w, h), w, 0)
+	}
 	name := "no files"
 	if !empty {
 		name = safe(filepath.Base(m.opts.Files[m.index]))
@@ -711,12 +722,15 @@ func (m *Model) View() tea.View {
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	}
 	if m.sheet != nil {
-		keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p sheets · i info"
+		keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p sheets · c columns · i info"
 		if m.kind != "xlsx" {
-			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p files · i info"
+			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p files · c columns · i info"
 		}
 		if m.sheet.url() != "" && m.opts.Fetch != nil {
 			keys = " Enter open address ·" + strings.TrimPrefix(keys, " q quit ·")
+		}
+		if m.pickingColumns() {
+			keys = " ↑/↓ select · Space show/hide · a all · n none · Esc close"
 		}
 	}
 	if empty {
@@ -725,7 +739,7 @@ func (m *Model) View() tea.View {
 	if m.isFetched() {
 		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
 	}
-	if m.canBrowse() {
+	if m.canBrowse() && !m.pickingColumns() {
 		keys += " · o browse"
 	}
 	if what := m.picking(); what != "" {
