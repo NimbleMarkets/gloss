@@ -706,7 +706,7 @@ func (m *Model) View() tea.View {
 		body = "Cannot open file\n\n" + safe(m.err.Error()) + "\n\nR retry · ] next file · q quit"
 	case m.chart != nil:
 		v := m.chart.View()
-		body, mouse = v.Content, v.MouseMode
+		body, mouse = m.meshFrame(v.Content, w), v.MouseMode
 	case m.markdown != nil:
 		body, mouse = m.markdown.view(), tea.MouseModeCellMotion
 	case m.sheet != nil:
@@ -755,25 +755,15 @@ func (m *Model) View() tea.View {
 	if strings.HasPrefix(name, "gloss-stdin-") {
 		name = "stdin"
 	}
-	mode := "glyph"
-	if m.pic.Mode() == picture.PictureKitty {
-		mode = "kitty"
-	}
-	if m.chart != nil {
-		mode = m.chart.RenderMode().String()
-		if m.chart.PictureMode() == picture.PictureKitty {
-			mode += "/kitty"
-		} else {
-			mode += "/glyph"
-		}
-	}
-	detail := fmt.Sprintf("%s · %s · %dx", m.kind, mode, 1<<m.zoom)
+	// How things are drawn, the renderer and the transport, is the info
+	// box's to say; the status bar keeps to the file.
+	detail := fmt.Sprintf("%s · %dx", m.kind, 1<<m.zoom)
 	if m.kind == "pdf" {
 		detail += fmt.Sprintf(" · page %d/%d", m.page, m.pages)
 	}
 	switch {
 	case m.chart != nil:
-		detail = fmt.Sprintf("%s · %d triangles · %s", strings.ToUpper(m.kind), m.triangles, mode)
+		detail = fmt.Sprintf("%s · %s", strings.ToUpper(m.kind), plural(m.triangles, "triangle"))
 		if m.hasParts() && m.partsShown != nil {
 			detail += fmt.Sprintf(" · parts %d/%d", m.partsOnScreen(), len(m.parts))
 		}
@@ -782,7 +772,7 @@ func (m *Model) View() tea.View {
 		}
 	case m.kind == "3mf":
 		// Too large to draw, or a preview: the picture the file carries.
-		detail = fmt.Sprintf("3MF · thumbnail · %s · %dx", mode, 1<<m.zoom)
+		detail = fmt.Sprintf("3MF · thumbnail · %dx", 1<<m.zoom)
 	}
 	if m.markdown != nil {
 		mode := "rendered"
@@ -833,7 +823,7 @@ func (m *Model) View() tea.View {
 		keys = " q quit · ? help · i info"
 	}
 	if m.chart != nil && m.mesh != nil {
-		keys = " q quit · ? help · m files · [/] files · f fit · 5 ortho · e export · i info · C color"
+		keys = " q quit · ? help · m files · [/] files · e export · i info · C color"
 	}
 	if m.hasParts() {
 		keys += " · c parts"

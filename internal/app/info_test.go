@@ -80,7 +80,7 @@ func TestInfoBoxSitsBelowTheTitleOfAMesh(t *testing.T) {
 	m.chart = charts.New(100, 28, charts.WithRenderMode(charts.Software))
 	m.fields = landscape
 	title := rows(m)[0]
-	if !strings.Contains(title, "ntcharts3d") {
+	if !strings.Contains(title, "ortho") {
 		t.Fatalf("the mesh view has no title to protect: %q", title)
 	}
 	m.Update(press("i"))

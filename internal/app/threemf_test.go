@@ -54,7 +54,7 @@ func Test3MFStatus(t *testing.T) {
 	}
 	m := viewing(t, Options{Files: []string{"part.3mf"}, Render3D: "software"}, "")
 	m.Update(document.Result{Generation: m.generation, Kind: "3mf", Page: 1, Pages: 1, Mesh: mesh})
-	if view := m.View().Content; m.chart == nil || !strings.Contains(view, "3MF · 1 triangles") {
+	if view := m.View().Content; m.chart == nil || !strings.Contains(view, "3MF · 1 triangle") {
 		t.Fatalf("a 3MF mesh:\n%s", view)
 	}
 	m = viewing(t, Options{Files: []string{"plate.3mf"}}, "")
@@ -200,4 +200,28 @@ func TestPartsChangesKeepTheChartDrawing(t *testing.T) {
 	drawing("painting")
 	send(m, tea.KeyPressMsg{Code: tea.KeyEscape})
 	drawing("undoing the paint")
+}
+
+func TestMeshViewKeepsRendererDetailsForTheInfoBox(t *testing.T) {
+	m := painted(t)
+	lines := plain(m)
+	title, footer, status := lines[0], lines[len(lines)-3], lines[len(lines)-2]
+	for _, line := range []string{title, footer, status} {
+		for _, word := range []string{"WebGPU", "software", "Kitty", "kitty", "glyph", "ntcharts3d", "legend", "data"} {
+			if strings.Contains(line, word) {
+				t.Errorf("%q in %q", word, line)
+			}
+		}
+	}
+	if !strings.Contains(title, m.chart.Camera().Projection.String()) || !strings.Contains(footer, "drag orbit") || !strings.Contains(footer, "5 projection") {
+		t.Errorf("title %q footer %q", title, footer)
+	}
+	if !strings.Contains(status, "STL · 1 triangle") {
+		t.Errorf("status %q", status)
+	}
+	// Pictures say no more of how they are drawn either.
+	m = loaded(t, "photos/landscape.png")
+	if status := plain(m)[len(plain(m))-2]; strings.Contains(status, "glyph") || strings.Contains(status, "kitty") || !strings.Contains(status, "png · 1x") {
+		t.Errorf("picture status %q", status)
+	}
 }

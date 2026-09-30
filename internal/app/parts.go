@@ -168,3 +168,29 @@ func (m *Model) partsView(w, h int) string {
 	}
 	return box(lines)
 }
+
+// meshFrame keeps the chart's picture and replaces the rows it writes
+// above and below with gloss's own: the projection, and any trouble, on
+// the first; the mouse and keys that work here on the last. How the mesh
+// is drawn is the info box's to say.
+func (m *Model) meshFrame(content string, w int) string {
+	lines := strings.Split(content, "\n")
+	if len(lines) < 2 {
+		return content
+	}
+	title := " " + m.chart.Camera().Projection.String()
+	if err := m.chart.Err(); err != nil {
+		title += " · " + safe(err.Error())
+	}
+	lines[0] = ansi.Truncate(title, w, "…")
+	lines[len(lines)-1] = ansi.Truncate(" drag orbit · Shift-drag pan · wheel zoom · 5 projection · r rotate · f fit", w, "")
+	return strings.Join(lines, "\n")
+}
+
+// plural counts a noun.
+func plural(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return grouped(n) + " " + noun + "s"
+}
