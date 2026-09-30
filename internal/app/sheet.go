@@ -15,12 +15,14 @@ const (
 	maxColumnWidth = 24
 )
 
-// sheetView shows a sheet as a grid that scrolls by row and by column, with
-// the columns lettered and the rows numbered as in the spreadsheet.
+// sheetView shows a sheet as a grid with a cursor on one cell. The grid
+// scrolls to keep the cursor in view; its columns are lettered and its rows
+// numbered as in the spreadsheet.
 type sheetView struct {
 	sheet    *document.Sheet
-	row, col int   // The cell in the top-left corner.
-	widths   []int // Of each column, in cells.
+	row, col int    // The cell in the top-left corner.
+	at       [2]int // The cell under the cursor.
+	widths   []int  // Of each column, in cells.
 }
 
 func newSheetView(s *document.Sheet) *sheetView {
@@ -44,61 +46,84 @@ func (v *sheetView) gutter() int {
 	return max(2, len(strconv.Itoa(v.rows()+v.sheet.MoreRows)))
 }
 
-// shown counts the columns that fit across w cells from the first shown.
-func (v *sheetView) shown(w int) int {
+// shown counts the columns that fit across w cells from column first.
+func (v *sheetView) shown(first, w int) int {
 	room, n := w-v.gutter()-1, 0
-	for c := v.col; c < len(v.widths) && (n == 0 || room >= v.widths[c]); c++ {
+	for c := first; c < len(v.widths) && (n == 0 || room >= v.widths[c]); c++ {
 		room -= v.widths[c] + 1
 		n++
 	}
 	return n
 }
 
-// clamp keeps the corner within the sheet, given h rows of cells on show.
-func (v *sheetView) clamp(h int) {
-	v.row = max(0, min(v.row, v.rows()-max(1, h)))
+// settle keeps the cursor on the sheet and the corner where the cursor can
+// be seen, in a grid w cells wide with h rows of cells.
+func (v *sheetView) settle(w, h int) {
+	h = max(1, h)
+	v.at[0] = max(0, min(v.at[0], v.rows()-1))
+	v.at[1] = max(0, min(v.at[1], len(v.widths)-1))
+	v.row = max(0, min(v.row, v.rows()-h))
 	v.col = max(0, min(v.col, len(v.widths)-1))
+	if v.at[0] < v.row {
+		v.row = v.at[0]
+	}
+	if v.at[0] >= v.row+h {
+		v.row = v.at[0] - h + 1
+	}
+	if v.at[1] < v.col {
+		v.col = v.at[1]
+	}
+	for v.col < v.at[1] && v.at[1] >= v.col+v.shown(v.col, w) {
+		v.col++
+	}
 }
 
-func (v *sheetView) scroll(rows, h int) {
-	v.row += rows
-	v.clamp(h)
+// scroll moves the view, taking the cursor along if it would be left behind.
+func (v *sheetView) scroll(rows, w, h int) {
+	h = max(1, h)
+	v.row = max(0, min(v.row+rows, v.rows()-h))
+	v.at[0] = max(v.row, min(v.at[0], v.row+h-1))
+	v.settle(w, h)
 }
 
-// key moves the corner, and reports whether the key was one of its own.
-// h is the height of the grid's rows, without the header.
-func (v *sheetView) key(k string, h int) bool {
+// key moves the cursor, and reports whether the key was one of its own.
+func (v *sheetView) key(k string, w, h int) bool {
 	switch k {
 	case "j", "down":
-		v.row++
+		v.at[0]++
 	case "k", "up":
-		v.row--
+		v.at[0]--
 	case "l", "right":
-		v.col++
+		v.at[1]++
 	case "h", "left":
-		v.col--
+		v.at[1]--
 	case "space", "pgdown":
+		v.at[0] += h
 		v.row += h
 	case "b", "pgup":
+		v.at[0] -= h
 		v.row -= h
 	case "home", "g":
-		v.row, v.col = 0, 0
+		v.at = [2]int{}
 	case "end", "G":
-		v.row = v.rows()
+		v.at[0] = v.rows() - 1
 	default:
 		return false
 	}
-	v.clamp(h)
+	v.settle(w, h)
 	return true
 }
+
+// url is the web address under the cursor, if any.
+func (v *sheetView) url() string { return v.sheet.URL(v.at[0], v.at[1]) }
 
 func (v *sheetView) view(w, h int) string {
 	if v.rows() == 0 {
 		return "(empty sheet)"
 	}
-	v.clamp(h - 1)
-	dim := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
-	gutter, n := v.gutter(), v.shown(w)
+	v.settle(w, h-1)
+	dim, mark := lipgloss.NewStyle().Foreground(lipgloss.Color("245")), lipgloss.NewStyle().Reverse(true)
+	gutter, n := v.gutter(), v.shown(v.col, w)
 	var lines []string
 	head := strings.Repeat(" ", gutter)
 	for c := v.col; c < v.col+n; c++ {
@@ -113,7 +138,11 @@ func (v *sheetView) view(w, h int) string {
 			if c < len(row) {
 				cell = safe(row[c])
 			}
-			line += " " + fit(cell, v.widths[c])
+			cell = fit(cell, v.widths[c])
+			if r == v.at[0] && c == v.at[1] {
+				cell = mark.Render(cell)
+			}
+			line += " " + cell
 		}
 		lines = append(lines, ansi.Truncate(line, w, ""))
 	}
@@ -142,14 +171,17 @@ func (v *sheetView) status(w, h int) string {
 	if last == v.row+1 {
 		rows = fmt.Sprintf("row %d/%s", v.row+1, grouped(v.rows()+v.sheet.MoreRows))
 	}
-	n := v.shown(w)
+	n := v.shown(v.col, w)
 	cols := fmt.Sprintf("col %s–%s/%s", document.ColumnName(v.col), document.ColumnName(v.col+n-1), document.ColumnName(len(v.widths)+v.sheet.MoreColumns-1))
 	if n == 1 {
 		cols = fmt.Sprintf("col %s/%s", document.ColumnName(v.col), document.ColumnName(len(v.widths)+v.sheet.MoreColumns-1))
 	}
-	out := rows + " · " + cols
+	out := fmt.Sprintf("cell %s%d · %s · %s", document.ColumnName(v.at[1]), v.at[0]+1, rows, cols)
 	if v.sheet.MoreRows > 0 {
 		out += fmt.Sprintf(" · first %s rows read", grouped(v.rows()))
+	}
+	if url := v.url(); url != "" {
+		out += " → " + safe(url)
 	}
 	return out
 }

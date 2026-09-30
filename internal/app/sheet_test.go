@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -59,57 +60,123 @@ func TestSheetIsShownAsAGrid(t *testing.T) {
 			t.Fatalf("status lacks %q: %s", want, status)
 		}
 	}
-	if hint := lines[len(lines)-1]; !strings.Contains(hint, "n/p sheets") || !strings.Contains(hint, "scroll") {
+	if hint := lines[len(lines)-1]; !strings.Contains(hint, "n/p sheets") || !strings.Contains(hint, "move") {
 		t.Fatalf("hint: %s", hint)
 	}
 }
 
-func TestSheetScrolls(t *testing.T) {
+func TestSheetCursorAndScrolling(t *testing.T) {
 	m := tabulated(t, table(200, 40), 1, 1)
 	m.Update(tea.WindowSizeMsg{Width: 60, Height: 12})
-	at := func() (string, string) {
+	top := func() (string, string) {
 		lines := plain(m)
 		return strings.Fields(lines[1])[1], strings.Fields(lines[0])[0]
 	}
-	if cell, col := at(); cell != "r1c1" || col != "A" {
-		t.Fatalf("at the start: %s %s", cell, col)
+	cursor := func() string {
+		status := plain(m)[len(plain(m))-2]
+		_, after, _ := strings.Cut(status, "cell ")
+		return strings.Fields(after)[0]
 	}
+	if cell, col := top(); cell != "r1c1" || col != "A" || cursor() != "A1" {
+		t.Fatalf("at the start: %s %s %s", cell, col, cursor())
+	}
+	if !strings.Contains(m.View().Content, "\x1b[7m") {
+		t.Fatal("the cell under the cursor is not marked")
+	}
+	// The cursor moves within the view before the view moves.
 	m.Update(press("j"))
 	m.Update(tea.KeyPressMsg{Code: tea.KeyDown})
-	if cell, _ := at(); cell != "r3c1" {
-		t.Fatalf("after two rows down: %s", cell)
+	if cell, _ := top(); cell != "r1c1" || cursor() != "A3" {
+		t.Fatalf("after two down: top %s, cursor %s", cell, cursor())
+	}
+	for range 10 {
+		m.Update(press("j"))
+	}
+	// Twelve rows of terminal leave nine of cells below the header.
+	if cell, _ := top(); cell != "r5c1" || cursor() != "A13" {
+		t.Fatalf("the view follows the cursor: top %s, cursor %s", cell, cursor())
 	}
 	m.Update(press(" "))
-	if cell, _ := at(); cell != "r12c1" {
-		t.Fatalf("after a page: %s", cell)
+	if cursor() != "A22" {
+		t.Fatalf("after a page: %s", cursor())
 	}
 	m.Update(press("G"))
-	if lines := plain(m); !strings.Contains(lines[len(lines)-3], "r200c1") {
-		t.Fatalf("the end:\n%s", strings.Join(lines, "\n"))
+	if lines := plain(m); cursor() != "A200" || !strings.Contains(lines[len(lines)-3], "r200c1") {
+		t.Fatalf("the end: %s", cursor())
 	}
 	m.Update(press("g"))
 	m.Update(press("l"))
 	m.Update(tea.KeyPressMsg{Code: tea.KeyRight})
-	if cell, col := at(); cell != "r1c3" || col != "C" {
-		t.Fatalf("after two columns right: %s %s", cell, col)
+	if _, col := top(); col != "A" || cursor() != "C1" {
+		t.Fatalf("after two right: first column %s, cursor %s", col, cursor())
 	}
 	for range 100 {
 		m.Update(press("l"))
 	}
-	if _, col := at(); col != "AN" {
-		t.Fatalf("past the last column: %s", col)
+	if _, col := top(); cursor() != "AN1" || col == "A" {
+		t.Fatalf("past the last column: cursor %s, first column %s", cursor(), col)
 	}
 	m.Update(press("h"))
-	if _, col := at(); col != "AM" {
-		t.Fatalf("one column back: %s", col)
-	}
-	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
-	if cell, _ := at(); cell != "r4c39" {
-		t.Fatalf("after the wheel: %s", cell)
+	if cursor() != "AM1" {
+		t.Fatalf("one column back: %s", cursor())
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyHome})
-	if cell, col := at(); cell != "r1c1" || col != "A" {
-		t.Fatalf("home: %s %s", cell, col)
+	if cell, col := top(); cell != "r1c1" || col != "A" || cursor() != "A1" {
+		t.Fatalf("home: %s %s %s", cell, col, cursor())
+	}
+	m.Update(tea.MouseWheelMsg{Button: tea.MouseWheelDown})
+	if cell, _ := top(); cell != "r4c1" {
+		t.Fatalf("after the wheel: %s", cell)
+	}
+}
+
+func TestSheetOpensTheAddressUnderTheCursor(t *testing.T) {
+	sheet := &document.Sheet{Name: "links", Columns: 2, Rows: [][]string{{"name", "picture"}, {"fern", "https://example.com/fern.png"}, {"moss", "plain"}}}
+	dir := t.TempDir()
+	var fetched []string
+	m := viewing(t, Options{Files: []string{"links.csv"}, Fetch: func(address string) (string, error) {
+		fetched = append(fetched, address)
+		if strings.HasSuffix(address, "fern.png") {
+			return writePNG(t, filepath.Join(dir, "fern.png")), nil
+		}
+		return "", fmt.Errorf("HTTP 404")
+	}}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
+	send(m, press("j"), press("l"))
+	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "cell B2") || !strings.Contains(status, "→ https://example.com/fern.png") {
+		t.Fatalf("status: %s", status)
+	}
+	send(m, enter)
+	if len(fetched) != 1 || len(m.opts.Files) != 2 || m.index != 1 || m.kind != "png" {
+		t.Fatalf("fetched=%q files=%q index=%d kind=%q", fetched, m.opts.Files, m.index, m.kind)
+	}
+	if got := m.Fetched(); len(got) != 1 || got[0] != m.opts.Files[1] {
+		t.Fatalf("fetched files: %q", got)
+	}
+	// Back on the sheet, a cell with no address does nothing, and a
+	// fetch that fails says why.
+	send(m, press("["))
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
+	send(m, press("j"), press("j"), press("l"))
+	if _, cmd := m.Update(enter); cmd != nil || len(fetched) != 1 {
+		t.Fatal("a plain cell was fetched")
+	}
+	sheet.Rows[2][1] = "https://example.com/gone.png"
+	send(m, enter)
+	if len(fetched) != 2 || !strings.Contains(m.note, "HTTP 404") || len(m.opts.Files) != 2 {
+		t.Fatalf("fetched=%q note=%q", fetched, m.note)
+	}
+}
+
+func TestSheetAddressesNeedFetchingToBeAllowed(t *testing.T) {
+	sheet := &document.Sheet{Name: "links", Columns: 1, Rows: [][]string{{"https://example.com/fern.png"}}}
+	m := viewing(t, Options{Files: []string{"links.csv"}}, "")
+	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
+	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "→ https://example.com/fern.png") {
+		t.Fatalf("status: %s", status)
+	}
+	if _, cmd := m.Update(enter); cmd != nil || !strings.Contains(m.note, "--fetch") || len(m.opts.Files) != 1 {
+		t.Fatalf("note=%q", m.note)
 	}
 }
 
@@ -171,7 +238,7 @@ func TestCSVIsShownAsASheetOfItsOwn(t *testing.T) {
 	m := viewing(t, Options{Files: []string{"sales.csv"}}, "")
 	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: &document.Sheet{Name: "sales", Rows: [][]string{{"a", "b"}}, Columns: 2, Delimiter: "comma"}})
 	view := ansi.Strip(m.View().Content)
-	if m.sheet == nil || !strings.Contains(view, "csv · row 1/1") || strings.Contains(view, "sheet 1/1") {
+	if m.sheet == nil || !strings.Contains(view, "csv · cell A1 · row 1/1") || strings.Contains(view, "sheet 1/1") {
 		t.Fatalf("status:\n%s", view)
 	}
 	if lines := strings.Split(view, "\n"); !strings.Contains(lines[len(lines)-1], "n/p files") {

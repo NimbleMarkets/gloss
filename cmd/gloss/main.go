@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"slices"
 	"syscall"
 	"time"
@@ -37,6 +38,7 @@ type options struct {
 	Serve, NoOpen bool
 	Timeout       time.Duration
 	Info, JSON    bool
+	FetchAllowed  bool
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -53,6 +55,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	view := f.String("view", "", "views of a mesh: front, back, left, right, top, bottom, iso, all; several, as front,top, export as one sheet")
 	camera := f.String("camera", "", "camera for a mesh, as elevation,azimuth or elevation,azimuth,distance in degrees")
 	projection := f.String("projection", "ortho", "projection of a mesh: ortho, perspective")
+	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
 	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
@@ -162,8 +165,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if (opts.Output != "" || opts.OutputDir != "") && opts.KeepScreen {
 		return opts, false, fmt.Errorf("export draws nothing; it cannot be combined with --no-alt-screen")
 	}
-	if (opts.Output != "" || opts.OutputDir != "") && (opts.Serve || opts.Pick) {
-		return opts, false, fmt.Errorf("export cannot be combined with --serve or --pick")
+	if (opts.Output != "" || opts.OutputDir != "") && (opts.Serve || opts.Pick || opts.FetchAllowed) {
+		return opts, false, fmt.Errorf("export cannot be combined with --serve, --pick, or --fetch")
 	}
 	if opts.Serve && opts.KeepScreen {
 		return opts, false, fmt.Errorf("--serve draws on a page; it cannot be combined with --no-alt-screen")
@@ -250,6 +253,19 @@ func run(args []string) error {
 	if exporting {
 		return exportFiles(opts.Options, os.Stdout, os.Stderr)
 	}
+	if opts.FetchAllowed {
+		// Fetched files are the session's; a picked one is the caller's.
+		dir, err := os.MkdirTemp("", "gloss-fetch-")
+		if err != nil {
+			return err
+		}
+		opts.Fetch = func(address string) (string, error) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+			defer cancel()
+			return document.Fetch(ctx, address, dir)
+		}
+		defer func() { discardFetched(dir, picked) }()
+	}
 	if opts.Serve {
 		return served(opts, os.Stdout, os.Stderr)
 	}
@@ -281,6 +297,26 @@ func run(args []string) error {
 		return err
 	}
 	return finish(m, opts, os.Stdout, os.Stderr)
+}
+
+// What the user picked, which a fetched file may be among.
+var picked []string
+
+// discardFetched empties the folder of fetched files, except for what was
+// picked, and removes the folder once nothing is left in it.
+func discardFetched(dir string, picked []string) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if path := filepath.Join(dir, entry.Name()); !slices.Contains(picked, path) {
+			os.Remove(path)
+		}
+	}
+	if left, err := os.ReadDir(dir); err == nil && len(left) == 0 {
+		os.Remove(dir)
+	}
 }
 
 // arguments are the files named, or standard input when a document is piped
@@ -330,6 +366,7 @@ func served(opts options, stdout, stderr io.Writer) error {
 // finish reports what came of the viewer once the screen is given back:
 // what was skipped, and the paths a pick was waiting for.
 func finish(m *app.Model, opts options, stdout, stderr io.Writer) error {
+	picked = m.Picked()
 	for _, line := range m.Skipped() {
 		fmt.Fprintln(stderr, line)
 	}

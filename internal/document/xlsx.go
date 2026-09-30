@@ -23,6 +23,7 @@ type Sheet struct {
 	Columns     int // The widest row.
 	MoreRows    int // Beyond the limit, and not read.
 	MoreColumns int
+	links       map[[2]int]string // Web addresses cells link to, by row and column.
 }
 
 // Workbook is an Excel file. Its sheets are read as they are turned to.
@@ -96,7 +97,7 @@ func (w *Workbook) Sheet(i int) (*Sheet, error) {
 	if w.sheets[i] == nil && w.sheetErrs[i] == nil {
 		data, err := w.pkg.read(w.parts[i])
 		if err == nil {
-			w.sheets[i], err = w.readSheet(w.names[i], data)
+			w.sheets[i], err = w.readSheet(w.names[i], data, w.pkg.relationships(w.parts[i]))
 		}
 		if err != nil {
 			w.sheetErrs[i] = fmt.Errorf("sheet %s: %w", w.names[i], err)
@@ -208,7 +209,7 @@ func numberFormat(id int, code string) dateFormat {
 	return f
 }
 
-func (w *Workbook) readSheet(name string, data []byte) (*Sheet, error) {
+func (w *Workbook) readSheet(name string, data []byte, rels map[string]string) (*Sheet, error) {
 	sheet := &Sheet{Name: name}
 	d := xml.NewDecoder(strings.NewReader(string(data)))
 	var row []string
@@ -262,6 +263,18 @@ func (w *Workbook) readSheet(name string, data []byte) (*Sheet, error) {
 				text = &value
 			case "t":
 				text = &inline
+			case "hyperlink":
+				// Only links to the web; those within the workbook are not followed.
+				target := rels[attribute(e, "id")]
+				ref := attribute(e, "ref")
+				col := columnIndex(strings.TrimRight(ref, "0123456789"))
+				r, err := strconv.Atoi(strings.TrimLeft(ref, "ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+				if (strings.HasPrefix(target, "http://") || strings.HasPrefix(target, "https://")) && col >= 0 && err == nil && r >= 1 {
+					if sheet.links == nil {
+						sheet.links = map[[2]int]string{}
+					}
+					sheet.links[[2]int{r - 1, col}] = target
+				}
 			}
 		case xml.CharData:
 			if text != nil {

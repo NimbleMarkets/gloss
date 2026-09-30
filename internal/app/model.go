@@ -34,7 +34,10 @@ type Options struct {
 	Pick                   bool   // The caller waits for files: Enter sends them, and ends the viewer.
 	// Drops delivers files handed over from outside the terminal, as the
 	// page serving the viewer does with what is dropped on it.
-	Drops      <-chan []string
+	Drops <-chan []string
+	// Fetch downloads a web address to a file and returns its path. Nil
+	// leaves the network alone, which is the default.
+	Fetch      func(address string) (string, error)
 	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
@@ -79,6 +82,7 @@ type Model struct {
 	hideUnsupported          bool     // The browser's choice outlasts any one visit.
 	quitting                 bool     // The view being drawn is the one left behind.
 	added                    []string // What the user has handed over, by full path.
+	fetched                  []string // Files fetched from the web this session.
 	picked                   []string
 	home                     charts.Camera // Where the camera starts, and returns on reset.
 	skipped                  []string      // Reported on stderr once the terminal is restored.
@@ -295,6 +299,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case openResult:
 		return m, m.opened(v)
+	case fetchResult:
+		return m, m.fetchedFile(v)
 	case document.Result:
 		if v.Generation != m.generation || m.suspended {
 			return m, nil
@@ -364,9 +370,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if m.sheet != nil && !m.help && !m.menu {
 			if v.Button == tea.MouseWheelUp {
-				m.sheet.scroll(-3, m.bodyHeight()-1)
+				m.sheet.scroll(-3, m.width, m.bodyHeight()-1)
 			} else if v.Button == tea.MouseWheelDown {
-				m.sheet.scroll(3, m.bodyHeight()-1)
+				m.sheet.scroll(3, m.width, m.bodyHeight()-1)
 			}
 			return m, nil
 		}
@@ -397,8 +403,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.menu {
 			return m, m.menuKey(v.String())
 		}
-		if m.sheet != nil && m.sheet.key(v.String(), m.bodyHeight()-1) {
+		if m.sheet != nil && m.sheet.key(v.String(), m.width, m.bodyHeight()-1) {
 			return m, nil
+		}
+		if m.sheet != nil && v.String() == "enter" && m.sheet.url() != "" {
+			return m, m.open(m.sheet.url())
 		}
 		if m.markdown != nil {
 			if m.markdown.key(v.String()) {
@@ -686,9 +695,12 @@ func (m *Model) View() tea.View {
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	}
 	if m.sheet != nil {
-		keys = " q quit · m files · ↑/↓ ←/→ scroll · Space/b page · n/p sheets · i info"
+		keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p sheets · i info"
 		if m.kind != "xlsx" {
-			keys = " q quit · m files · ↑/↓ ←/→ scroll · Space/b page · n/p files · i info"
+			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p files · i info"
+		}
+		if m.sheet.url() != "" && m.opts.Fetch != nil {
+			keys = " Enter open address ·" + strings.TrimPrefix(keys, " q quit ·")
 		}
 	}
 	if empty {

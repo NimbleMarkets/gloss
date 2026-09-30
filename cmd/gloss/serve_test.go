@@ -416,3 +416,40 @@ func TestAskedAndDeclined(t *testing.T) {
 		t.Fatalf("the withheld file was kept: %v", err)
 	}
 }
+
+func TestFetchFlag(t *testing.T) {
+	opts, _, err := parse([]string{"--fetch", "a.csv"}, &bytes.Buffer{})
+	if err != nil || !opts.FetchAllowed {
+		t.Fatalf("%+v %v", opts, err)
+	}
+	if opts, _, _ := parse([]string{"a.csv"}, &bytes.Buffer{}); opts.FetchAllowed || opts.Fetch != nil {
+		t.Fatal("fetching is on without being asked for")
+	}
+	if _, _, err := parse([]string{"--fetch", "-o", "out.png", "a.csv"}, &bytes.Buffer{}); err == nil {
+		t.Fatal("--fetch accepted with an export, which fetches nothing")
+	}
+}
+
+func TestFetchedFilesAreRemovedUnlessPicked(t *testing.T) {
+	dir := t.TempDir()
+	keep, drop := filepath.Join(dir, "keep.png"), filepath.Join(dir, "drop.png")
+	for _, p := range []string{keep, drop} {
+		if err := os.WriteFile(p, []byte("x"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	discardFetched(dir, []string{keep})
+	if _, err := os.Stat(keep); err != nil {
+		t.Error("the picked file was removed")
+	}
+	if _, err := os.Stat(drop); !os.IsNotExist(err) {
+		t.Error("the unpicked file was kept")
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Error("the folder went while a picked file was still in it")
+	}
+	discardFetched(dir, nil)
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Error("an emptied folder was kept")
+	}
+}

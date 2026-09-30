@@ -93,7 +93,8 @@ gloss photo.png drawing.svg model.stl -mP
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
 | `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page or sheet; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
-| Arrows, `h j k l` | Scroll a spreadsheet by row and column |
+| Arrows, `h j k l` | Move about a spreadsheet by row and column |
+| `Enter` | With `--fetch`, open the web address under the cursor |
 | `+`, `-` | Zoom in / out |
 | Arrows, `h j k l` | Pan zoomed images; orbit meshes |
 | `f`, `0` | Fit image / reset camera |
@@ -187,7 +188,8 @@ paths, or choosing them with `o`. The viewer shows what you gave and says what
 `Enter` will send; `Enter` sends it and quits, and `q` sends nothing. With files
 named on the command line and none handed over, `Enter` sends the one on screen.
 Standard output carries only the answer, as full paths. In a terminal the viewer
-draws on the terminal itself, so the answer can be piped.
+draws on the terminal itself, so the answer can be piped. With `--fetch`, a file
+fetched from an address in a table can be picked too; it is then kept for you.
 
 | Exit status | Meaning |
 | --- | --- |
@@ -370,10 +372,17 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   file: a comma, tab, semicolon, or pipe, whichever the first lines agree on;
   a `.tsv` is read as tabs. Quoted values may hold the separator and line
   breaks. Only the file's name says it is a table: text is not sniffed.
+- Web addresses in tables: a sheet has a cursor, and the status bar shows the
+  address a cell holds or, in Excel, links to. With `--fetch`, `Enter` on such
+  a cell downloads what it names and opens it like a dropped file; a picture
+  is shown as one. Only http and https are fetched, of no more than 128 MiB,
+  and only on `Enter`: gloss never fetches on its own. Fetched files are
+  removed when gloss exits, unless they were picked.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;
-  use a higher PDF DPI for more detail. There is no URL fetching or file watching.
+  use a higher PDF DPI for more detail. There is no file watching, and no
+  fetching unless `--fetch` is given; even then only `Enter` on a cell fetches.
 
 ## Development
 
