@@ -87,6 +87,9 @@ func TestPasteThatIsNotAPathIsIgnored(t *testing.T) {
 
 func TestDropWithNothingUsableKeepsTheView(t *testing.T) {
 	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("plain text"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	huge := filepath.Join(dir, "huge.png")
 	f, err := os.Create(huge)
 	if err != nil {
@@ -102,14 +105,14 @@ func TestDropWithNothingUsableKeepsTheView(t *testing.T) {
 	m := New(Options{Files: []string{samples + "shapes.svg"}, Render: "glyph", Page: 1})
 	defer m.Close()
 	m.kind, m.zoom = "svg", 3
-	if !deliver(m, tea.PasteMsg{Content: dir + "\n" + huge + "\n" + filepath.Join(dir, "missing.png")}) {
+	if !deliver(m, tea.PasteMsg{Content: filepath.Join(dir, "notes.txt") + "\n" + huge + "\n" + filepath.Join(dir, "missing.png")}) {
 		t.Fatal("paths were not probed")
 	}
-	if len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 3 || m.menu || m.loading {
+	if len(m.opts.Files) != 1 || m.index != 0 || m.zoom != 3 || m.menu || m.loading || m.opener != nil {
 		t.Fatal("unusable drop changed the view")
 	}
 	skipped := strings.Join(m.Skipped(), "\n")
-	if len(m.Skipped()) != 3 || !strings.Contains(skipped, "is a directory (skipped)") || !strings.Contains(skipped, "128 MiB (skipped)") {
+	if len(m.Skipped()) != 3 || !strings.Contains(skipped, "unsupported format (skipped)") || !strings.Contains(skipped, "128 MiB (skipped)") {
 		t.Fatalf("skipped=%q", skipped)
 	}
 	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -273,7 +276,7 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 		t.Fatalf("help is unavailable before the first file, or does not say where the options are:\n%s", view)
 	}
 	m.Update(press("?"))
-	if !deliver(m, tea.PasteMsg{Content: t.TempDir()}) || len(m.opts.Files) != 0 || m.loading {
+	if !deliver(m, tea.PasteMsg{Content: filepath.Join(t.TempDir(), "missing.png")}) || len(m.opts.Files) != 0 || m.loading {
 		t.Fatal("an unusable drop must leave the target waiting")
 	}
 	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") || !strings.Contains(view, "skipped 1") {
@@ -305,5 +308,23 @@ func TestEmptySessionOpensMenuForSeveralFiles(t *testing.T) {
 	m.menuKey("enter")
 	if m.menu || m.index != 0 || !m.loading {
 		t.Fatal("Enter did not open the first dropped file")
+	}
+}
+
+func TestDroppedFolderOpensTheBrowserThere(t *testing.T) {
+	dir := folder(t)
+	m := viewing(t, Options{}, "")
+	send(m, tea.PasteMsg{Content: dir + "\n"})
+	if m.opener == nil || m.opener.dir != dir {
+		t.Fatalf("browser not opened in the folder: opener=%v", m.opener != nil)
+	}
+	if len(m.Skipped()) != 0 {
+		t.Fatalf("the folder was reported skipped: %q", m.Skipped())
+	}
+	// A folder beside a file is skipped, as it is on the command line.
+	m = viewing(t, Options{}, "")
+	send(m, tea.PasteMsg{Content: filepath.Join(dir, "alpha.png") + "\n" + dir + "\n"})
+	if m.opener != nil || len(m.opts.Files) != 1 || len(m.Skipped()) != 1 || !strings.Contains(m.Skipped()[0], "is a directory") {
+		t.Fatalf("files=%q skipped=%q", m.opts.Files, m.Skipped())
 	}
 }

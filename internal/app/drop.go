@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,7 @@ type DropMsg struct{ Paths []string }
 type dropResult struct {
 	files   []string
 	skipped []string
+	folder  string // The first folder dropped, to browse when no file came.
 }
 
 // Skipped lists the dropped files that could not be added.
@@ -29,12 +31,26 @@ func (m *Model) probeDrop(paths []string) tea.Cmd {
 	files, forced := m.opts.FilesFS, m.opts.Type
 	return func() tea.Msg {
 		var r dropResult
+		var folders []string
 		for _, path := range paths {
 			if _, err := document.ProbeFS(files, path, forced); err != nil {
+				if errors.Is(err, document.ErrDirectory) && files == nil {
+					folders = append(folders, path)
+					continue
+				}
 				r.skipped = append(r.skipped, document.Skipped(path, err))
 				continue
 			}
 			r.files = append(r.files, path)
+		}
+		// A folder alone is somewhere to look; beside files it is skipped,
+		// as on the command line, where a glob may sweep one in.
+		for _, folder := range folders {
+			if len(r.files) == 0 && r.folder == "" {
+				r.folder = folder
+			} else {
+				r.skipped = append(r.skipped, document.Skipped(folder, document.ErrDirectory))
+			}
 		}
 		return r
 	}
@@ -84,6 +100,9 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 	}
 	m.note = strings.Join(notes, " · ")
 	if first < 0 {
+		if r.folder != "" {
+			return m.browseFrom(r.folder)
+		}
 		return nil
 	}
 	m.help, m.opener = false, nil

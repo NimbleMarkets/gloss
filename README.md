@@ -129,7 +129,9 @@ at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
 Drag files from a file manager onto the terminal to add them to the list.
 Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text
 that does not read as paths is ignored. Dropped files follow the same format and
-size rules as arguments, and any that are skipped are reported on exit.
+size rules as arguments, and any that are skipped are reported on exit. A
+folder dropped on its own opens the file browser there, as a folder named on
+the command line does; one dropped beside files is skipped.
 `gloss` alone opens the viewer with no file, as a drop target. In the
 browser demo, dropped files stay in the tab's memory until it reloads.
 

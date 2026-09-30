@@ -616,9 +616,9 @@ func (m *Model) View() tea.View {
 			body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
 		}
 		switch h := m.bodyHeight(); {
-		case h >= 9:
+		case h >= 12:
 			// Padded to one width, the lines stay aligned once centred.
-			body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n"))
+			body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n\n"))
 		case h >= 5:
 			body += "\n\n" + lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
 		}
