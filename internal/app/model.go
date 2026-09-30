@@ -279,6 +279,10 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "ctrl+c":
 				return m, m.quit()
 			case "esc":
+				if m.opener.going {
+					m.opener.stopGoing()
+					return m, nil
+				}
 				m.opener = nil
 				return m, nil
 			case "ctrl+t":
@@ -873,7 +877,10 @@ func (m *Model) View() tea.View {
 		if m.hideUnsupported {
 			unsupported = "show all"
 		}
-		hint = ansi.Truncate(" ↑/↓ select · Enter open · Tab complete · Ctrl-S sort · Ctrl-T "+unsupported+" · Esc cancel", w, "")
+		hint = ansi.Truncate(" ↑/↓ select · Enter open · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+unsupported+" · Esc cancel", w, "")
+		if m.opener.going {
+			hint = ansi.Truncate(" Type a folder's path · Tab complete · Enter go · Esc back", w, "")
+		}
 	}
 	body = m.framed(body)
 	content := body + "\n" + bar + "\n" + hint

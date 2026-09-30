@@ -468,3 +468,54 @@ func TestOpenerSortsByNameDateAndKind(t *testing.T) {
 		t.Fatalf("after reopening: %s", status())
 	}
 }
+
+func TestShiftGGoesToATypedFolder(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	status := func() string { return plain(m)[len(plain(m))-2] }
+	// G with an empty filter asks for a path, starting from the folder shown.
+	send(m, press("G"))
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Go to: "+dir+string(filepath.Separator)) || !strings.Contains(view, "trips") {
+		t.Fatalf("no go-to prompt, or the folder is not listed:\n%s", view)
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Tab complete") || !strings.Contains(hints, "Enter go") {
+		t.Fatalf("hints: %s", hints)
+	}
+	// Tab completes the folder, and Enter goes there.
+	send(m, typed("tr")...)
+	send(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "Go to: "+filepath.Join(dir, "trips")+string(filepath.Separator)) {
+		t.Fatalf("Tab did not complete:\n%s", view)
+	}
+	send(m, enter)
+	if !strings.Contains(status(), filepath.Join(dir, "trips")) || strings.Contains(ansi.Strip(m.View().Content), "Go to: ") {
+		t.Fatalf("Enter did not go: %s\n%s", status(), ansi.Strip(m.View().Content))
+	}
+	if m.opener == nil {
+		t.Fatal("the browser closed")
+	}
+	// Esc in the go-to leaves the browser where it was.
+	send(m, press("G"), tea.KeyPressMsg{Code: tea.KeyEscape})
+	if m.opener == nil || strings.Contains(ansi.Strip(m.View().Content), "Go to: ") || !strings.Contains(status(), filepath.Join(dir, "trips")) {
+		t.Fatalf("Esc: opener=%v status=%s", m.opener != nil, status())
+	}
+	// With text in the filter, G is a letter.
+	send(m, typed("aG")...)
+	if !strings.Contains(ansi.Strip(m.View().Content), "Filter: aG") {
+		t.Fatalf("G was not typed:\n%s", ansi.Strip(m.View().Content))
+	}
+}
+
+func TestGoToExpandsHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip(err)
+	}
+	m := browsing(t, folder(t))
+	send(m, press("G"), tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+	send(m, typed("~/")...)
+	send(m, enter)
+	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "Open · "+home) {
+		t.Fatalf("status: %s", status)
+	}
+}

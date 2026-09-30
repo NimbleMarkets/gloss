@@ -91,6 +91,44 @@ type opener struct {
 	reads  *readLog
 	seen   int
 	dir    string // The folder being listed, for the status bar.
+	going  bool   // A folder's path is being typed, to go to.
+}
+
+const filterPrompt, goPrompt = "  Filter: ", "  Go to: "
+
+// goTo asks for a folder's path, starting from the one shown, with the
+// picker's completion at hand.
+func (o *opener) goTo() tea.Cmd {
+	o.going = true
+	o.picker.SetPrompt(goPrompt)
+	return o.picker.SetPath(o.dir + string(filepath.Separator))
+}
+
+// stopGoing ends the go-to, the filter cleared.
+func (o *opener) stopGoing() {
+	o.going = false
+	o.picker.SetPrompt(filterPrompt)
+	o.picker.SetFilterValue("")
+}
+
+// gone goes to the folder the path names when Enter is pressed: the one
+// typed to its separator, or the folder under the cursor. A file under the
+// cursor is left for the picker to open.
+func (o *opener) gone() (tea.Cmd, bool) {
+	dir, query, ok := o.picker.PathDir()
+	if !ok {
+		return nil, false
+	}
+	if query != "" {
+		entry := o.picker.Current()
+		if entry == nil || !entry.IsDir() || entry.Name() == ".." {
+			return nil, false
+		}
+		dir = filepath.Join(dir, entry.Name())
+	}
+	o.going = false
+	o.picker.SetPrompt(filterPrompt)
+	return o.picker.GoTo(dir), true
 }
 
 type openResult struct {
@@ -180,6 +218,16 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 
 func (m *Model) browse(msg tea.Msg) tea.Cmd {
 	o := m.opener
+	if k, ok := msg.(tea.KeyPressMsg); ok {
+		switch {
+		case k.String() == "G" && !o.going && o.picker.FilterValue() == "":
+			return o.goTo()
+		case k.String() == "enter" && o.going:
+			if cmd, ok := o.gone(); ok {
+				return cmd
+			}
+		}
+	}
 	var cmd tea.Cmd
 	o.picker, cmd = o.picker.Update(msg)
 	// A path typed into the filter lists other folders in passing; the

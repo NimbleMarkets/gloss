@@ -6,7 +6,10 @@ import tea "charm.land/bubbletea/v2"
 
 // The browser has no folders to browse, and the picker's text input depends
 // on a clipboard package that does not build for WebAssembly.
-type opener struct{ dir string }
+type opener struct {
+	dir   string
+	going bool
+}
 
 type openResult struct{}
 
@@ -14,6 +17,7 @@ var orderNames = []string{"name", "date", "kind"}
 
 func (o *opener) view() string    { return "" }
 func (o *opener) resize(int, int) {}
+func (o *opener) stopGoing()      {}
 
 func (m *Model) canBrowse() bool            { return false }
 func (m *Model) openBrowser() tea.Cmd       { return nil }

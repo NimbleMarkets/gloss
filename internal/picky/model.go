@@ -155,6 +155,52 @@ func WithSort(cmp func(a, b fs.DirEntry) int) Option {
 	}
 }
 
+// SetPrompt changes what stands before the filter text.
+func (p *Model) SetPrompt(prompt string) {
+	p.input.Prompt = prompt
+	p.input.SetWidth(p.width - lipgloss.Width(prompt) - 1)
+}
+
+// SetPath puts a path in the filter, the cursor after it, and reads the
+// folder it names, as typing it would.
+func (p *Model) SetPath(path string) tea.Cmd {
+	p.input.SetValue(path)
+	p.input.CursorEnd()
+	return p.handleInputChange()
+}
+
+// Current is the entry under the cursor, or nil when nothing is listed.
+func (p Model) Current() fs.DirEntry {
+	if p.cursor < 0 || p.cursor >= len(p.filtered) {
+		return nil
+	}
+	return p.filtered[p.cursor]
+}
+
+// Dir is the folder being browsed, relative to the filesystem's root.
+func (p Model) Dir() string { return p.dir }
+
+// PathDir says, when a path is being typed, which folder it names so far
+// and what has been typed since its last separator.
+func (p *Model) PathDir() (dir, query string, ok bool) {
+	if !p.isPathMode() {
+		return "", "", false
+	}
+	dir, query = p.splitPathInput()
+	return dir, query, true
+}
+
+// GoTo makes dir the folder browsed, with the filter cleared, as if it had
+// been entered from where the browsing was: the parent entry leads back.
+func (p *Model) GoTo(dir string) tea.Cmd {
+	p.navStack = append(p.navStack, navState{dir: p.dir, cursor: p.cursor, minIdx: p.minIdx, maxIdx: p.maxIdx})
+	p.dir = filepath.Clean(dir)
+	p.cursor, p.minIdx, p.maxIdx = 0, 0, p.height-1
+	p.input.SetValue("")
+	p.pathDir, p.pathEntries = "", nil
+	return p.readDir()
+}
+
 // SetSort changes the order, and lays out what is listed anew.
 func (p *Model) SetSort(cmp func(a, b fs.DirEntry) int) {
 	p.sort = cmp

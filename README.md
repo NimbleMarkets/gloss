@@ -152,6 +152,9 @@ greyed. Each file is marked by kind: 📁 folders, 📷 pictures, 🎨 SVG, 📕
 🧊 meshes, 📝 Markdown and HTML, 🧾 JSON, 📓 notebooks, 📄 Word, 📊 tables.
 `Ctrl-S` changes the order: by name, by date with the newest first, or by
 kind; folders always come first, and the order is kept for the next browse.
+`G`, with nothing typed in the filter, asks for a folder's path, starting from
+the one shown: `Tab` completes it, `~/` starts from home, `Enter` goes there,
+and `Esc` comes back to the listing.
 The browser is [picky](https://github.com/pgavlin/picky), carried in
 `internal/picky` with those two additions; the embedded demo, which has no
 folders, does not offer it.

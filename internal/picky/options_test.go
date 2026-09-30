@@ -97,3 +97,29 @@ func TestSortOrders(t *testing.T) {
 		t.Fatalf("reversed: %s", got)
 	}
 }
+
+func TestGoToMakesAFolderTheOneBrowsed(t *testing.T) {
+	mem := newMemFS()
+	mem.files["d/a.md"] = []byte("1")
+	mem.files["d/sub/deep/x.md"] = []byte("2")
+	p := applyReadDir(New("d", WithFS(mem)))
+	p.SetPrompt("  Go to: ")
+	p.SetFilterValue("/d/su")
+	if !strings.Contains(p.View(), "Go to: ") {
+		t.Fatalf("prompt not shown:\n%s", p.View())
+	}
+	dir, query, ok := p.PathDir()
+	if !ok || dir != "d" || query != "su" {
+		t.Fatalf("path dir: %q %q %v", dir, query, ok)
+	}
+	msg := p.GoTo("d/sub/deep")()
+	p, _ = p.Update(msg)
+	if p.Dir() != "d/sub/deep" || p.FilterValue() != "" || len(p.allEntries) != 2 || p.allEntries[1].Name() != "x.md" {
+		t.Fatalf("after go to: dir=%q filter=%q entries=%d", p.Dir(), p.FilterValue(), len(p.allEntries))
+	}
+	// The parent entry leads back to where the browsing left off.
+	p, _ = p.Update(p.navigateBack()())
+	if p.Dir() != "d" {
+		t.Fatalf("back: %q", p.Dir())
+	}
+}
