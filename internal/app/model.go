@@ -118,10 +118,10 @@ func New(opts Options) *Model {
 	case "glyph":
 		picture.ForceKittyCapability(picture.KittyCapabilityUnsupported)
 	}
-	if opts.KeepScreen && !opts.keptScreen {
-		// Pictures left in the scrollback are owned by the terminal, under
-		// their numbers. Start somewhere new, so that the next gloss does
-		// not draw over what the last one left.
+	if !opts.keptScreen {
+		// Pictures left in the scrollback, by -X or by Q, are owned by the
+		// terminal, under their numbers. Every run starts somewhere new, so
+		// that the next gloss does not draw over what the last one left.
 		opts.keptScreen = true
 		nextModelID.Store(rand.Int64N(8000))
 	}
@@ -455,6 +455,11 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch v.String() {
 		case "q", "ctrl+c":
 			return m, m.quit()
+		case "Q":
+			// Quit leaving the view where it can be scrolled back to,
+			// whatever the launch asked: the choice is best made now.
+			m.opts.KeepScreen = true
+			return m, m.quit()
 		case "?":
 			m.help = !m.help
 			return m, nil
@@ -688,7 +693,7 @@ func (m *Model) View() tea.View {
 	case m.help:
 		// Kept to 22 lines, the room a 24-row terminal leaves.
 		body = "gloss — a visual pager\n\n" +
-			"q / Ctrl-C     quit\n? / Esc        help / dismiss; Esc: file list\n" +
+			"q / Q          quit / quit, leaving the view in the scrollback\n? / Esc        help / dismiss; Esc: file list\n" +
 			"] / [ / Tab    next / previous file\n" +
 			"m              file menu (v toggles preview)\n" +
 			"o              browse for a file to open\n" +

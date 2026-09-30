@@ -44,7 +44,10 @@ Kitty graphics are selected automatically on supporting terminals, with colored
 half-block glyphs as a fallback. The program uses the alternate screen and
 restores the terminal on exit. With `-X` (`--no-alt-screen`, as in `less`) it
 draws on the main screen instead: the scrollback is left alone, and the last
-view stays where it was drawn when you quit. Direct PNG transport works over SSH; no shared
+view stays where it was drawn when you quit. The choice can wait until you
+quit: `q` quits as launched, and `Q` quits leaving the last view in the
+scrollback either way, so a picture worth keeping beside the next command
+stays, and one that is not does not. Direct PNG transport works over SSH; no shared
 filesystem or external converter is needed. In tmux, enable passthrough with
 `set -g allow-passthrough on`.
 
@@ -96,6 +99,7 @@ gloss photo.png drawing.svg model.stl -mP
 | Key | Action |
 | --- | --- |
 | `q`, `Ctrl-C` | Quit |
+| `q`, `Q` | Quit / quit leaving the last view in the scrollback, whatever `-X` said |
 | `?`, `Esc` | Show help / dismiss help |
 | `Esc` | Back to the file list, with previews, from a document |
 | `t` | In the file list, show the files as a grid of thumbnails, and back |
