@@ -170,7 +170,7 @@ func TestPDFRenderingNavigationAndClose(t *testing.T) {
 }
 
 func TestInvalidInputAndTerminalSanity(t *testing.T) {
-	for _, data := range [][]byte{nil, []byte("hello"), []byte("<html/>")} {
+	for _, data := range [][]byte{nil, []byte("hello"), []byte("<div/>"), []byte("{not json")} {
 		if _, err := Detect("unknown", data, ""); err == nil {
 			t.Fatal("accepted unsupported format")
 		}

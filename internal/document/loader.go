@@ -30,9 +30,9 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
-var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, Word, or Excel")
+var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, or CSV")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
 
@@ -254,6 +254,35 @@ func (l *Loader) Load(q Request) (out Result) {
 		if out.Sheet != nil {
 			details = out.Sheet.csvFields
 		}
+	case "json":
+		details = func() []Field { return section("JSON", Field{"Format", "JSON"}) }
+		doc, err := ReadJSON(q.Path, data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		out.Markdown, out.Err = loadMarkdownFrom(q.Path, doc.Markdown, q.BaseDir, l.Files)
+		details = doc.fields
+	case "ipynb":
+		details = func() []Field { return section("Notebook", Field{"Format", "Jupyter notebook"}) }
+		nb, err := ReadNotebook(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		// The outputs' pictures are kept beside the Markdown, in memory.
+		out.Markdown, out.Err = loadMarkdownFrom("notebook.md", nb.Markdown, ".", nb.Files)
+		details = nb.fields
+	case "html":
+		details = func() []Field { return section("Page", Field{"Format", "HTML"}) }
+		page, err := ReadHTML(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		// Pictures are looked for beside the page, as a browser would.
+		out.Markdown, out.Err = loadMarkdownFrom(q.Path, page.Markdown, q.BaseDir, l.Files)
+		details = func() []Field { return page.fields(out.Markdown) }
 	case "docx":
 		details = func() []Field { return section("Document", Field{"Format", "Word document"}) }
 		doc, err := OpenWord(data)
@@ -437,6 +466,9 @@ func Detect(path string, data []byte, forced string) (string, error) {
 	if bytes.HasPrefix(bytes.TrimSpace(data), []byte("solid")) {
 		return "stl", nil
 	}
+	if kind := textKind(path, data); kind != "" {
+		return kind, nil
+	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".md", ".markdown", ".mdown":
 		return "markdown", nil
@@ -452,6 +484,12 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "xlsx", nil
 	case ".csv", ".tsv":
 		return "csv", nil
+	case ".json", ".jsonl", ".ndjson":
+		return "json", nil
+	case ".ipynb":
+		return "ipynb", nil
+	case ".html", ".htm":
+		return "html", nil
 	case ".docx", ".docm":
 		return "docx", nil
 	case ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff":

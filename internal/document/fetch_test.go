@@ -91,9 +91,9 @@ func TestFetch(t *testing.T) {
 			w.Write(make([]byte, MaxFileBytes))
 		case "/slow":
 			time.Sleep(2 * time.Second)
-		case "/page":
-			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte("<html><body>not a picture</body></html>"))
+		case "/blob":
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.Write([]byte("not a picture, nor anything else gloss shows"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -124,7 +124,7 @@ func TestFetch(t *testing.T) {
 		t.Errorf("readme: path=%q err=%v", path, err)
 	}
 	for name, url := range map[string]string{
-		"not a picture":     served.URL + "/page",
+		"not a picture":     served.URL + "/blob",
 		"missing":           served.URL + "/gone",
 		"too large":         served.URL + "/huge",
 		"too slow":          served.URL + "/slow",

@@ -1,7 +1,7 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, Word, Excel,
-and CSV files.
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, HTML, JSON,
+Jupyter notebooks, Word, Excel, and CSV files.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -60,7 +60,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -165,6 +165,9 @@ and modification time, followed by:
 | Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
 | Excel | Sheets with their size, title, author, dates, application |
 | CSV | Separator, rows, columns |
+| JSON | Whether it is one value or lines of records, how many, the top-level kind and first keys |
+| Notebook | Format version, language, kernel, cells by kind, outputs, pictures |
+| HTML | Title, and the lines, words, headings, links, and images of the text |
 
 Only fields present in the file are listed. The box sits in the top-right
 corner over the document, which stays in use beneath it: the details follow as
@@ -362,6 +365,23 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   encrypted content are not read. The same 932,067-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
   hold 4,096 entries and unpack to 128 MiB.
+- JSON (`.json`, `.jsonl`, `.ndjson`): pretty-printed and highlighted as a
+  fenced block; `s` shows it as it is in the file. A file with one value to a
+  line, such as a training set, a batch request, or a log export, is shown as
+  numbered records, whatever its name. Malformed JSON is refused with the line
+  it fails on. Extensionless JSON and stdin are recognised by parsing. The
+  view is cut at 2 MiB of pretty-printed text; `i` says how many records
+  there are.
+- Jupyter notebooks (`.ipynb`, nbformat 4): Markdown cells as they are, code
+  cells fenced in the kernel's language after their `In [n]` count, and each
+  output after its cell: text as it was printed, errors without their colour
+  codes, and PNG, JPEG, GIF, and SVG outputs as pictures. Widgets, HTML, and
+  LaTeX outputs fall back to their text.
+- HTML (`.html`, `.htm`): converted to Markdown with
+  [html-to-markdown](https://github.com/JohannesKaufmann/html-to-markdown), so
+  saved pages and wiki exports read as documents: headings, lists, tables,
+  links, code, and pictures beside the file are kept; scripts, styles, and
+  layout are not. Nothing is fetched. A page may be 8 MiB.
 - Word (`.docx`, `.docm`): turned into Markdown and shown as such, so `s` shows
   the Markdown. Headings, lists, tables, links, pictures, and bold, italic, and
   struck text are kept; page layout, headers and footers, footnotes, comments,

@@ -693,9 +693,9 @@ func (m *Model) View() tea.View {
 		if m.markdown.raw {
 			mode = "source"
 		}
-		format := "Markdown"
-		if m.kind == "docx" {
-			format = "Word"
+		format := map[string]string{"docx": "Word", "json": "JSON", "ipynb": "notebook", "html": "HTML"}[m.kind]
+		if format == "" {
+			format = "Markdown"
 		}
 		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
 	}
