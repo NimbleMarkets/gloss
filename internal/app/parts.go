@@ -182,7 +182,11 @@ func (m *Model) meshFrame(content string, w int) string {
 		title += " · " + safe(err.Error())
 	}
 	lines[0] = ansi.Truncate(title, w, "…")
-	lines[len(lines)-1] = ansi.Truncate(" drag orbit · Shift-drag pan · wheel zoom · 5 projection · r rotate · f fit", w, "")
+	footer := " drag orbit · Shift-drag pan · wheel zoom · 5 projection · r rotate · f fit"
+	if m.isPreview {
+		footer = " drag orbit · wheel zoom" // Keys are the list's.
+	}
+	lines[len(lines)-1] = ansi.Truncate(footer, w, "")
 	return strings.Join(lines, "\n")
 }
 

@@ -17,6 +17,12 @@ import (
 func (m *Model) View() tea.View {
 	w, h := max(1, m.width), m.bodyHeight()
 	body, mouse := m.body(w, h)
+	if m.isPreview {
+		// A preview is only the picture: the list beside it says the keys.
+		v := tea.NewView(body)
+		v.MouseMode = mouse
+		return v
+	}
 	body = m.layered(body, w, h)
 	bar, hint := m.statusLine(w, h)
 	body = m.framed(body)

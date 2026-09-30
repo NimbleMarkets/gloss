@@ -205,7 +205,12 @@ func (m *Model) load(reload bool) tea.Cmd {
 	}
 }
 
-func (m *Model) bodyHeight() int { return max(1, m.height-2-m.promptHeight()) }
+func (m *Model) bodyHeight() int {
+	if m.isPreview {
+		return max(1, m.height) // No bars: the list beside it has them.
+	}
+	return max(1, m.height-2-m.promptHeight())
+}
 
 func (m *Model) switchFile(delta int) tea.Cmd {
 	i := m.index + delta

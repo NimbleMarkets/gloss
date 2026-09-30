@@ -2,6 +2,8 @@ package app
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
@@ -19,7 +21,18 @@ func (m *Model) previewWidth() int {
 	if m.screen != screenList || !m.opts.Preview || m.width < 64 || m.bodyHeight() < 7 {
 		return 0
 	}
-	return m.width - min(40, m.width/2) - 1
+	return m.width - m.listWidth() - 1
+}
+
+// listWidth is the column the names take beside a preview: as wide as the
+// longest, with its number and marks, and no wider than the old bound.
+func (m *Model) listWidth() int {
+	longest := 0
+	for _, f := range m.opts.Files {
+		longest = max(longest, ansi.StringWidth(safe(filepath.Base(f))))
+	}
+	// A cursor, a mark, a number and two spaces, then the name.
+	return max(16, min(min(40, m.width/2), longest+len(strconv.Itoa(len(m.opts.Files)))+5))
 }
 
 func (m *Model) resizePreview() tea.Cmd {
@@ -198,7 +211,11 @@ func (m *Model) menuView() string {
 		if i == m.index {
 			current = "*"
 		}
-		line := ansi.Truncate(fmt.Sprintf("%s%s %d  %s", cursor, current, i+1, safe(m.opts.Files[i])), w, "…")
+		name := safe(m.opts.Files[i])
+		if pw > 0 {
+			name = safe(filepath.Base(m.opts.Files[i])) // The preview says the rest.
+		}
+		line := ansi.Truncate(fmt.Sprintf("%s%s %d  %s", cursor, current, i+1, name), w, "…")
 		style := lipgloss.NewStyle().Width(w)
 		if i == m.selection {
 			style = style.Reverse(true)

@@ -223,3 +223,44 @@ func TestPreviewDrawsMeshesAsTheViewerDoes(t *testing.T) {
 		m.Close()
 	}
 }
+
+func TestListColumnFitsItsNames(t *testing.T) {
+	m := viewing(t, Options{Files: []string{samples + "shapes.svg", samples + "readme.md"}, Menu: true, Preview: true}, "svg")
+	send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	// Short names take a narrow column; the preview has the rest.
+	if lw := m.listWidth(); lw > 24 || m.previewWidth() != 120-lw-1 {
+		t.Fatalf("list %d wide, preview %d", lw, m.previewWidth())
+	}
+	// A long name widens it, up to the old bound.
+	m.opts.Files = append(m.opts.Files, samples+strings.Repeat("a-very-long-name-", 5)+".png")
+	if lw := m.listWidth(); lw != min(40, 120/2) {
+		t.Fatalf("list %d wide for a long name", lw)
+	}
+	// Never so narrow that a number and a name cannot show.
+	m.opts.Files = []string{"a.png"}
+	if lw := m.listWidth(); lw < 16 {
+		t.Fatalf("list %d wide", lw)
+	}
+}
+
+func TestPreviewIsOnlyThePicture(t *testing.T) {
+	m := viewing(t, Options{Files: []string{samples + "tetrahedron.stl", samples + "readme.md"}, Menu: true, Preview: true, Render3D: "software"}, "stl")
+	send(m, tea.WindowSizeMsg{Width: 120, Height: 30})
+	if m.preview == nil {
+		t.Fatal("no preview")
+	}
+	view := ansi.Strip(m.preview.View().Content)
+	for _, keys := range []string{"q quit", "m files", "[1/", "e export", "f fit", "5 projection"} {
+		if strings.Contains(view, keys) {
+			t.Errorf("the preview offers keys of its own: %q in\n%s", keys, view)
+		}
+	}
+	if rows := strings.Count(view, "\n") + 1; rows != m.bodyHeight() {
+		t.Errorf("the preview is %d rows in a body of %d", rows, m.bodyHeight())
+	}
+	// The whole screen says the keys once: the list's.
+	whole := plain(m)
+	if hints := whole[len(whole)-1]; !strings.Contains(hints, "Enter open") || strings.Count(strings.Join(whole, "\n"), "Enter open") != 1 {
+		t.Errorf("hints: %s", hints)
+	}
+}
