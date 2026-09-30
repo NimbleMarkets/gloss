@@ -294,7 +294,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		details = nb.fields
 	case "text":
 		details = func() []Field { return Section("Text", Field{"Format", "Plain text"}) }
-		doc, err := ReadText(data)
+		doc, err := ReadText(q.Path, data)
 		if err != nil {
 			out.Err = err
 			return out

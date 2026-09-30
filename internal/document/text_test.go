@@ -6,7 +6,7 @@ import (
 )
 
 func TestPlainTextIsShownAsItIs(t *testing.T) {
-	doc, err := ReadText([]byte("\ufeffline one\r\n\tindented *not emphasis*\n# not a heading\n``` not a fence\n\xff\n"))
+	doc, err := ReadText("notes.txt", []byte("\ufeffline one\r\n\tindented *not emphasis*\n# not a heading\n``` not a fence\n\xff\n"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestPlainTextIsShownAsItIs(t *testing.T) {
 }
 
 func TestLongTextIsCut(t *testing.T) {
-	doc, err := ReadText([]byte(strings.Repeat("a line of text\n", 200000)))
+	doc, err := ReadText("notes.txt", []byte(strings.Repeat("a line of text\n", 200000)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,5 +94,39 @@ func TestTextIsToldFromBinary(t *testing.T) {
 		if kind != tt.kind || (err == nil) != (tt.kind != "") {
 			t.Errorf("%s: %q %v", tt.path, kind, err)
 		}
+	}
+}
+
+func TestSourceIsFencedInItsLanguage(t *testing.T) {
+	for path, want := range map[string]string{
+		"main.go":      "go",
+		"script.py":    "python",
+		"Makefile":     "make",
+		"notes.txt":    "text",
+		"README":       "text",
+		"config.yaml":  "yaml",
+		"Dockerfile":   "docker",
+		"style.css":    "css",
+		"query.sql":    "mysql",
+		"module.rs":    "rust",
+		"app.ts":       "ts",
+		"tool.sh":      "bash",
+		"x.unknownext": "text",
+	} {
+		doc, err := ReadText(path, []byte("content\n"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.HasPrefix(string(doc.Markdown), "```"+want+"\n") {
+			t.Errorf("%s: fenced as %q, want %q", path, strings.SplitN(string(doc.Markdown), "\n", 2)[0], want)
+		}
+		if got := field(doc.fields(), "Language"); (want == "text") != (got == "") {
+			t.Errorf("%s: language field %q", path, got)
+		}
+	}
+	// A shebang names the language when the name does not.
+	doc, _ := ReadText("run", []byte("#!/bin/bash\necho hi\n"))
+	if !strings.HasPrefix(string(doc.Markdown), "```bash\n") {
+		t.Errorf("shebang: %q", strings.SplitN(string(doc.Markdown), "\n", 2)[0])
 	}
 }

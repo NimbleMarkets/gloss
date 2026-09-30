@@ -786,6 +786,14 @@ func (m *Model) View() tea.View {
 		if format == "" {
 			format = "Markdown"
 		}
+		if m.kind == "text" {
+			// Source says its language, as the highlighter names it.
+			for _, f := range m.fields {
+				if f.Label == "Language" && f.Value != "" {
+					format = f.Value
+				}
+			}
+		}
 		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
 	}
 	if m.sheet != nil {

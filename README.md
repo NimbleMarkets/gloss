@@ -417,7 +417,9 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   bytes that are not UTF-8 stand as �, and a file longer than 2 MiB is cut.
   A file of no known kind is read as text when its first 8 KiB hold no NUL
   byte, are UTF-8, and are mostly printable, as `less` would show it; source
-  code and configuration open that way. Only binary files are unsupported.
+  code and configuration open that way, highlighted by
+  [chroma](https://github.com/alecthomas/chroma) in the language its name or
+  first line says. Only binary files are unsupported.
 - JSON (`.json`, `.jsonl`, `.ndjson`): pretty-printed and highlighted as a
   fenced block; `s` shows it as it is in the file. A file with one value to a
   line, such as a training set, a batch request, or a log export, is shown as
