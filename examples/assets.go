@@ -3,7 +3,14 @@ package examples
 
 import "embed"
 
-//go:embed landscape.png landscape.heic shapes.svg field-guide.pdf gloss.stl readme.md
+//go:embed landscape.png landscape.heic shapes.svg field-guide.pdf gloss.stl lantern.3mf readme.md field-notes.html notes.txt batch.jsonl analysis.ipynb field-notes.docx sales.xlsx sales.csv
 var Files embed.FS
 
-var Names = []string{"landscape.png", "landscape.heic", "shapes.svg", "field-guide.pdf", "gloss.stl", "readme.md"}
+// Names lists the samples in the order the gallery shows them: one of
+// each kind gloss opens.
+var Names = []string{
+	"landscape.png", "landscape.heic", "shapes.svg", "field-guide.pdf",
+	"gloss.stl", "lantern.3mf",
+	"readme.md", "field-notes.html", "notes.txt", "batch.jsonl", "analysis.ipynb",
+	"field-notes.docx", "sales.xlsx", "sales.csv",
+}

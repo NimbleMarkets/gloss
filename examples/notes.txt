@@ -1,0 +1,17 @@
+Field notes, kept as plain text
+===============================
+
+Plain text is shown as it is: no line of it is read as Markdown.
+
+* an asterisk stays an asterisk
+# a hash stays a hash
+    and indentation is kept,
+	tabs too.
+
+Day   Species      Count
+Mon   Heron        2
+Tue   Fox          1
+Wed   Kingfisher   3
+
+Files of no known kind are read as text when they are not binary, so a
+source file opens the same way, highlighted in its language.

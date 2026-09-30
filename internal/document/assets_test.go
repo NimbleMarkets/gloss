@@ -32,6 +32,27 @@ func TestEmbeddedGallery(t *testing.T) {
 				if r.Mesh == nil {
 					t.Fatal("no mesh")
 				}
+			case "3mf":
+				if r.Mesh == nil || len(r.Parts) != 3 || !r.Mesh.HasColors() {
+					t.Fatalf("mesh=%v parts=%d", r.Mesh != nil, len(r.Parts))
+				}
+			case "html", "ipynb":
+				// The page's picture beside it, and the notebook's output, resolve.
+				if r.Markdown == nil || len(r.Markdown.Images) != 1 || r.Markdown.Images[0].Image == nil {
+					t.Fatalf("markdown=%v images=%+v", r.Markdown != nil, r.Markdown.Images)
+				}
+			case "text", "json", "docx":
+				if r.Markdown == nil || len(r.Markdown.Source) == 0 {
+					t.Fatal("no markdown")
+				}
+			case "xlsx":
+				if r.Sheet == nil || r.Pages != 2 || r.Sheet.Name != "Sales" || len(r.Sheet.Rows) != 9 {
+					t.Fatalf("sheet=%+v pages=%d", r.Sheet, r.Pages)
+				}
+			case "csv":
+				if r.Sheet == nil || len(r.Sheet.Rows) != 9 || r.Sheet.Columns != 5 {
+					t.Fatalf("sheet=%+v", r.Sheet)
+				}
 			default:
 				if r.Image == nil || r.Image.Bounds().Empty() {
 					t.Fatal("no image")

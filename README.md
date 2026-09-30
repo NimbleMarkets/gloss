@@ -14,7 +14,8 @@ Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [![Embedded landscape sample — open the live gloss demo](examples/landscape.png)](https://nimblemarkets.github.io/gloss/)
 
 The live terminal runs the actual Go pager using WebAssembly and Booba, with
-embedded PNG, HEIC, SVG, two-page PDF, block-built GLOSS sculpture (STL), and Markdown samples. Choose a format
+embedded samples, one of each kind: PNG, HEIC, SVG, a two-page PDF, the block-built GLOSS sculpture (STL), a
+three-part lantern (3MF), Markdown, a saved HTML page, plain text, JSONL, a notebook, Word, Excel, and CSV. Choose a format
 or use the menu and preview pane. Click the terminal to focus its keyboard.
 GitHub READMEs cannot run interactive iframes; the image above opens the Pages demo.
 

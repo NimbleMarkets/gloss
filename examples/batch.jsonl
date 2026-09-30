@@ -1,0 +1,3 @@
+{"body":{"messages":[{"content":"You are a terse assistant.","role":"system"},{"content":"What does a visual pager do?","role":"user"}],"model":"example-model"},"custom_id":"q-1","method":"POST","url":"/v1/chat/completions"}
+{"body":{"messages":[{"content":"You are a terse assistant.","role":"system"},{"content":"Which formats does gloss open?","role":"user"}],"model":"example-model"},"custom_id":"q-2","method":"POST","url":"/v1/chat/completions"}
+{"body":{"messages":[{"content":"You are a terse assistant.","role":"system"},{"content":"How do I export a mesh as a PNG?","role":"user"}],"model":"example-model"},"custom_id":"q-3","method":"POST","url":"/v1/chat/completions"}
