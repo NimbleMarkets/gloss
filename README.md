@@ -297,9 +297,10 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   PDFs aren't supported. This version provides visual paging, without text search.
 - STL: ASCII and binary, flat-shaded triangles, up to 932,067 faces: as many as
   NTCharts3d draws, which is as many as any GPU is sure to hold. Normals are recomputed from vertex winding. GPU
-  rendering falls back to software and then wireframe. Software is limited to
-  320×200 pixels and samples meshes above 20,000 triangles; wireframe samples
-  above 2,000 triangles, so large models can lose detail in fallback modes.
+  rendering falls back to software and then wireframe. Software draws at full
+  size for Kitty output, smaller only while its frames are slow, and samples
+  meshes above 20,000 triangles; wireframe samples above 2,000 triangles, so
+  large models can lose detail in fallback modes.
 - 3MF: the core specification's meshes, components, and build transforms;
   colors from base materials and color groups; objects kept in separate parts
   of the package, as slicers write them. Projects from Bambu Studio and its
