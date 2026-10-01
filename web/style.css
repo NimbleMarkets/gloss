@@ -259,12 +259,15 @@ footer {
 .formats dt{font-weight:700;color:var(--accent);margin-bottom:.25rem}
 .formats dd{margin:0;color:inherit}
 .install,.launch,.formats{margin:2.5rem 0}
+.install .channels{display:flex;flex-direction:column;gap:.75rem;margin-top:1rem;align-items:flex-start}
+.install .channels > div > span{display:block;font:11px ui-monospace,monospace;letter-spacing:1px;color:var(--muted);margin-bottom:.3rem}
+.install .channels .command{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
 .examples{margin:2.5rem 0}
 .examples p{color:var(--muted)}
 .examples ul{list-style:none;margin:1rem 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem 2rem}
 .examples li{display:flex;flex-direction:column;gap:.5rem}
 .examples .command{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
-.examples li span{font-size:13px;color:var(--muted)}
+.examples li > span{font-size:13px;color:var(--muted)}
 .button{display:inline-block;padding:.45rem 1rem;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
 .button:hover{filter:brightness(1.1)}
 .launch .button{margin-top:.75rem;padding:.6rem 1.2rem}

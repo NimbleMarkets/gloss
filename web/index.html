@@ -53,7 +53,10 @@
       <div><dt>Text</dt><dd>Markdown, HTML, plain text and source, JSON and JSONL, CSV</dd></div>
       <div><dt>3D</dt><dd>STL and 3MF meshes, with their parts and colors</dd></div>
     </dl></section>
-    <section class="install"><h2>In your terminal</h2><p>gloss is a single Go binary. Pictures are drawn with Kitty graphics where the terminal has them, and with glyphs everywhere else. Drop files on it, browse folders, and export what you see.</p><code class="command"><span class="prompt" aria-hidden="true">$ </span>go install github.com/NimbleMarkets/gloss/cmd/gloss@latest</code></section>
+    <section class="install"><h2>In your terminal</h2><p>gloss is a single binary for macOS, Linux, and Windows. Pictures are drawn with Kitty graphics where the terminal has them, and with glyphs everywhere else. Drop files on it, browse folders, and export what you see.</p><div class="channels">
+      <div><span>Homebrew</span><code class="command"><span class="prompt" aria-hidden="true">$ </span>brew install --cask nimblemarkets/tap/gloss</code></div>
+      <div><span>Go</span><code class="command"><span class="prompt" aria-hidden="true">$ </span>go install github.com/NimbleMarkets/gloss/cmd/gloss@latest</code></div>
+    </div></section>
     <section class="examples"><h2>Beyond the demo</h2><p>The terminal demo above shows the interactive side. gloss is scriptable too:</p><ul>
       <li><code class="command"><span class="prompt" aria-hidden="true">$ </span>cat drawing.svg | gloss</code><span>Pipes and stdin are first-class inputs.</span></li>
       <li><code class="command"><span class="prompt" aria-hidden="true">$ </span>curl -sS -o - https://gristlabs.github.io/grist-static/investment-research.grist | gloss --type grist</code><span>A document straight from the web: stdin, with <code>--type</code> naming the format.</span></li>
