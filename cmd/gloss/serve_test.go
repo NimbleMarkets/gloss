@@ -11,6 +11,7 @@ import (
 	"mime/multipart"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -38,6 +39,27 @@ func serving(t *testing.T, opts app.Options) *server {
 		s.Discard()
 	})
 	return s
+}
+
+func TestServedRequestIsAccessibleAndEscaped(t *testing.T) {
+	request := "Choose <script>alert('invoice')</script> & check totals\n" + strings.Repeat("Full request. ", 80)
+	s := &server{token: "test-token", prompt: request, pick: true}
+	r := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/test-token/", nil)
+	w := httptest.NewRecorder()
+	s.ServeHTTP(w, r)
+	page := w.Body.String()
+	if w.Code != http.StatusOK || !strings.Contains(page, `<h1 id="request">Choose &lt;script&gt;`) ||
+		strings.Contains(page, "<script>alert") || strings.Count(page, "Full request.") != 80 ||
+		!strings.Contains(page, "aria-labelledby=\"request\"") || !strings.Contains(page, "press Enter in the viewer to send") {
+		t.Fatalf("request missing, truncated, or unsafe: %d\n%s", w.Code, page)
+	}
+	for _, asset := range []string{"pickers.mjs", "drop.mjs"} {
+		w = httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/test-token/"+asset, nil))
+		if w.Code != http.StatusOK {
+			t.Errorf("picker dependency %s: %d", asset, w.Code)
+		}
+	}
 }
 
 func get(t *testing.T, target string, edit func(*http.Request)) (int, string) {

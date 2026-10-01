@@ -83,13 +83,14 @@ var domains = []domain{
 	},
 	{
 		ID: "handoff", Title: "Handing files over, and showing them",
-		Summary: "Asking the user for a file, or showing them one, when the caller has no terminal of its own: an agent, for instance. `--pick` prints the paths the user sends; `--serve` shows them a page. Without a terminal on standard input both detach, print one line of JSON, and are answered later with `--resume`.",
-		Flags:   []string{"pick", "serve", "no-open", "prompt", "prompt-loc", "timeout", "resume"},
+		Summary: "Asking the user for a file, or showing them one, when the caller has no terminal of its own: an agent, for instance. `--pick` prints the paths the user sends; `--serve` shows them a page. Without a terminal on standard input both detach, print one line of JSON, and are answered later with `--resume`, which waits for the answer. `--status` asks at once, as JSON, how the pick stands, and changes nothing.",
+		Flags:   []string{"pick", "serve", "no-open", "prompt", "prompt-loc", "timeout", "resume", "status"},
 		Examples: []example{
 			{"Ask in the terminal", "gloss --pick --prompt \"Which report?\""},
 			{"Ask in a browser, and print what is sent", "gloss --serve --pick"},
 			{"Show the user a file", "gloss --serve report.pdf"},
-			{"Collect the answer of a detached pick", "gloss --resume TOKEN"},
+			{"Collect the answer of a detached pick, waiting for it", "gloss --resume TOKEN"},
+			{"Ask how a detached pick stands, at once, without disturbing it", "gloss --status TOKEN"},
 		},
 	},
 	{
@@ -111,8 +112,8 @@ var domains = []domain{
 
 // exitStatus is what gloss exits with, for the reference.
 var exitStatus = [][2]string{
-	{"0", "Success; with `--pick`, the paths were printed."},
-	{"1", "An error."},
+	{"0", "Success; with `--pick`, the paths were printed; with `--status`, a state was reported (it is in the JSON)."},
+	{"1", "An error; with `--status`, no such pick (or the token is not one)."},
 	{"2", "`--pick` or `--resume`: nothing was chosen."},
 	{"124", "`--pick` or `--resume`: the wait timed out."},
 }

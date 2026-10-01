@@ -2,35 +2,57 @@ import { BoobaTerminal, resolveBoobaURLs } from './static/booba/booba.js';
 import { parseRendererFromURL } from './static/ghostty-web/ghostty-web.js';
 import { installDrop } from './drop.mjs';
 import { upload } from './upload.mjs';
+import { pickFiles, inputPicker } from './pickers.mjs';
 
 const status = document.querySelector('#status');
 const hint = document.querySelector('#drop');
 const invitation = hint.textContent;
+const choose = document.querySelector('#choose-files');
+const message = document.querySelector('#message');
 let terminal;
 function notice(text) {
+	message.textContent = text;
   hint.textContent = text;
   hint.hidden = false;
   setTimeout(() => { hint.hidden = true; hint.textContent = invitation; }, 4000);
 }
-installDrop(window, hint, async (names, contents) => {
+async function chosen(names, contents, skipped = []) {
+  if (!names.length) {
+    if (skipped.length) notice(skipped.join('; '));
+    return;
+  }
+  choose.disabled = true;
   try {
     await upload(names, contents);
+    message.textContent = `${names.length} file${names.length === 1 ? '' : 's'} added. ${skipped.join('; ')}`;
+  } catch (error) {
+    notice(error.message || String(error));
+  } finally {
+    choose.disabled = false;
+  }
+  terminal?.focus();
+}
+installDrop(window, hint, chosen, notice);
+choose.addEventListener('click', async () => {
+  try {
+    await chosen(...await pickFiles(window, inputPicker(document)));
   } catch (error) {
     notice(error.message || String(error));
   }
-  terminal?.focus();
-}, notice);
+});
 try {
   terminal = new BoobaTerminal('terminal', { renderer: parseRendererFromURL() });
   let connected = false;
   terminal.onStatusChange = state => {
     if (state === 'connected') {
       connected = true;
+      choose.disabled = false;
       status.hidden = true;
     } else if (connected && state === 'disconnected') {
       // gloss ends with its viewer, and its server with it.
       status.textContent = 'gloss has finished. You can close this tab.';
       status.hidden = false;
+      choose.disabled = true;
     }
   };
   terminal.onTitleChange = title => { document.title = title || 'gloss'; };
@@ -42,4 +64,5 @@ try {
   console.error(error);
   status.textContent = `Unable to start gloss: ${error.message || error}`;
   status.hidden = false;
+  choose.disabled = true;
 }

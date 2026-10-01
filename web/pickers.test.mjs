@@ -1,8 +1,27 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readChosen, pickFiles, pickFolder, maxPicked } from './pickers.mjs';
+import { readChosen, pickFiles, pickFolder, inputPicker, maxPicked } from './pickers.mjs';
 
 const file = (name, size = 3) => ({ name, size, async arrayBuffer() { return new Uint8Array(size).fill(1).buffer; } });
+
+test('fallback dialog keeps its input alive until selection or cancellation', async () => {
+  for (const event of ['change', 'cancel']) {
+    const handlers = {};
+    let attached = false;
+    const input = {
+      files: [file('chosen.csv')],
+      addEventListener(name, handler) { handlers[name] = handler; },
+      click() { assert.ok(attached, 'dialog must have a live input'); },
+      remove() { attached = false; },
+    };
+    const document = { createElement: () => input, body: { append() { attached = true; } } };
+    const result = inputPicker(document)({ multiple: true });
+    assert.ok(attached);
+    handlers[event]();
+    assert.equal(attached, false);
+    assert.deepEqual((await result).map(f => f.name), event === 'change' ? ['chosen.csv'] : []);
+  }
+});
 
 test('chosen files are read in the page, the empty, the huge, and the hidden left out', async () => {
   const [names, contents, skipped] = await readChosen([file('a.png'), file('empty.png', 0), file('big.png', 129 * 2 ** 20), file('.DS_Store'), file('b.svg')]);

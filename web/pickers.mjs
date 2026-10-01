@@ -87,10 +87,15 @@ export function inputPicker(document) {
   return ({ multiple = false, directory = false } = {}) => new Promise(resolve => {
     const input = document.createElement('input');
     input.type = 'file';
+    input.hidden = true;
     input.multiple = multiple;
     if (directory) input.webkitdirectory = true;
-    input.addEventListener('change', () => resolve([...input.files].map(f => ({ name: f.webkitRelativePath || f.name, size: f.size, arrayBuffer: () => f.arrayBuffer() }))));
-    input.addEventListener('cancel', () => resolve([]));
+    // Keep the input attached while the native dialog is open. Safari may
+    // otherwise discard it before delivering the chosen files.
+    const finish = files => { input.remove(); resolve(files); };
+    input.addEventListener('change', () => finish([...input.files].map(f => ({ name: f.webkitRelativePath || f.name, size: f.size, arrayBuffer: () => f.arrayBuffer() }))));
+    input.addEventListener('cancel', () => finish([]));
+    document.body.append(input);
     input.click();
   });
 }

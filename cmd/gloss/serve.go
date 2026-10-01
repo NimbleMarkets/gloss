@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"io/fs"
 	"log"
@@ -39,6 +40,8 @@ var (
 
 const maxDrops = 256 // Files in one drop.
 
+var servePage = template.Must(template.ParseFS(web.Page, "serve.html"))
+
 // maxSessionBytes is all that one session keeps from the page, over every
 // drop: the token holder is trusted, but a page that loops should fill no disk.
 // It is a variable so that tests can lower it.
@@ -53,6 +56,8 @@ var maxSessionBytes int64 = 1 << 30
 type server struct {
 	URL     string
 	backend string
+	prompt  string
+	pick    bool
 
 	token, secret string
 	cancel        context.CancelFunc
@@ -79,7 +84,10 @@ func random() (string, error) {
 
 func serve(ctx context.Context, opts app.Options) (*server, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	s := &server{cancel: cancel, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{})}
+	s := &server{cancel: cancel, prompt: opts.Prompt, pick: opts.Pick, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{})}
+	// The browser carries the full request as accessible page text, outside
+	// the terminal's size and line limits.
+	opts.Prompt = ""
 	var err error
 	if s.token, err = random(); err == nil {
 		s.secret, err = random()
@@ -223,18 +231,18 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
 	switch {
 	case rest == "":
-		rest = "serve.html"
-		fallthrough
-	case rest == "serve.mjs" || rest == "drop.mjs" || rest == "upload.mjs":
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		servePage.Execute(w, struct {
+			Prompt string
+			Pick   bool
+		}{s.prompt, s.pick})
+	case rest == "serve.mjs" || rest == "drop.mjs" || rest == "upload.mjs" || rest == "pickers.mjs":
 		data, err := fs.ReadFile(web.Page, rest)
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
 		kind := "text/javascript; charset=utf-8"
-		if rest == "serve.html" {
-			kind = "text/html; charset=utf-8"
-		}
 		w.Header().Set("Content-Type", kind)
 		w.Write(data)
 	case rest == "drop":
@@ -306,7 +314,7 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		case size > room:
 			os.Remove(kept)
 			if room == document.MaxFileBytes {
-				fail(http.StatusRequestEntityTooLarge, "file exceeds 128 MiB")
+				fail(http.StatusRequestEntityTooLarge, document.ErrTooLarge.Error())
 			} else {
 				fail(http.StatusRequestEntityTooLarge, "this session has kept all the files it will")
 			}
@@ -339,29 +347,17 @@ func (s *server) keep(name string, from io.Reader) (string, int64, error) {
 	if err != nil {
 		return "", 0, err
 	}
-	ext := filepath.Ext(name)
-	stem := strings.TrimSuffix(name, ext)
-	for n := 1; n < 1000; n++ {
-		if n > 1 {
-			name = fmt.Sprintf("%s-%d%s", stem, n, ext)
-		}
-		// O_EXCL makes the name ours alone, so nothing holds a lock while the
-		// page, possibly slow, sends the bytes.
-		f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if errors.Is(err, fs.ErrExist) {
-			continue
-		}
-		if err != nil {
-			return "", 0, err
-		}
-		size, copyErr := io.Copy(f, from)
-		if err := errors.Join(copyErr, f.Close()); err != nil {
-			os.Remove(f.Name())
-			return "", 0, err
-		}
-		return f.Name(), size, nil
-	}
-	return "", 0, fmt.Errorf("%s: too many drops with this name", name)
+	// The name is claimed before a byte is read, so no lock is held while the
+	// page, possibly slow, sends them.
+	return document.WriteNewFrom(filepath.Join(dir, name), from, 0o600)
+}
+
+// useFolder keeps drops in dir, made by whoever started the session, instead
+// of a folder of its own.
+func (s *server) useFolder(dir string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.dir = dir
 }
 
 // folder is where drops are kept, made when the first arrives.

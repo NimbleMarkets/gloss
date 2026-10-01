@@ -20,11 +20,17 @@ in your browser, and ends when you quit the viewer or close the tab. The page is
 the native viewer, not the demo: `o` browses your own folders, and a pasted path
 is read from your disk. Files dropped on the page are handed to gloss.
 
-`--prompt "Drop the March invoice here"` shows the request in a box under the
-viewer, where it stays through the whole pick, so that whoever launched gloss
-can say what they are after; `--prompt-loc top` puts it above the viewer
-instead. The box is shown wherever the viewer is, in the terminal or the
-served page.
+`--prompt "Choose the March invoice so I can check its totals"` tells you what
+the caller needs and why. In the browser it is a persistent heading above the
+viewer, with a **Choose files** button that opens your browser's file picker.
+You can also drop files onto the page. Review them in the viewer, then press
+`Enter` there to send them; choosing or dropping files alone does not send
+the answer. Press `q` in the viewer to decline.
+
+In a terminal, the prompt is a bold box with an accent border below the viewer;
+`--prompt-loc top` places it above instead. The terminal box wraps to at most
+four lines and is hidden when the screen is too small. The browser heading
+keeps the full request independently of the terminal's size.
 
 `--pick` waits for you to hand files over by dropping them, pasting their
 paths, or choosing them with `o`. The viewer shows what you gave and says what
@@ -63,6 +69,32 @@ message saying the pick is still open), so a harness can poll; a settled pick
 answers at once. An input that cannot be shown fails the start itself: exit 1,
 nothing on standard output.
 
+`gloss --status <token>` asks how the pick stands, at once, as one JSON object,
+for a harness that wants to look between other work and not wait. It changes
+nothing: it does not take the answer, end the session, or touch the files, so
+it can be asked as often as wanted, and `--resume` then answers as it would have.
+
+```json
+{"state":"waiting","settled":false,"seconds_left":412}
+{"state":"picked","settled":true,"paths":["/tmp/gloss-1234/invoice.pdf"]}
+{"state":"failed","settled":true,"error":"the server ended without an answer"}
+```
+
+| `state` | Meaning |
+| --- | --- |
+| `waiting` | The viewer is open; `seconds_left` is about how long the pick has |
+| `picked` | Files were sent; `paths` lists them |
+| `declined` | The person declined (`q`, or Cancel) |
+| `timeout` | `--timeout` ran out, or the deadline passed with the server gone |
+| `closed` | A page that only showed something was closed |
+| `failed` | An error, said in `error`; a server that died unanswered is one |
+
+A state that is out of date on disk (its deadline has passed, or its server has
+died) is reported as what it has become, without being rewritten. The exit
+status is 0 whenever a state was reported, because the state is in the JSON, and
+1 when there is no such pick: the token is not one, or the answer was collected
+and its state removed.
+
 Files handed over are kept for the caller, which must delete `dir` when done.
 gloss deletes it on timeout, on a decline, and when the server dies unanswered,
 but never after an answer.
@@ -77,3 +109,9 @@ address carries a token, without which nothing is served, so other programs and
 other pages cannot reach the viewer or drop files on it. `--no-open` prints the
 address without opening a browser; `--timeout 10m` gives up after that long.
 With `--serve` or `--pick`, standard input is read only when `-` is named.
+
+Open the link on the machine running gloss, or through your environment's
+supported local forwarding. A localhost link from a remote host or container
+does not automatically work on another computer. Browsing with `o` and pasted
+paths refer to files on the gloss machine; **Choose files** and browser drops
+copy files from the computer running your browser.

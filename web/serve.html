@@ -2,5 +2,28 @@
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>gloss</title>
   <meta name="referrer" content="no-referrer">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 64 64%27%3E%3Crect width=%2764%27 height=%2764%27 rx=%2712%27 fill=%27%23A7D7B1%27/%3E%3Ctext x=%2732%27 y=%2747%27 text-anchor=%27middle%27 font-size=%2752%27 fill=%27%233F3080%27%3E%E2%96%A7%3C/text%3E%3C/svg%3E">
-<style>*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1e1e1e;color:#fff}#terminal{height:100%;padding:4px}#status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;font:15px/1.6 system-ui,sans-serif;white-space:pre-wrap;background:#1e1e1e}#status[hidden]{display:none}#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font:600 17px/1.6 system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}#drop[hidden]{display:none}</style></head>
-<body><div id="terminal" aria-label="Interactive terminal"></div><div id="status" role="status">Connecting to gloss…</div><div id="drop" role="status" hidden>Drop files to open</div><script type="module" src="serve.mjs"></script></body></html>
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%;overflow:hidden;background:#1e1e1e;color:#fff}
+body{display:flex;flex-direction:column;font:15px/1.5 system-ui,sans-serif}
+header{flex:none;max-height:45%;overflow:auto;padding:18px 24px;background:#292329;border-bottom:3px solid #E24F36}
+header p{margin:0 0 8px;color:#ddd}header .label{font-size:12px;font-weight:700;letter-spacing:.1em;color:#ffac9c;text-transform:uppercase}
+h1{margin:0 0 12px;font-size:clamp(20px,3vw,28px);line-height:1.3;white-space:pre-wrap;overflow-wrap:anywhere}
+.actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}.actions p{margin:0}
+button{font:inherit;font-weight:700;padding:9px 16px;border:1px solid #ffa18f;border-radius:6px;background:#E24F36;color:#fff;cursor:pointer}
+button:hover{background:#c93c25}button:focus-visible{outline:3px solid #fff;outline-offset:3px}button:disabled{opacity:.5;cursor:wait}
+#message{margin:8px 0 0}#message:empty{display:none}
+main{position:relative;flex:1;min-height:0}#terminal{height:100%;padding:4px}
+#status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;white-space:pre-wrap;background:#1e1e1e}#status[hidden]{display:none}
+#drop{position:fixed;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font-weight:600;font-size:17px;text-align:center;background:#1e1e1ee6;pointer-events:none}#drop[hidden]{display:none}
+</style></head>
+<body>
+<header aria-labelledby="request">
+  <p class="label">{{if .Pick}}File request{{else}}gloss viewer{{end}}</p>
+  <h1 id="request">{{if .Prompt}}{{.Prompt}}{{else if .Pick}}Choose files to send{{else}}View your files{{end}}</h1>
+  <div class="actions"><button id="choose-files" type="button" disabled>Choose files</button>
+    <p>{{if .Pick}}Choose or drop files, review them below, then press Enter in the viewer to send. Press q to cancel.{{else}}Choose or drop files to view them. Press q in the viewer to finish.{{end}}</p>
+  </div>
+  <p id="message" role="status" aria-live="polite"></p>
+</header>
+<main><div id="terminal" aria-label="Interactive terminal"></div><div id="status" role="status">Connecting to gloss…</div></main>
+<div id="drop" role="status" hidden>Drop files to open</div><script type="module" src="serve.mjs"></script></body></html>

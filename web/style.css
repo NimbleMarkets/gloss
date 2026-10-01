@@ -48,7 +48,7 @@ header {
   display:flex;
   justify-content:space-between;
   align-items:center;
-  height:56px;
+  height:76px;
   border-bottom:3px solid var(--teal)
 }
 nav {
@@ -66,7 +66,7 @@ nav .github {
   gap:6px
 }
 .wordmark {
-  font:700 28px "Nimble Head",system-ui,sans-serif;
+  font:700 46px/1 "Nimble Head",system-ui,sans-serif;
   letter-spacing:0;
   color:var(--accent)
 }
@@ -90,7 +90,7 @@ nav .github {
 h1 {
   font-family:"Nimble Head",system-ui,sans-serif;
   font-weight:700;
-  font-size:clamp(32px,3.8vw,46px);
+  font-size:clamp(24px,2.6vw,34px);
   line-height:1.1;
   letter-spacing:0;
   margin:4px 0 6px
@@ -203,7 +203,18 @@ footer {
     padding-right:16px
   }
   header {
-    height:52px
+    height:64px
+  }
+  .wordmark {
+    font-size:38px
+  }
+  /* The wordmark leads, so on a phone the nav keeps its two main links. */
+  nav {
+    gap:16px
+  }
+  nav .github,
+  nav a:last-child {
+    display:none
   }
   .intro {
     display:block;

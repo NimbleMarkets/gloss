@@ -1,12 +1,12 @@
 ---
 name: gloss
-description: View and inspect files from the shell with the gloss pager. Export images, PDF pages, SVG, and STL/3MF meshes as PNGs sized for vision models, read document metadata as JSON, and ask the user to pick or view files in a terminal or browser. Use when you need to see a file's visual content, get document metadata, or have the user hand you files.
+description: "Inspect local files with gloss: extract document text and tables, export images, PDF pages, SVG, and meshes as PNGs for vision, read metadata, or ask a human to choose or view files. Use for file inspection and local file handoffs, not document creation or editing."
 ---
 
 # gloss: seeing files, and being shown them
 
 gloss is a visual pager (`less`, with pictures). For an agent it has four
-distinct uses, in the order you will need them:
+distinct uses; choose the one that answers the request:
 
 1. **Read a file's text** — `--text`: Word, HTML, notebooks, PDF text layers,
    and sheets as Markdown, text, or CSV, no rendering.
@@ -14,11 +14,29 @@ distinct uses, in the order you will need them:
 3. **Learn about a file** — metadata as JSON, no rendering.
 4. **Involve the human** — they pick files for you, or view what you show them.
 
-**stdout carries the answer, in the form you asked for.** Bytes with
-`--output -`; the text with `--text`; otherwise the *paths written*, one to a
-line, so `paths=$(gloss …)` is the whole protocol. `--json` gives a manifest
-instead. Diagnostics go to stderr. Exit status 1 means at least one input
-failed; the rest were still done.
+Prefer `--text` for content and `--output` for appearance, scans, figures, or
+layout. Use `--info --json` when the kind, page count, or part names are unknown.
+After exporting, open the returned PNG with your image-viewing tool; creating
+it alone does not inspect its contents.
+
+**stdout carries the payload; diagnostics go to stderr.**
+
+| Mode | stdout |
+| --- | --- |
+| `--text` | Extracted text; with `--output-dir`, written paths |
+| `--output file.png` / `--output-dir` | Actual written paths, one per line |
+| `--output -` | PNG bytes only |
+| `--info` | Human-readable metadata |
+| `--json` with text, export, or info | JSON array of results, including errors |
+| `--pick` with terminal stdin | Chosen full paths after confirmation |
+| `--pick` / `--serve` without terminal stdin | One JSON object describing the detached session; exit 0 means started, not answered |
+| `--resume TOKEN` | Chosen paths; with `--json`, an object with `status`, `paths`, and `error` |
+| `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `state`, `settled`, and `paths`, `error`, or `seconds_left` as they apply |
+
+Exit status 1 means an error; in a batch, inspect and use the successful results.
+Pick/resume also use 2 for decline and 124 for timeout, as described below.
+`--status` exits 0 whenever it reports a state (the state is in the JSON, not
+the exit code) and 1 when there is no such session.
 
 `gloss --skill` prints this file, so the installed binary can always say what
 it itself does; `gloss --skill --install` writes it where the agents on the
@@ -87,8 +105,8 @@ cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
   | `claude-high` | `--max-edge 1932` |
 
 - **Existing files are never overwritten**: a taken name gains a suffix
-  (`page.png` → `page-2.png`). stderr reports each file written as
-  `path: W×H PNG`, so read the path from there, or use `--output -`.
+  (`page.png` → `page-2.png`). Read the actual path from stdout, or the
+  `output` field with `--json`; stderr's `path: W×H PNG` is diagnostic only.
 - `--output` takes one input; `--output-dir` takes many and prefixes each
   name with its index: `001-shapes.png`, `002-landscape.png`; a page or sheet
   adds `-page-2` or `-sheet-2`.
@@ -168,7 +186,7 @@ their full paths to stdout. Exit status: 0 = paths printed, 1 = error,
 2 = the user declined, 124 = timeout.
 
 ```sh
-gloss --pick --prompt "Drop the March invoice here"      # in a terminal: blocks
+gloss --pick --prompt "Choose the March invoice so I can check its totals" --prompt-loc top
 paths=$(gloss --pick --prompt "Which export?") || echo "declined or error $?"
 ```
 
@@ -182,23 +200,52 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
 #  "timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
 ```
 
-1. Give the `url` to the human (gloss opens no browser off a terminal).
-2. Ask for the answer, as often as you like, with `gloss --resume <token>`. It
+1. Give the `url` to the human as a clickable link, explain the request, and
+   say how to finish: choose or drop files, review them, then press `Enter`
+   in the viewer to send; `q` declines. In the browser, **Choose files** opens
+   the native file picker. Pasting local paths or `o` also works in the viewer.
+   All files handed over during the session are sent together. If only files
+   named on the command line are present, `Enter` sends the one on screen.
+2. Retrieve the answer with `gloss --resume <token>`. It
    waits for the answer and then behaves like a terminal pick: paths on stdout
    and exit 0, 2 (declined), or 124 (the timeout ran out). It needs no
    long-lived process of yours: the server is detached and keeps its answer.
    `--resume <token> --timeout 30s` stops *waiting* after 30 s (exit 124, with
    stderr saying it is still waiting); a settled pick answers at once.
-3. **Delete the files when done**: `rm -rf <dir>`. They are in `dir`, private
-   to the user. gloss deletes them itself on timeout or decline, never on an
-   answer.
+   To look without waiting, between other work, `gloss --status <token>` prints
+   one JSON object at once and exits 0:
+   `{"state":"waiting","settled":false,"seconds_left":412}`. `state` is
+   `waiting`, `picked` (with `paths`), `declined`, `timeout`, `closed` (a page
+   that only showed something was closed), or `failed` (with `error`, as when
+   the server died). It changes nothing: it does not take the answer, end the
+   session, or touch the files, so ask as often as you like and then `--resume`
+   to collect the answer. Exit 1 means there is no such session, because the
+   token is wrong or an answer was already collected and its state removed.
+3. Inspect the returned paths with `--text`, `--info --json`, or `--output`
+   as appropriate, then continue the user's task. Do not treat startup JSON
+   as a successful file selection.
+4. **Clean up the session directory when its files are no longer needed.**
+   Use the exact `dir` returned at startup; preserve artifacts the user wants
+   to keep. Dropped files are private copies there. Never delete original
+   paths returned from browsing or pasting. gloss removes its directory on
+   timeout or decline, but keeps selected drops after an answer.
 
-- Always give `--prompt`: it says what you want and why, on screen throughout.
+- Give `--prompt` a concise request and purpose, such as "Choose the March
+  invoice so I can check its totals against your spreadsheet." The browser
+  shows the full request as a persistent heading above the viewer. In a
+  terminal, use `--prompt-loc top` for prominence; the box defaults to the
+  bottom, is capped at four lines, and is hidden if the screen is too small.
 - Off a terminal `--timeout` defaults to 10 minutes; the server never outlives it.
 - On a terminal `--serve --pick` still blocks and opens the browser; `--no-open`
   prints the address (on stderr) instead. Off a terminal that is the default.
 - The server is on 127.0.0.1 only, and nothing is served without the token in
   the `url`; treat the `url` and the resume token as secrets.
+- The human's browser must reach the machine where gloss runs. A localhost
+  link from a remote host or container does not automatically reach that
+  session from the human's computer. Use the environment's supported local
+  forwarding or file-handoff mechanism when needed; do not expose the server
+  publicly. Files browsed or pasted in the viewer are paths on the gloss host;
+  browser-chosen or dropped files come from the human's computer.
 - Exit 2 means the user declined. Do not silently retry — ask in chat whether
   they want to continue.
 - stdout carries only the answer (paths, or the one JSON object), so it pipes.
@@ -207,7 +254,7 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
 
 ```sh
 gloss report.pdf                  # terminal pager, if the user has a terminal
-gloss --serve report.pdf          # the same viewer, on a localhost web page
+gloss --serve --prompt "Review page 3 and check the chart labels" --page 3 report.pdf
                                   # (no terminal: prints the JSON object above; show the url)
 ```
 
@@ -231,8 +278,8 @@ anywhere. Say that when you send the link.
   10,000 pages. `--info` reports these failures cleanly.
 - gloss never fetches the network on its own. `--fetch` is an interactive
   option (Enter on a cell's address); the headless modes never need it.
-- Don't parse or convert files yourself when gloss can show them: an exported
-  PNG plus `--info --json` is usually cheaper and more accurate than a
-  hand-rolled extractor.
+- Use gloss's extraction and rendering when they answer the task. Prefer
+  `--text` for document content; add PNGs when appearance matters. Specialized
+  analysis or editing may still need other tools.
 - Markdown, plain text, and tables (Excel/Grist/CSV) are for `--text`, not for a
   picture; gloss refuses to export them as PNG by design.

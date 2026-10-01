@@ -95,12 +95,21 @@ Agent-facing / scriptable surface:
   for files that fail.
 - `--serve [--pick] [--prompt] [--timeout] [--no-open]`: temporary
   localhost-only token-guarded web viewer; `--pick` prints chosen paths on
-  stdout (exit 0 paths, 1 error, 2 nothing chosen, 124 timeout) and blocks, in
+  stdout after `Enter` confirms them. The browser shows `--prompt` as a
+  persistent accessible heading with a native **Choose files** button;
+  `--prompt-loc` positions the prompt box in the terminal only. Pick returns
+  exit 0 paths, 1 error, 2 nothing chosen, 124 timeout and blocks, in
   a terminal. With stdin not a terminal, both `--pick` and `--serve` instead
   detach the server (`cmd/gloss/detach.go`), print one JSON object (`url`,
   `dir`, `timeout_seconds`, `resume_token`, `resume`), exit 0, and open no
   browser; `--timeout` defaults to 10 minutes. `--resume TOKEN` reads the
-  state file and answers as a pick does (0, 2, 124). Dropped files stay in the
+  state file and answers as a pick does (0, 2, 124). `--status TOKEN` only
+  looks: it prints one JSON object (`state` waiting, picked, declined, timeout,
+  closed, or failed; `settled`; `paths`; `error`; `seconds_left`) and exits 0
+  whenever it reported, 1 for no such pick. It must change nothing, not the
+  state file nor the folder: `observe` in `detach.go` works out an overdue or
+  dead waiting state for both, and only `--resume` writes the result. Dropped
+  files stay in the
   private `dir` for the caller to delete, and are removed on timeout/decline.
   This is how a non-terminal agent asks a human for a file or shows one.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
@@ -112,7 +121,8 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 - `task build` / `task run -- <args>` / `task install`
 - `task test` — `go test ./...`; `task test-race`, `task vet`
 - `task ci` — the full gate: `fmt-check`, `go-tidy-check`, `go-verify`,
-  `test-race`, `vet`, `build`. Run this before considering work done.
+  `test-race`, `vet`, `staticcheck`, `vulncheck`, `build`. Run this before
+  considering work done.
 - `task docs` — the `gloss(1)` man page (`docs/man`), the command reference
   (`gloss --docs-man`/`--docs-markdown --docs-hugo`, hidden options) and the
   two guide pages (`internal/tools/docsite`, from DEVELOP.md and

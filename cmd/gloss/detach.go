@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -251,28 +252,18 @@ func resume(opts options, stdout, stderr io.Writer) error {
 		late = time.After(opts.Timeout)
 	}
 	for {
-		st, err := readState(file)
+		st, derived, err := observe(file, time.Now())
 		if err != nil {
-			return fmt.Errorf("no such pick, or it was already settled and its state removed")
+			return errNoSession
+		}
+		if derived {
+			// The server is gone or late; the files are not left behind. This
+			// is the part of asking that changes anything: --status leaves it.
+			os.RemoveAll(dir)
+			_ = writeState(file, st)
+			continue
 		}
 		if st.Status == statusWaiting {
-			switch {
-			case !st.Deadline.IsZero() && time.Now().After(st.Deadline):
-				// The server is gone or late; the files are not left behind.
-				st.Status = statusTimeout
-				os.RemoveAll(dir)
-				_ = writeState(file, st)
-				continue
-			case st.PID != 0 && !running(st.PID):
-				// It may have written its answer in its last moment.
-				if again, err := readState(file); err == nil && again.Status != statusWaiting {
-					continue
-				}
-				st.Status, st.Error = statusError, "the server ended without an answer"
-				os.RemoveAll(dir)
-				_ = writeState(file, st)
-				continue
-			}
 			select {
 			case <-late:
 				fmt.Fprintln(stderr, "gloss: still waiting; the pick itself has not timed out")
@@ -283,6 +274,73 @@ func resume(opts options, stdout, stderr io.Writer) error {
 		}
 		return answer(st, file, opts.JSON, stdout)
 	}
+}
+
+var errNoSession = errors.New("no such pick, or it was already settled and its state removed")
+
+// observe reads a pick's state as it now stands, without changing it. A state
+// that says waiting may be out of date: the deadline has passed, or the server
+// died without writing its answer. Then the state is what it has become, and
+// derived says it was worked out here and is not on disk. Asking the question
+// is the same for --resume, which then settles the matter, and for --status,
+// which does not.
+func observe(file string, now time.Time) (st state, derived bool, err error) {
+	st, err = readState(file)
+	if err != nil || st.Status != statusWaiting {
+		return st, false, err
+	}
+	switch {
+	case !st.Deadline.IsZero() && now.After(st.Deadline):
+		st.Status = statusTimeout
+		return st, true, nil
+	case st.PID != 0 && !running(st.PID):
+		// It may have written its answer in its last moment.
+		if again, err := readState(file); err == nil && again.Status != statusWaiting {
+			return again, false, nil
+		}
+		st.Status, st.Error = statusError, "the server ended without an answer"
+		return st, true, nil
+	}
+	return st, false, nil
+}
+
+// sessionStatus is what --status prints: how a pick stands, at once.
+type sessionStatus struct {
+	State       string   `json:"state"`                  // waiting, picked, declined, timeout, closed, or failed.
+	Settled     bool     `json:"settled"`                // False only while waiting.
+	Paths       []string `json:"paths,omitempty"`        // The answer, once picked.
+	Error       string   `json:"error,omitempty"`        // Why, when failed.
+	SecondsLeft *int     `json:"seconds_left,omitempty"` // About how long the pick has, while waiting.
+}
+
+// status says at once how a pick stands, as one JSON object, and exit status
+// 0: the state is in the object. It waits for nothing and changes nothing,
+// neither the answer, nor the files, nor the session, so it can be asked as
+// often as wanted, and --resume then answers as it would have.
+func status(opts options, stdout io.Writer) error {
+	if !tokenPattern.MatchString(opts.Status) {
+		return fmt.Errorf("--status takes the token the start printed")
+	}
+	_, file := detachedPaths(opts.Status)
+	now := time.Now()
+	st, _, err := observe(file, now)
+	if err != nil {
+		return errNoSession
+	}
+	out := sessionStatus{State: st.Status, Settled: st.Status != statusWaiting, Error: st.Error}
+	switch st.Status {
+	case statusError:
+		out.State = "failed"
+	case statusPicked:
+		out.Paths = st.Paths
+	case statusWaiting:
+		if !st.Deadline.IsZero() {
+			// The deadline allows the server its start-up as well as its run.
+			left := max(0, int(math.Ceil(st.Deadline.Add(-startGrace).Sub(now).Seconds())))
+			out.SecondsLeft = &left
+		}
+	}
+	return json.NewEncoder(stdout).Encode(out)
 }
 
 // answer gives a settled state's outcome. A state that holds nothing more

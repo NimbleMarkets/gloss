@@ -5,5 +5,5 @@ import "embed"
 
 // Page is the viewer's page and the scripts it loads beside Booba's.
 //
-//go:embed serve.html serve.mjs drop.mjs upload.mjs
+//go:embed serve.html serve.mjs drop.mjs upload.mjs pickers.mjs
 var Page embed.FS
