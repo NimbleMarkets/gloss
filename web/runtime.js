@@ -80,11 +80,13 @@ try {
   const go = new Go();
   go.argv = config.argv;
   status.textContent = 'Connecting to download gloss…';
+  // The build records the decoded size, which a compressed response hides.
+  const sizeText = fetch('app.wasm.size').then(r => (r.ok ? r.text() : ''), () => '');
   const response = await fetch('app.wasm');
   if (!response.ok) throw new Error(`Download failed: HTTP ${response.status}`);
   const bytes = await readWithProgress(response, (loaded, total) => {
     status.textContent = downloadStatus(loaded, total);
-  });
+  }, Number(await sizeText));
   status.textContent = 'Download complete. Compiling WebAssembly…';
   const { instance } = await WebAssembly.instantiate(bytes, go.importObject);
   status.textContent = 'Starting the terminal…';

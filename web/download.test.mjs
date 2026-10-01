@@ -25,6 +25,21 @@ test('compressed or missing lengths show byte counts without a false percentage'
   assert.doesNotMatch(downloadStatus(3, 2), /150%/);
 });
 
+test('an encoded download uses the expected decoded size for progress, never a plain length', async () => {
+  const gz = { 'content-length': '1', 'content-encoding': 'gzip' };
+  const events = [];
+  await readWithProgress(new Response('decoded', { headers: gz }), (...event) => events.push(event), 7);
+  assert.deepEqual(events, [[0, 7], [7, 7]]);
+  events.length = 0;
+  await readWithProgress(new Response('decoded', { headers: { 'content-length': '7' } }), (...event) => events.push(event), 99);
+  assert.deepEqual(events.at(-1), [7, 7]);
+  for (const bad of [0, NaN, -1]) {
+    events.length = 0;
+    await readWithProgress(new Response('decoded', { headers: gz }), (...event) => events.push(event), bad);
+    assert.deepEqual(events.at(-1), [7, null]);
+  }
+});
+
 test('a broken download rejects rather than compiling incomplete bytes', async () => {
   const body = new ReadableStream({ pull(controller) { controller.error(new Error('connection lost')); } });
   await assert.rejects(readWithProgress(new Response(body), () => {}), /connection lost/);

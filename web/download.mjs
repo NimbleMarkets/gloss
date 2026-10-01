@@ -1,9 +1,12 @@
 // Fetch bodies are decoded by the browser. Content-Length describes compressed
-// transfer bytes when Content-Encoding is set, so only use it for plain bodies.
-export async function readWithProgress(response, progress) {
+// transfer bytes when Content-Encoding is set, so only use it for plain bodies;
+// for encoded ones the caller may pass the decoded size it knows (expected).
+export async function readWithProgress(response, progress, expected = null) {
   const length = Number(response.headers.get('content-length'));
   const encoding = response.headers.get('content-encoding');
-  const total = (!encoding || encoding === 'identity') && Number.isFinite(length) && length > 0 ? length : null;
+  const plain = !encoding || encoding === 'identity';
+  const known = Number.isFinite(expected) && expected > 0 ? expected : null;
+  const total = plain && Number.isFinite(length) && length > 0 ? length : known;
   let loaded = 0;
   progress(loaded, total);
   if (!response.body?.getReader) {
