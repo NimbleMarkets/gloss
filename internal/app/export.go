@@ -52,7 +52,7 @@ func (m *Model) export() tea.Cmd {
 	}
 	q := m.exportRequest()
 	edge := q.MaxEdge
-	name, profile, save := exportName(q.Path, m.kind, m.page), m.opts.VisionProfile, m.opts.Save
+	name, save := exportName(q.Path, m.kind, m.page), m.opts.Save
 	if save == nil {
 		save = func(name string, data []byte) (string, error) { return saveFile(".", name, data) }
 	}
@@ -65,7 +65,7 @@ func (m *Model) export() tea.Cmd {
 	return func() tea.Msg {
 		r := m.loader.Load(q)
 		r.Camera, r.CPU = view.Camera, view.CPU
-		img, err := document.ExportForVision(r, edge, profile)
+		img, err := document.ExportImage(r, edge)
 		if err != nil {
 			return exportResult{err: err}
 		}

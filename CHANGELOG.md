@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+  * Agent protocol
+    * `--text` takes the text layer of a PDF: one page with `--page`, a range,
+      or `all` into `--output-dir` or `--json`. A page with no text layer is an
+      `error` entry, not a blank success. Pictures, SVG, and meshes still point
+      at `--output`
+    * `--vision-profile` is now only a documented alias for `--max-edge`
+      (1600, 1092, 1932 px: the square-safe edge for each budget, wide pictures
+      are no longer sized up to the patch budget); `--max-edge` given wins. The
+      export manifest gains `max_edge`, and `vision_profile` and
+      `vision_reason` when a profile was named
+    * With no terminal (stdin not a TTY), `--pick` and `--serve` no longer
+      block: they print one JSON object (`url`, `dir`, `timeout_seconds`,
+      `resume_token`, `resume`) and exit 0, with the server detached and no
+      browser opened; `--timeout` defaults to 10 minutes. The new
+      `gloss --resume TOKEN` prints the paths and exits 0, 2, or 124
+
   * `gloss --skill` prints the skill that teaches agents to use gloss, so an
     installed binary can write out `SKILL.md` for the version it is;
     `gloss --skill --install` puts it where the agents on the machine look for

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -191,4 +192,91 @@ func TestPageRanges(t *testing.T) {
 	if lines := strings.Split(strings.TrimSpace(stdout.String()), "\n"); len(lines) != 4 || !strings.HasSuffix(lines[1], "001-notes-table-2.csv") {
 		t.Fatalf("tables: %q", stdout.String())
 	}
+}
+
+func TestTextOfPDFPagesGoesToFilesLikeSheets(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	pages, _ := parsePages("all")
+	opts := options{Options: app.Options{Files: []string{"../../examples/field-guide.pdf"}, OutputDir: dir, Page: 1}, Text: true, Pages: pages}
+	if err := textFiles(opts, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{filepath.Join(dir, "001-field-guide-page-1.txt"), filepath.Join(dir, "001-field-guide-page-2.txt")}
+	if strings.TrimSpace(stdout.String()) != strings.Join(want, "\n") {
+		t.Fatalf("stdout: %q", stdout.String())
+	}
+	if data, err := os.ReadFile(want[1]); err != nil || !strings.Contains(string(data), "SMALL FILES") {
+		t.Fatalf("page 2: %q %v", data, err)
+	}
+}
+
+func TestTextOfAScannedPageSaysSoInTheManifest(t *testing.T) {
+	dir := t.TempDir()
+	scan := filepath.Join(dir, "scan.pdf")
+	// A page with nothing on it, then the real guide: the failure does not
+	// discard the success.
+	os.WriteFile(scan, blankPDF(), 0600)
+	var stdout, stderr bytes.Buffer
+	opts := options{Options: app.Options{Files: []string{scan, "../../examples/field-guide.pdf"}, Page: 1}, Text: true, JSON: true}
+	if err := textFiles(opts, &stdout, &stderr); err == nil {
+		t.Fatal("a page without text was a success")
+	}
+	var manifest []map[string]any
+	if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil || len(manifest) != 2 {
+		t.Fatalf("manifest: %v %s", err, stdout.String())
+	}
+	if e, _ := manifest[0]["error"].(string); !strings.Contains(e, "no text layer") || manifest[0]["text"] != nil {
+		t.Fatalf("scan: %v", manifest[0])
+	}
+	if manifest[1]["error"] != nil || !strings.Contains(manifest[1]["text"].(string), "FIELD GUIDE") {
+		t.Fatalf("guide: %v", manifest[1])
+	}
+}
+
+func TestManifestSaysHowTheSizeWasResolved(t *testing.T) {
+	export := func(args ...string) map[string]any {
+		t.Helper()
+		opts, _, err := parse(append(args, "--json", "-O", t.TempDir(), "../../examples/shapes.svg"), &bytes.Buffer{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var stdout bytes.Buffer
+		if err := exportFiles(opts, &stdout, &bytes.Buffer{}); err != nil {
+			t.Fatal(err)
+		}
+		var manifest []map[string]any
+		if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil || len(manifest) != 1 {
+			t.Fatalf("%v %s", err, stdout.String())
+		}
+		return manifest[0]
+	}
+	if m := export("--max-edge", "300"); m["max_edge"] != 300.0 || m["vision_profile"] != nil || m["vision_reason"] != nil {
+		t.Fatalf("no profile: %v", m)
+	}
+	if m := export("--vision-profile", "claude-standard"); m["max_edge"] != 1092.0 || m["vision_profile"] != "claude-standard" || m["vision_reason"] == "" {
+		t.Fatalf("profile: %v", m)
+	}
+	// An edge given outright is the caller's.
+	if m := export("--vision-profile", "claude-standard", "--max-edge", "300"); m["max_edge"] != 300.0 || m["width"] != 300.0 || m["vision_profile"] != "claude-standard" {
+		t.Fatalf("both: %v", m)
+	}
+}
+
+// blankPDF is a one-page PDF with nothing drawn on it, as a scan has no text.
+func blankPDF() []byte {
+	var b bytes.Buffer
+	var offsets []int
+	b.WriteString("%PDF-1.4\n")
+	for i, body := range []string{"<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [3 0 R] /Count 1 >>", "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] >>"} {
+		offsets = append(offsets, b.Len())
+		fmt.Fprintf(&b, "%d 0 obj\n%s\nendobj\n", i+1, body)
+	}
+	start := b.Len()
+	b.WriteString("xref\n0 4\n0000000000 65535 f \n")
+	for _, o := range offsets {
+		fmt.Fprintf(&b, "%010d 00000 n \n", o)
+	}
+	fmt.Fprintf(&b, "trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", start)
+	return b.Bytes()
 }

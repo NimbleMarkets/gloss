@@ -47,7 +47,7 @@ func TestGNUOptions(t *testing.T) {
 		t.Fatalf("bundled flags: %+v %v", opts, err)
 	}
 	opts, _, err = parse([]string{"-oout.png", "--vision-profile", "claude-standard", "a.svg"}, &bytes.Buffer{})
-	if err != nil || opts.MaxEdge != 1568 {
+	if err != nil || opts.MaxEdge != 1092 || opts.VisionProfile != "claude-standard" || opts.EdgeReason == "" {
 		t.Fatalf("profile default: %+v %v", opts, err)
 	}
 }

@@ -286,10 +286,36 @@ fetched from an address in a table can be picked too; it is then kept for you.
 | 2 | Nothing was chosen |
 | 124 | `--timeout` ran out |
 
+### Without a terminal
+
+When standard input is not a terminal, as when an agent starts gloss, `--pick`
+and `--serve` do not block. gloss starts the server as a process of its own and
+prints one JSON object on standard output, exiting 0, with no browser opened
+(`--no-open` is then the default; on a terminal it is still opt-in):
+
+```json
+{"status":"waiting","url":"http://127.0.0.1:41233/<token>/","dir":"/tmp/gloss-pick-…","timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
+```
+
+`url` carries the token and is for the human; `dir` is the private folder
+(mode 0700) where dropped files land; `--timeout` defaults to 10 minutes off a
+terminal and bounds the server's life. `gloss --resume <token>` then waits for
+the answer and gives it as a terminal pick does: the paths on standard output
+(or `--json`, `{"status","paths","error"}`) and exit status 0, 2, or 124, from
+any process, whether or not the one that started it is alive.
+`--resume <token> --timeout 30s` bounds only the waiting (exit 124, with a
+message saying the pick is still open), so a harness can poll; a settled pick
+answers at once. An input that cannot be shown fails the start itself: exit 1,
+nothing on standard output.
+
+Files handed over are kept for the caller, which must delete `dir` when done.
+gloss deletes it on timeout, on a decline, and when the server dies unanswered,
+but never after an answer.
+
 Files dropped on a page are written to a folder of their own under the system's
 temporary directory, readable by you alone. If they are the answer to a pick
-they are left there for the program that asked, which should delete them when
-it is done. Otherwise they are removed when gloss exits.
+they are left there for the program that asked, which must delete them when it
+is done. Otherwise they are removed when gloss exits, and on a timeout.
 
 The server listens on 127.0.0.1 only, on a port chosen at random. The page's
 address carries a token, without which nothing is served, so other programs and
@@ -323,7 +349,8 @@ to a model and export individual images when needed.
 ## For agents
 
 [`skills/gloss/SKILL.md`](skills/gloss/SKILL.md) teaches an agent gloss's
-headless surface: export, `--text`, `--info`, `--pick`, and `--serve`. The
+headless surface, in the order an agent needs it: `--text`, a sized PNG export,
+`--info --json`, then `--pick` or `--serve`. The
 binary carries it, so it always matches the flags it was built with:
 
 ```sh
@@ -349,12 +376,19 @@ This is a configurable size budget, not a promise of identical model token costs
 gloss --output page.png --max-edge 1536 --page 3 report.pdf
 gloss --output diagram.png --max-edge 1024 drawing.svg
 gloss --output mesh.png --max-edge 1536 model.stl
-gloss --output page.png --vision-profile openai-high report.pdf
-gloss --output diagram.png --vision-profile claude-standard drawing.svg
+gloss --output page.png --vision-profile claude-standard report.pdf   # an alias, see below
 gloss --output-dir model-inputs --max-edge 768 photo.png drawing.svg report.pdf
 gloss --output-dir pages --page all report.pdf         # every page, or 2-5, or 1,3
 cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
 ```
+
+The size is a pixel budget, and `--max-edge` is the stable flag for it: set it
+from what your model accepts. `--vision-profile` (`openai-high`,
+`claude-standard`, `claude-high`) is only a convenience alias that resolves to a
+`--max-edge` (1600, 1092, and 1932: the edge at which a square picture fits the
+provider's patch budget, checked 2026-09-29). Providers change their budgets, so
+the aliases **will go stale**, and no names will be added; harnesses should pass
+`--max-edge`. An explicit `--max-edge` wins over a profile.
 
 Standard output carries the answer, in the form asked for: the PNG bytes with
 `--output -`, else the paths written, one to a line, as `--pick` prints them.
@@ -362,25 +396,35 @@ Nothing is ever overwritten: a taken name gains a number before its extension
 (`page.png`, then `page-2.png`), and `--output-dir` names each file after its
 input with an index (`001-shapes.png`, `001-report-page-2.png`). `--json`
 prints a manifest instead, one object per file and page: `path`, `kind`,
-`page`, `pages`, `output`, `width`, `height`, and `error` where one failed. A
-failure is reported on stderr and the rest go on; the exit status is 1.
+`page`, `pages`, `output`, `width`, `height`, `max_edge` (the edge it was sized
+to), and `error` where one failed; when a profile was named, also
+`vision_profile` and a short `vision_reason`. A failure is reported on stderr
+and the rest go on; the exit status is 1.
 
 ### Text for language models
 
 `--text` takes the text out, for a reader that wants words rather than a
 picture: the Markdown gloss makes of a Word document, an HTML page, or a
 notebook; Markdown as it is; text and JSON as they are, unfenced; and a sheet
-as CSV. Pictures, PDFs, and meshes have no text, and say so.
+as CSV. A PDF gives the text layer of the page asked for. Pictures, SVG, and meshes
+have no text, and say so, pointing at `--output`.
 
 ```sh
 gloss --text report.docx                          # Markdown on stdout
 gloss --text --page all --output-dir sheets sales.xlsx   # one CSV per sheet
+gloss --text --page 3 report.pdf                  # the text layer of one page
+gloss --text --page all --output-dir text report.pdf   # one .txt per page
 gloss --text --json notes.txt sales.csv           # [{path, kind, text}, …]
 gloss --glob docs --text --output-dir text ~/Documents
 ```
 
-One text goes to stdout; several go to files with `--output-dir`, whose paths
-are then the answer, or into a `--json` manifest with a `text` field each.
+One text goes to stdout; several (inputs, sheets, or pages) go to files with
+`--output-dir`, whose paths are then the answer, or into a `--json` manifest
+with a `text` field each. A PDF page with no text layer, as a scan or a figure
+has none, is an `error` on that page and never a blank success; the other pages
+are still made and the exit status is 1. Fall back to `--output` for such a
+page. A PDF's pages are bounded as for export (10,000), and a page's text to
+16 MiB.
 
 Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
 transparency onto white, and contain no terminal chrome. Smaller raster sources

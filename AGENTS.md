@@ -34,7 +34,8 @@ current limits" section):
   a 2400-pixel edge.
 - **PDF**: PDFium over embedded WebAssembly; pages at 150 DPI default
   (`--dpi 36..600`), 32 MP budget, 10,000-page limit, no password-protected
-  files, no text search.
+  files, no text search in the viewer. `--text` extracts a page's text layer
+  without rasterizing (16 MiB per page); a page with none is an error.
 - **STL**: ASCII and binary, up to 932,067 faces, flat-shaded; GPU rendering
   falls back to software and then wireframe (`--3d software|wireframe`).
 - **3MF**: core-spec meshes, components, build transforms, base-material and
@@ -75,8 +76,10 @@ Agent-facing / scriptable surface:
 - `--output file.png` / `--output-dir` / `--output -`: headless PNG export for
   vision models, no TTY needed; `--max-edge 1..4096`, aspect preserved, white
   flattening, never overwrites.
-- `--vision-profile openai-high|claude-standard|claude-high`: sizing envelopes
-  matching model patch budgets (see README table).
+- `--vision-profile openai-high|claude-standard|claude-high`: only a
+  convenience alias for a `--max-edge` (it goes stale; harnesses pass
+  `--max-edge`, and no vendor names are added). The manifest carries
+  `max_edge`, plus `vision_profile` and `vision_reason` when one was named.
 - `--view front|back|left|right|top|bottom|iso[,...]|all`, `--camera`,
   `--projection`, `--parts`, `--partn`, `--color`: posed mesh exports,
   including multi-view contact sheets.
@@ -84,10 +87,15 @@ Agent-facing / scriptable surface:
   opening the viewer; JSON mode emits an array of objects with `error` entries
   for files that fail.
 - `--serve [--pick] [--prompt] [--timeout] [--no-open]`: temporary
-  localhost-only token-guarded web viewer for environments without a terminal;
-  `--pick` prints chosen paths on stdout (exit 0 paths, 1 error, 2 nothing
-  chosen, 124 timeout). This is how a non-terminal agent asks a human for a
-  file or shows one.
+  localhost-only token-guarded web viewer; `--pick` prints chosen paths on
+  stdout (exit 0 paths, 1 error, 2 nothing chosen, 124 timeout) and blocks, in
+  a terminal. With stdin not a terminal, both `--pick` and `--serve` instead
+  detach the server (`cmd/gloss/detach.go`), print one JSON object (`url`,
+  `dir`, `timeout_seconds`, `resume_token`, `resume`), exit 0, and open no
+  browser; `--timeout` defaults to 10 minutes. `--resume TOKEN` reads the
+  state file and answers as a pick does (0, 2, 124). Dropped files stay in the
+  private `dir` for the caller to delete, and are removed on timeout/decline.
+  This is how a non-terminal agent asks a human for a file or shows one.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
 
 ## Build, test, verify

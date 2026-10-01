@@ -131,6 +131,7 @@ type Request struct {
 	Generation uint64
 	Reload     bool
 	MaxEdge    int         // Export raster target; zero keeps interactive defaults.
+	TextOnly   bool        // The text layer of a PDF page is wanted, not a picture of it.
 	Preview    bool        // A small, quick rendering is wanted: a thumbnail will do.
 	Parts      PartFilter  // The parts of a 3MF to show; empty shows them all.
 	Shown      []bool      // The parts of a 3MF already chosen, over any filter; nil for all.
@@ -166,7 +167,8 @@ type Loader struct {
 	closed     bool
 	generation uint64
 	path       string
-	pdf        pdfview.Renderer
+	pdf        pdfview.Renderer // Made when the first page is drawn: text alone never needs it.
+	pdfData    []byte
 	pdfReader  *pdf.Reader
 	pdfVersion string
 	file       []Field
@@ -192,7 +194,7 @@ func (l *Loader) Close() error {
 
 func (l *Loader) closePDF() error {
 	l.path, l.pages = "", 0
-	l.pdfReader, l.pdfVersion, l.file, l.book = nil, "", nil, nil
+	l.pdfReader, l.pdfData, l.pdfVersion, l.file, l.book = nil, nil, "", nil, nil
 	if l.pdf == nil {
 		return nil
 	}
@@ -218,7 +220,7 @@ func (l *Loader) Load(q Request) (out Result) {
 	if l.path != q.Path || q.Reload {
 		_ = l.closePDF()
 	}
-	if l.pdf != nil {
+	if l.pdfReader != nil {
 		return l.renderPDF(q)
 	}
 	if l.book != nil {
@@ -268,12 +270,7 @@ func (l *Loader) Load(q Request) (out Result) {
 			out.Err = fmt.Errorf("PDF page count must be 1..10000")
 			return out
 		}
-		renderer, err := pdfview.DefaultRendererFactoryWithLimits(pdfview.Limits{MaxRenderPixels: MaxPixels})(q.Path, data)
-		if err != nil {
-			out.Err = err
-			return out
-		}
-		l.pdf, l.path, l.pages = renderer, q.Path, pages
+		l.path, l.pages, l.pdfData = q.Path, pages, data
 		l.pdfReader, l.pdfVersion, l.file = reader, pdfVersion(data), file
 		return l.renderPDF(q)
 	case "svg":
@@ -438,8 +435,22 @@ func (l *Loader) renderPDF(q Request) Result {
 			break
 		}
 	}
-	img, err := l.pdf.RenderPage(page, max(36, min(dpi, 600)))
-	out := Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages, Image: img, Err: err}
+	out := Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages}
+	var err error
+	if q.TextOnly {
+		out.Text, err = pdfPageText(l.pdfReader, page)
+		out.Err = err
+		return out
+	}
+	if l.pdf == nil {
+		if l.pdf, err = pdfview.DefaultRendererFactoryWithLimits(pdfview.Limits{MaxRenderPixels: MaxPixels})(q.Path, l.pdfData); err != nil {
+			l.pdf = nil
+			out.Err = err
+			return out
+		}
+	}
+	out.Image, err = l.pdf.RenderPage(page, max(36, min(dpi, 600)))
+	out.Err = err
 	if reader, version, pages := l.pdfReader, l.pdfVersion, l.pages; err == nil && reader != nil {
 		out.Info = append(append([]Field(nil), l.file...), describe(func() []Field { return pdfFields(reader, version, pages, page) })...)
 	}

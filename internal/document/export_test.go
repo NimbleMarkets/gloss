@@ -295,19 +295,19 @@ func TestExportContactSheet(t *testing.T) {
 	}
 }
 
-func TestContactSheetFitsAVisionProfile(t *testing.T) {
+func TestContactSheetFitsAProfileEdge(t *testing.T) {
 	views, _ := ParseViews("all")
 	for name, profile := range VisionProfiles {
-		img, err := ExportForVision(Result{Mesh: box(t, 4, 2, 1), CPU: true, Views: views}, 4096, name)
+		img, err := ExportImage(Result{Mesh: box(t, 4, 2, 1), CPU: true, Views: views}, profile.MaxEdge)
 		if err != nil {
 			t.Fatal(err)
 		}
-		w, h, p := img.Bounds().Dx(), img.Bounds().Dy(), profile.PatchSize
-		if w > profile.MaxEdge || h > profile.MaxEdge || ((w+p-1)/p)*((h+p-1)/p) > profile.PatchBudget {
-			t.Errorf("%s: a sheet of %d×%d is over the budget", name, w, h)
+		w, h := img.Bounds().Dx(), img.Bounds().Dy()
+		if w > profile.MaxEdge || h > profile.MaxEdge {
+			t.Errorf("%s: a sheet of %d×%d is over the edge", name, w, h)
 		}
 		if w%3 != 0 || h%2 != 0 || w/3 != h/2 || w < profile.MaxEdge*2/3 {
-			t.Errorf("%s: %d×%d is not three by two square tiles, or wastes the budget", name, w, h)
+			t.Errorf("%s: %d×%d is not three by two square tiles, or wastes the edge", name, w, h)
 		}
 	}
 }

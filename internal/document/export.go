@@ -18,10 +18,6 @@ import (
 // ExportImage produces an opaque image bounded by maxEdge on both axes.
 // Raster sources are never enlarged; vector documents render at the target.
 func ExportImage(r Result, maxEdge int) (image.Image, error) {
-	return ExportForVision(r, maxEdge, "")
-}
-
-func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error) {
 	if maxEdge < 1 || maxEdge > 4096 {
 		return nil, fmt.Errorf("max edge must be 1..4096")
 	}
@@ -32,13 +28,13 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 		return nil, fmt.Errorf("Markdown PNG export is not supported; supply its text directly to the model")
 	}
 	if r.Mesh != nil {
-		return exportMesh(r, maxEdge, profile)
+		return exportMesh(r, maxEdge)
 	}
 	if r.Image == nil || r.Image.Bounds().Empty() {
 		return nil, fmt.Errorf("document has no image")
 	}
 	b := r.Image.Bounds()
-	w, h, err := VisionSize(b.Dx(), b.Dy(), maxEdge, profile)
+	w, h, err := VisionSize(b.Dx(), b.Dy(), maxEdge)
 	if err != nil {
 		return nil, err
 	}
@@ -51,7 +47,7 @@ func ExportForVision(r Result, maxEdge int, profile string) (image.Image, error)
 // exportMesh draws the mesh from the viewer's camera, or from each view
 // asked for. Several views make a sheet: square tiles, as many across as
 // down or one more, each named in its corner.
-func exportMesh(r Result, maxEdge int, profile string) (image.Image, error) {
+func exportMesh(r Result, maxEdge int) (image.Image, error) {
 	shots, names := []shot{{charts.DefaultCamera(), worldLight}}, []string{""}
 	switch {
 	case r.Camera != nil:
@@ -64,9 +60,9 @@ func exportMesh(r Result, maxEdge int, profile string) (image.Image, error) {
 	}
 	cols := int(math.Ceil(math.Sqrt(float64(len(shots)))))
 	rows := (len(shots) + cols - 1) / cols
-	// The sheet as a whole keeps to the edge and the model's budget.
+	// The sheet as a whole keeps to the edge.
 	tile := maxEdge / cols
-	w, h, err := VisionSize(cols*tile, rows*tile, maxEdge, profile)
+	w, h, err := VisionSize(cols*tile, rows*tile, maxEdge)
 	if err != nil {
 		return nil, err
 	}

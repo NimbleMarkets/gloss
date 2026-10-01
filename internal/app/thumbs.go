@@ -132,7 +132,7 @@ func (m *Model) loadThumb(path string) tea.Cmd {
 		case r.Image != nil:
 			tile.Image = r.Image
 		case r.Mesh != nil:
-			if img, err := document.ExportForVision(document.Result{Kind: r.Kind, Mesh: r.Mesh, CPU: true}, thumbEdge, ""); err == nil {
+			if img, err := document.ExportImage(document.Result{Kind: r.Kind, Mesh: r.Mesh, CPU: true}, thumbEdge); err == nil {
 				tile.Image = img
 			}
 		}

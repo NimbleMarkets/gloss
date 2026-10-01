@@ -94,7 +94,7 @@ func TestHEICDetectionAndExport(t *testing.T) {
 		if r.Image.Bounds() != image.Rect(0, 0, 640, 400) {
 			t.Fatal(r.Image.Bounds())
 		}
-		out, err := ExportForVision(r, 320, "")
+		out, err := ExportImage(r, 320)
 		if err != nil || out.Bounds().Dx() != 320 {
 			t.Fatalf("export: %v", err)
 		}

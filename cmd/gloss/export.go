@@ -33,8 +33,12 @@ type made struct {
 	Output string `json:"output,omitempty"`
 	Width  int    `json:"width,omitempty"`
 	Height int    `json:"height,omitempty"`
-	Text   string `json:"text,omitempty"`
-	Error  string `json:"error,omitempty"`
+	// What the size was resolved to; the profile and its reason only when one was named.
+	MaxEdge       int    `json:"max_edge,omitempty"`
+	VisionProfile string `json:"vision_profile,omitempty"`
+	VisionReason  string `json:"vision_reason,omitempty"`
+	Text          string `json:"text,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // exportFiles draws each input, and each page asked for, as a PNG. The
@@ -58,9 +62,9 @@ func exportFiles(opts options, stdout, stderr io.Writer) error {
 			q := exportRequest(opts.Options, path, generation)
 			q.Page = page
 			r := loader.Load(q)
-			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages}
+			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages, MaxEdge: opts.MaxEdge, VisionProfile: opts.VisionProfile, VisionReason: opts.EdgeReason}
 			r.CPU, r.Views = onCPU(opts.Options), opts.Views
-			img, err := document.ExportForVision(r, opts.MaxEdge, opts.VisionProfile)
+			img, err := document.ExportImage(r, opts.MaxEdge)
 			if err == nil {
 				var data bytes.Buffer
 				if err = png.Encode(&data, img); err == nil {
@@ -110,7 +114,7 @@ func textFiles(opts options, stdout, stderr io.Writer) error {
 		for _, page := range pagesOf(loader, opts, path, &generation) {
 			generation++
 			q := exportRequest(opts.Options, path, generation)
-			q.Page = page
+			q.Page, q.TextOnly = page, true
 			r := loader.Load(q)
 			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages}
 			text, ext, err := document.Text(r)
@@ -160,9 +164,9 @@ func pagesOf(loader *document.Loader, opts options, path string, generation *int
 	}
 	*generation++
 	q := exportRequest(opts.Options, path, *generation)
-	q.Page = 1
+	q.Page, q.TextOnly = 1, opts.Text
 	r := loader.Load(q)
-	if r.Err != nil || r.Pages < 1 {
+	if r.Pages < 1 { // A page without text still counts its siblings.
 		return []int{1} // The failure is reported by the page's own load.
 	}
 	return opts.Pages.of(r.Pages)

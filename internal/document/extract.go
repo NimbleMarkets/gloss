@@ -4,7 +4,30 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"strings"
+
+	"github.com/ledongthuc/pdf"
 )
+
+// MaxPageTextBytes bounds the text taken from one PDF page.
+const MaxPageTextBytes = 16 << 20
+
+// pdfPageText reads the text layer of a page. A page with none, as a scan
+// or a figure has, is an error rather than an empty text, so that a caller
+// does not take silence for a blank page.
+func pdfPageText(reader *pdf.Reader, page int) (string, error) {
+	text, err := reader.Page(page).GetPlainText(nil)
+	if err != nil {
+		return "", fmt.Errorf("page %d: text layer unreadable: %w", page, err)
+	}
+	if len(text) > MaxPageTextBytes {
+		return "", fmt.Errorf("page %d: text exceeds 16 MiB", page)
+	}
+	if strings.TrimSpace(text) == "" {
+		return "", fmt.Errorf("page %d has no text layer (a scan or a figure?): export it as a picture with --output", page)
+	}
+	return strings.ToValidUTF8(strings.TrimSpace(text), "\ufffd") + "\n", nil
+}
 
 // Text is what a document says, for a reader that wants words rather than
 // a picture: the Markdown made of a Word document, a page, or a notebook;

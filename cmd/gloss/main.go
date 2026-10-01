@@ -44,6 +44,10 @@ type options struct {
 	Globs         []string
 	Text          bool      // Take the text out, rather than draw.
 	Pages         pageRange // What --page asked for; Page holds it when it is one.
+	Resume        string    // Token of a detached pick whose answer is wanted.
+	Detached      string    // Set on the server a detached start runs: its token.
+	VisionProfile string    // A convenience alias for a max edge; --max-edge is the stable flag.
+	EdgeReason    string    // Why the alias chose its edge, for the manifest.
 	SkillInstall  string    // Where --skill --install writes, "auto" to find the agents here.
 }
 
@@ -55,7 +59,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
 	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown (or md)")
 	page := f.StringP("page", "p", "1", "PDF page or workbook sheet, from 1; for an export or text into a folder, a range such as 2-5, or all")
-	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, CSV of a sheet, text and JSON as they are")
+	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, text of a PDF page, CSV of a sheet, text and JSON as they are")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
@@ -81,7 +85,10 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVarP(&opts.Output, "output", "o", "", "export one input as PNG; '-' writes PNG to stdout")
 	f.StringVarP(&opts.OutputDir, "output-dir", "O", "", "export each input as a numbered PNG in this directory")
 	f.IntVarP(&opts.MaxEdge, "max-edge", "s", 1536, "maximum exported image edge in pixels (1–4096)")
-	f.StringVar(&opts.VisionProfile, "vision-profile", "", "export sizing: openai-high, claude-standard, claude-high")
+	f.StringVar(&opts.VisionProfile, "vision-profile", "", "alias for a --max-edge, which is stable where these go stale: "+strings.Join(document.VisionProfileNames(), ", "))
+	f.StringVar(&opts.Resume, "resume", "", "print the answer of a pick that was started without a terminal, by the token it printed; with --timeout, stop waiting after that long")
+	f.StringVar(&opts.Detached, "detached", "", "")
+	_ = f.MarkHidden("detached")
 	showVersion := f.BoolP("version", "V", false, "print version")
 	showSkill := f.Bool("skill", false, "print the skill that teaches agents to use gloss (SKILL.md), and exit")
 	skillInstall := f.String("install", "", "with --skill, install the skill for the agents found on this machine, or into the skills folder named (--install=FOLDER)")
@@ -190,7 +197,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		}
 	}
 	switch {
-	case opts.JSON && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "":
+	case opts.JSON && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "" && opts.Resume == "":
 		return opts, false, fmt.Errorf("--json goes with --info, --text, or an export")
 	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Text || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
 		return opts, false, fmt.Errorf("--info prints and exits; it cannot be combined with the viewer's or export's options")
@@ -198,12 +205,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		return opts, false, fmt.Errorf("--text prints and exits; it cannot be combined with the viewer's options")
 	}
 	if opts.VisionProfile != "" {
-		profile, ok := document.VisionProfiles[opts.VisionProfile]
-		if !ok {
-			return opts, false, fmt.Errorf("unknown vision profile %q", opts.VisionProfile)
-		}
-		if !f.Changed("max-edge") {
-			opts.MaxEdge = profile.MaxEdge
+		if opts.MaxEdge, opts.EdgeReason, err = document.ResolveEdge(opts.MaxEdge, f.Changed("max-edge"), opts.VisionProfile); err != nil {
+			return opts, false, err
 		}
 		if opts.Output == "" && opts.OutputDir == "" {
 			return opts, false, fmt.Errorf("--vision-profile requires --output or --output-dir")
@@ -233,13 +236,19 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if opts.NoOpen && !opts.Serve {
 		return opts, false, fmt.Errorf("--no-open requires --serve")
 	}
-	if opts.Timeout < 0 || (opts.Timeout > 0 && !opts.Serve && !opts.Pick) {
-		return opts, false, fmt.Errorf("--timeout must be positive, and requires --serve or --pick")
+	if opts.Timeout < 0 || (opts.Timeout > 0 && !opts.Serve && !opts.Pick && opts.Resume == "") {
+		return opts, false, fmt.Errorf("--timeout must be positive, and requires --serve, --pick, or --resume")
+	}
+	switch {
+	case opts.Resume != "" && (len(opts.Files) > 0 || opts.Serve || opts.Pick || opts.Info || opts.Text || opts.Output != "" || opts.OutputDir != "" || opts.Detached != "" || len(opts.Globs) > 0):
+		return opts, false, fmt.Errorf("--resume only asks what a pick came to: it takes no files and no other mode (--json, --timeout excepted)")
+	case opts.Detached != "" && (!opts.Serve || !tokenPattern.MatchString(opts.Detached)):
+		return opts, false, fmt.Errorf("--detached is for gloss's own use")
 	}
 	return opts, false, nil
 }
 
-func run(args []string) error {
+func run(args []string) (err error) {
 	opts, done, err := parse(args, os.Stdout)
 	if done {
 		return nil
@@ -250,6 +259,13 @@ func run(args []string) error {
 	if opts.SkillInstall != "" {
 		return installSkill(opts.SkillInstall, os.Stdout, os.Stderr)
 	}
+	if opts.Resume != "" {
+		return resume(opts, os.Stdout, os.Stderr)
+	}
+	if opts.Detached != "" {
+		// The server of a detached start: it answers through its state.
+		defer func() { conclude(opts.Detached, err, picked, opts.Pick) }()
+	}
 	stdinTTY := term.IsTerminal(os.Stdin.Fd())
 	opts.MarkdownBase, err = os.Getwd()
 	if err != nil {
@@ -259,6 +275,11 @@ func run(args []string) error {
 	exporting := opts.Output != "" || opts.OutputDir != "" || opts.Text
 	if opts.Output == "-" && term.IsTerminal(os.Stdout.Fd()) {
 		return fmt.Errorf("redirect PNG stdout to a file or pipe")
+	}
+	// With no terminal to answer, a pick or a page must not hold its
+	// caller: the server runs apart and the start says where it is.
+	if (opts.Pick || opts.Serve) && !stdinTTY && opts.Detached == "" && !exporting && !opts.Info {
+		return detach(args, opts, os.Stdout, os.Stderr)
 	}
 	// A page needs no terminal. A pick keeps standard output for its answer,
 	// and draws on the terminal itself.
@@ -408,6 +429,11 @@ func served(opts options, stdout, stderr io.Writer) error {
 		return err
 	}
 	defer s.Close()
+	if opts.Detached != "" {
+		// Drops land in the folder the start made, and its state says where we are.
+		s.dir, _ = detachedPaths(opts.Detached)
+		announce(opts.Detached, s.URL)
+	}
 	fmt.Fprintf(stderr, "gloss: viewer at %s\n", s.URL)
 	if !opts.NoOpen {
 		if err := browse(s.URL); err != nil {

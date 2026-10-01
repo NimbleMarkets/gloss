@@ -49,7 +49,6 @@ type Options struct {
 	Save              func(name string, png []byte) (string, error)
 	Output, OutputDir string
 	MaxEdge           int
-	VisionProfile     string
 	MarkdownBase      string // Base directory for piped Markdown assets.
 }
 
