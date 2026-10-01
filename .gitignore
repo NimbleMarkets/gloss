@@ -4,3 +4,4 @@ coverage.out
 /dist/
 /.task/
 /web/dist/
+/docs/man/

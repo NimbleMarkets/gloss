@@ -9,6 +9,12 @@ version: 2
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
 
+# The man page is written by the binary from its own options (task docs).
+before:
+  hooks:
+    - go run -ldflags "-X main.version=v{{ .Version }}" ./cmd/gloss --docs-man docs/man
+    - sh -c 'gzip -9 -n -c docs/man/gloss.1 > docs/man/gloss.1.gz'
+
 builds:
   - id: gloss
     main: ./cmd/gloss
@@ -39,6 +45,8 @@ archives:
       - README.md
       - LICENSE
       - THIRD_PARTY_NOTICES.md
+      - src: docs/man/gloss.1
+        dst: man/gloss.1
 
 nfpms:
   - id: packages
@@ -64,6 +72,8 @@ nfpms:
         dst: /usr/share/doc/gloss/README.md
       - src: THIRD_PARTY_NOTICES.md
         dst: /usr/share/doc/gloss/THIRD_PARTY_NOTICES.md
+      - src: docs/man/gloss.1.gz
+        dst: /usr/share/man/man1/gloss.1.gz
 
 checksum:
   name_template: checksums.txt

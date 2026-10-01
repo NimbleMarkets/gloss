@@ -94,8 +94,15 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	skillInstall := f.String("install", "", "with --skill, install the skill for the agents found on this machine, or into the skills folder named (--install=FOLDER)")
 	f.Lookup("install").NoOptDefVal = "auto"
 	showHelp := f.BoolP("help", "h", false, "show help")
+	// The reference is written from these options; see docs.go.
+	docsMan := f.String("docs-man", "", "")
+	docsMarkdown := f.String("docs-markdown", "", "")
+	docsHugo := f.Bool("docs-hugo", false, "")
+	for _, name := range []string{"docs-man", "docs-markdown", "docs-hugo"} {
+		_ = f.MarkHidden(name)
+	}
 	f.Usage = func() {
-		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word, Excel and CSV.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
+		fmt.Fprint(out, "Usage: "+usageLines[0]+"\n       "+usageLines[1]+"\n\n"+usageAbout+"\n\n")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "\nKeys: q quit · ? help · [/] files · n/p pages · +/- zoom · arrows pan/orbit")
 	}
@@ -109,6 +116,12 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if *showVersion {
 		fmt.Fprintln(out, "gloss "+version)
 		return opts, true, nil
+	}
+	if *docsMan != "" || *docsMarkdown != "" {
+		var wrote bytes.Buffer
+		err := writeDocs(f, docsRequest{ManDir: *docsMan, MarkdownDir: *docsMarkdown, Hugo: *docsHugo}, &wrote)
+		out.Write(wrote.Bytes())
+		return opts, err == nil, err
 	}
 	if *showSkill {
 		if f.Changed("install") {

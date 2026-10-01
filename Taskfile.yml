@@ -54,6 +54,7 @@ tasks:
       - task: vet
       - task: build
       - task: notices-check
+      - task: docs-check
   notices:
     desc: Regenerate THIRD_PARTY_NOTICES.md from the modules linked
     cmds: ['go run ./internal/tools/notices > THIRD_PARTY_NOTICES.md']
@@ -89,6 +90,54 @@ tasks:
     desc: Build and serve the demo at http://localhost:8000
     deps: [build-wasm-site]
     cmds: [python3 -m http.server 8000 --directory web/dist --bind 127.0.0.1]
+  docs:
+    desc: Generate the man page and the documentation pages (see docs:hugo:serve)
+    cmds:
+      - task: docs:man:build
+      - task: docs:md:build
+  docs:man:build:
+    desc: Generate the gloss(1) man page into docs/man
+    sources:
+      - cmd/gloss/*.go
+      - internal/document/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - docs/man/gloss.1
+    cmds: [go run ./cmd/gloss --docs-man docs/man]
+  docs:md:build:
+    desc: Generate the command reference and the guide pages for Hugo
+    sources:
+      - cmd/gloss/*.go
+      - internal/document/*.go
+      - internal/tools/docsite/*.go
+      - README.md
+      - skills/gloss/SKILL.md
+      - go.mod
+      - go.sum
+    generates:
+      - docs/hugo/content/command/_index.md
+      - docs/hugo/content/guide/_index.md
+    cmds:
+      - go run ./cmd/gloss --docs-markdown docs/hugo/content/command --docs-hugo
+      - go run ./internal/tools/docsite -o docs/hugo/content/guide
+  docs:hugo:serve:
+    desc: Serve the documentation site while editing it (needs hugo, extended)
+    deps: [docs:md:build]
+    dir: docs/hugo
+    cmds: [hugo serve]
+  docs:hugo:build:
+    desc: Build the documentation site into docs/hugo/public (pass hugo flags after --)
+    deps: [docs:md:build]
+    dir: docs/hugo
+    cmds: ['hugo --minify {{.CLI_ARGS}}']
+  docs:clean:
+    desc: Remove what the docs tasks generate
+    cmds: [rm -rf docs/man docs/hugo/content/command docs/hugo/content/guide docs/hugo/public docs/hugo/resources]
+  docs-check:
+    desc: Check that the man page and the reference can be generated from the options
+    cmds:
+      - 'dir="$(mktemp -d)" && go run ./cmd/gloss --docs-man "$dir/man" --docs-markdown "$dir/md" --docs-hugo && go run ./internal/tools/docsite -o "$dir/guide"; status=$?; rm -rf "$dir"; exit $status'
   gen-assets:
     desc: Regenerate the original PNG, HEIC, PDF, and Grist fixtures
     cmds:
