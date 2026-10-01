@@ -20,7 +20,7 @@ require (
 	github.com/NimbleMarkets/ntcharts-pdf v0.3.1 // indirect
 	github.com/NimbleMarkets/ntcharts-svg v0.3.0 // indirect
 	github.com/NimbleMarkets/ntcharts/v2 v2.4.0 // indirect
-	github.com/NimbleMarkets/ntcharts3d v0.2.0 // indirect
+	github.com/NimbleMarkets/ntcharts3d v0.2.1 // indirect
 	github.com/NimbleMarkets/oksvg v0.1.1 // indirect
 	github.com/NimbleMarkets/pixterm v0.0.0-20260501211346-dc18ac6c1a0f // indirect
 	github.com/alecthomas/chroma/v2 v2.27.0 // indirect

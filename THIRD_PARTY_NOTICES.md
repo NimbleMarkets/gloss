@@ -528,7 +528,7 @@ The following files are under their respective licenses:
   * ./examples/picture/Fuji-01.png is from https://www.hypertalking.com/2023/05/08/1-bit-pixel-art-of-hokusais-the-great-wave-off-kanagawa/ and distributed under "Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License", http://creativecommons.org/licenses/by-nc-nd/4.0/.
 ```
 
-## github.com/NimbleMarkets/ntcharts3d v0.2.0
+## github.com/NimbleMarkets/ntcharts3d v0.2.1
 
 ```
 MIT License
