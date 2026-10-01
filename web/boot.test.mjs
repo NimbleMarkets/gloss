@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { bootConfig } from './boot.mjs';
+import { bootConfig, emptied } from './boot.mjs';
 
 test('demo mode takes a sample from the query and passes it to the wasm', () => {
   const config = bootConfig('{"mode":"demo"}', 'https://example.test/term.html?sample=gloss.stl');
@@ -31,4 +31,10 @@ test('only web addresses are fetched for src', () => {
   for (const src of ['file:///etc/passwd', 'javascript:alert(1)', 'data:text/plain,hi', 'ftp://x/y']) {
     assert.equal(bootConfig('{"mode":"app"}', `https://example.test/app.html?src=${encodeURIComponent(src)}`).src, null, src);
   }
+});
+
+test('forgetting starts the page again without the document a link asked for', () => {
+  assert.equal(emptied('https://example.test/app.html'), 'https://example.test/app.html');
+  assert.equal(emptied('https://example.test/app.html?src=https://files.test/report.pdf'), 'https://example.test/app.html');
+  assert.equal(emptied('https://example.test/term.html?mode=app&src=https%3A%2F%2Ffiles.test%2Fx.pdf'), 'https://example.test/term.html?mode=app');
 });

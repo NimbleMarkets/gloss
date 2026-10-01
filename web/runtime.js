@@ -1,7 +1,7 @@
 import { readWithProgress, downloadStatus } from './download.mjs';
 import { installDrop } from './drop.mjs';
 import { saveFile } from './save.mjs';
-import { bootConfig } from './boot.mjs';
+import { bootConfig, emptied } from './boot.mjs';
 import { openLibrary } from './library.mjs';
 import { pickFiles, pickFolder, inputPicker } from './pickers.mjs';
 import { fetchDocument } from './remote.mjs';
@@ -61,7 +61,9 @@ if (config.mode === 'app') {
   const input = inputPicker(document);
   $('#open-files')?.addEventListener('click', () => pickFiles(window, input).then(chosen, error => notice(error.message)));
   $('#open-folder')?.addEventListener('click', () => pickFolder(window, input).then(chosen, error => notice(error.message)));
-  $('#forget')?.addEventListener('click', async () => { await library.forget(); await tellLibrary(); notice('The library is empty. Files already open stay until you restart.'); });
+  // Forgetting is of everything: gloss holds what it was given in its own
+  // memory, so the page starts again, with nothing to open.
+  $('#forget')?.addEventListener('click', async () => { await library.forget(); location.replace(emptied(location.href)); });
   await tellLibrary();
   if (config.src && $('#notice')) {
     // The bar takes its room before the terminal measures what is left.

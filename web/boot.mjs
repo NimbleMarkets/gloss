@@ -21,6 +21,15 @@ export function bootConfig(json, href) {
   return { mode, argv, src };
 }
 
+// emptied is the page's address to start again from once the library is
+// forgotten: the same page, without the document a link asked it to fetch,
+// which would otherwise come straight back.
+export function emptied(href) {
+  const url = new URL(href);
+  url.searchParams.delete('src');
+  return url.href;
+}
+
 // webAddress is the address as given when it is one the browser may fetch
 // a document from, else null.
 export function webAddress(value) {
