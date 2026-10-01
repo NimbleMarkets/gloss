@@ -1,0 +1,16 @@
+# Keeps the pinned actions and modules current: each update is a pull request
+# that CI checks, rather than a tag that moves under the workflows.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: gomod
+    directory: /examples/demo
+    schedule:
+      interval: weekly
