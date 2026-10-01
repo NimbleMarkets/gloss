@@ -1,21 +1,24 @@
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;overflow:hidden;background:#1e1e1e;color:#f4f1ea;font:14px/1.5 system-ui,sans-serif}
+html,body{margin:0;height:100%;overflow:hidden;background:#1e1e1e;color:#fff;font:14px/1.5 "Nimble Body",system-ui,sans-serif}
 body{display:flex;flex-direction:column}
-.bar{display:flex;align-items:center;gap:1rem;padding:6px 12px;background:#3F3080;border-bottom:1px solid #655BA7;flex-wrap:wrap}
-.wordmark{color:#f4f1ea;text-decoration:none;font-weight:700;letter-spacing:.02em}
-.wordmark span{color:#FBF4A5;margin-left:2px}
+.bar{display:flex;align-items:center;gap:1rem;padding:6px 12px;background:#3F3080;border-bottom:3px solid #4495AA;flex-wrap:wrap}
+@font-face{font-family:"Nimble Head";src:url(fonts/OpenSans-CondensedBold.ttf) format("truetype");font-weight:700;font-display:swap}
+@font-face{font-family:"Nimble Body";src:url(fonts/OpenSans-SemiCondensed.ttf) format("truetype");font-weight:400;font-display:swap}
+@font-face{font-family:"Nimble Body";src:url(fonts/OpenSans-SemiCondensedSemiBold.ttf) format("truetype");font-weight:600 800;font-display:swap}
+.wordmark{color:#E24F36;text-decoration:none;font:700 28px/1 "Nimble Head",system-ui,sans-serif;letter-spacing:0}
+.wordmark span{color:#FBF4A5;padding-left:8px}
 .actions{display:flex;gap:.5rem}
-button{font:inherit;padding:4px 10px;border:1px solid #655BA7;border-radius:6px;background:transparent;color:#f4f1ea;cursor:pointer}
+button{font:inherit;padding:4px 10px;border:1px solid #655BA7;border-radius:999px;background:transparent;color:#fff;cursor:pointer}
 button:hover{background:#655BA7}
-.library{display:flex;align-items:center;gap:.5rem;color:#D9D4EF;margin-left:auto}
+.library{display:flex;align-items:center;gap:.5rem;color:#fff;margin-left:auto}
 .library button{padding:2px 8px}
 .assurance{color:#A7D7B1;border:1px solid #4495AA;border-radius:999px;padding:2px 10px;cursor:help}
-#notice{padding:6px 12px;background:#FBF4A5;color:#3F3080;border-bottom:1px solid #E2D68F;font-size:13px}
+#notice{padding:6px 12px;background:#FBF4A5;color:#3F3080;border-bottom:1px solid #4495AA;font-size:13px}
 #notice[hidden]{display:none}
 main{position:relative;flex:1;min-height:0}
 #terminal{height:100%;padding:4px}
-#status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;font:15px/1.6 system-ui,sans-serif;white-space:pre-wrap;background:#1e1e1e}
+#status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;font:15px/1.6 "Nimble Body",system-ui,sans-serif;white-space:pre-wrap;background:#1e1e1e}
 #status[hidden]{display:none}
 #status button{margin-top:1rem;padding:10px}
-#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font:600 17px/1.6 system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}
+#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font:600 17px/1.6 "Nimble Body",system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}
 #drop[hidden]{display:none}

@@ -13,10 +13,10 @@ const (
 	colorNimbleMint        = "#A7D7B1"
 	colorNimbleYellow      = "#FBF4A5"
 
-	// Tints for text on the dark purple, where the brand's own light purple
-	// is too faint to read.
-	colorNimbleText = "#F4F1FB"
-	colorNimbleDim  = "#B4A9DE"
+	// Text on the dark purple: the guide's white, and its mint for the dim
+	// lines (the brand's own light purple is too faint to read there).
+	colorNimbleText = "#FFFFFF"
+	colorNimbleDim  = colorNimbleMint
 )
 
 // Chrome styles.

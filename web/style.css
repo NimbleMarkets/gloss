@@ -1,6 +1,6 @@
 :root {
   color-scheme:light;
-  --paper:#EFF6F1;
+  --paper:#FFFFFF;
   --ink:#3F3080;
   --muted:#655BA7;
   --accent:#E24F36;
@@ -67,10 +67,11 @@ nav .github {
 }
 .wordmark {
   font:700 28px "Nimble Head",system-ui,sans-serif;
-  letter-spacing:0
+  letter-spacing:0;
+  color:var(--accent)
 }
 .wordmark span {
-  color:var(--accent);
+  color:var(--ink);
   padding-left:8px
 }
 .intro {
@@ -97,8 +98,8 @@ h1 {
 h1 code {
   font:600 .92em ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
   letter-spacing:0;
-  color:#3F3080;
-  background:#E3DDF4;
+  color:var(--ink);
+  background:var(--mint);
   border-radius:6px;
   padding:0 .3em .05em
 }
@@ -112,13 +113,13 @@ h1 code {
   padding:10px 16px;
   white-space:nowrap;
   background:#3F3080;
-  color:#F4F1FB;
-  box-shadow:0 5px 16px #17251d12
+  color:#fff;
+  box-shadow:0 5px 16px #3F308020
 }
 .demo {
   border-radius:12px;
   overflow:hidden;
-  box-shadow:0 20px 55px #17251d20;
+  box-shadow:0 20px 55px #3F308033;
   background:#1e1e1e;
   border:1px solid #655BA7
 }
@@ -138,9 +139,9 @@ h1 code {
 button {
   font:13px ui-monospace,monospace;
   border:0;
-  border-radius:5px;
+  border-radius:999px;
   background:transparent;
-  color:#D9D4EF;
+  color:#fff;
   padding:9px 12px;
   cursor:pointer
 }
@@ -169,7 +170,7 @@ iframe {
   display:flex;
   gap:22px;
   flex-wrap:wrap;
-  color:#B4A9DE;
+  color:var(--mint);
   font:12px ui-monospace,monospace
 }
 kbd {
@@ -188,7 +189,7 @@ kbd {
   white-space:nowrap
 }
 footer {
-  border-top:1px solid #CFE3D6;
+  border-top:1px solid var(--mint);
   padding-top:22px;
   padding-bottom:28px;
   display:flex;
@@ -265,8 +266,8 @@ footer {
   }
   @media (hover: hover) {
     .demo:hover {
-      border-color: #8F83C9;
-      box-shadow: 0 24px 65px #17251d30;
+      border-color: var(--teal);
+      box-shadow: 0 24px 65px #3F30804d;
     }
   }
 }
@@ -290,8 +291,8 @@ footer {
 .examples li{display:flex;flex-direction:column;gap:.5rem}
 .examples .command{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
 .examples li > span{font-size:13px;color:var(--muted)}
-.button{display:inline-block;padding:.45rem 1rem;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
-.button:hover{filter:brightness(1.1)}
+.button{display:inline-block;padding:.45rem 1rem;border-radius:999px;background:var(--ink);color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
+.button:hover{background:var(--muted)}
 .launch .button{margin-top:.75rem;padding:.6rem 1.2rem}
 
 footer .credit {
