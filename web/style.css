@@ -1,9 +1,9 @@
 :root {
   color-scheme:light;
-  --paper:#f5f2e9;
-  --ink:#232a29;
-  --muted:#64706b;
-  --accent:#c44a27
+  --paper:#EFF6F1;
+  --ink:#3F3080;
+  --muted:#655BA7;
+  --accent:#D84D31
 }
 * {
   box-sizing:border-box
@@ -28,7 +28,7 @@ header {
   justify-content:space-between;
   align-items:center;
   height:56px;
-  border-bottom:1px solid #d8dad1
+  border-bottom:1px solid #CFE3D6
 }
 nav {
   display:flex;
@@ -74,8 +74,8 @@ h1 {
 h1 code {
   font:600 .92em ui-monospace,"SFMono-Regular",Menlo,Consolas,"Liberation Mono",monospace;
   letter-spacing:0;
-  color:#282d2b;
-  background:#e6e2d6;
+  color:#3F3080;
+  background:#E3DDF4;
   border-radius:6px;
   padding:0 .3em .05em
 }
@@ -84,12 +84,12 @@ h1 code {
   margin:0
 }
 .command {
-  border:1px solid #3b4540;
+  border:1px solid #655BA7;
   border-radius:6px;
   padding:10px 16px;
   white-space:nowrap;
-  background:#282d2b;
-  color:#e5eadf;
+  background:#3F3080;
+  color:#F4F1FB;
   box-shadow:0 5px 16px #17251d12
 }
 .demo {
@@ -97,13 +97,13 @@ h1 code {
   overflow:hidden;
   box-shadow:0 20px 55px #17251d20;
   background:#1e1e1e;
-  border:1px solid #343b38
+  border:1px solid #655BA7
 }
 .toolbar {
   display:flex;
   justify-content:space-between;
   align-items:center;
-  background:#282d2b;
+  background:#3F3080;
   padding:10px;
   gap:10px
 }
@@ -117,20 +117,20 @@ button {
   border:0;
   border-radius:5px;
   background:transparent;
-  color:#b9c4bc;
+  color:#D9D4EF;
   padding:9px 12px;
   cursor:pointer
 }
 button:hover {
-  background:#3a4440;
+  background:#655BA7;
   color:white
 }
 button[aria-pressed=true] {
-  background:#d5efb9;
-  color:#253128
+  background:#FBF4A5;
+  color:#3F3080
 }
 button:focus-visible,a:focus-visible {
-  outline:3px solid #ec9050;
+  outline:3px solid #D84D31;
   outline-offset:3px
 }
 iframe {
@@ -141,16 +141,16 @@ iframe {
   background:#1e1e1e
 }
 .keys {
-  border-top:1px solid #3b403d;
+  border-top:1px solid #655BA7;
   padding:12px 18px;
   display:flex;
   gap:22px;
   flex-wrap:wrap;
-  color:#9eada4;
+  color:#B4A9DE;
   font:12px ui-monospace,monospace
 }
 kbd {
-  color:#e5eadf
+  color:#FBF4A5
 }
 .notes {
   display:flex;
@@ -164,29 +164,8 @@ kbd {
 .notes a {
   white-space:nowrap
 }
-.details {
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:42px;
-  padding:42px 0 50px
-}
-.details span {
-  font:11px ui-monospace,monospace;
-  color:var(--accent);
-  letter-spacing:1px
-}
-.details h2 {
-  font-size:22px;
-  letter-spacing:-.5px;
-  margin:12px 0 6px
-}
-.details p {
-  font-size:14px;
-  color:var(--muted);
-  margin:0
-}
 footer {
-  border-top:1px solid #d8dad1;
+  border-top:1px solid #CFE3D6;
   padding-top:22px;
   padding-bottom:28px;
   display:flex;
@@ -219,11 +198,6 @@ footer {
   button {
     padding:8px
   }
-  .details {
-    grid-template-columns:1fr;
-    gap:24px;
-    padding-top:24px
-  }
   .notes,footer {
     display:block
   }
@@ -250,7 +224,7 @@ footer {
   color: var(--ink);
 }
 .command .prompt {
-  color: #d5efb9;
+  color: #FBF4A5;
 }
 .cursor {
   display: inline-block;
@@ -258,11 +232,7 @@ footer {
   height: 1em;
   margin-left: .6em;
   vertical-align: -.15em;
-  background: #d5efb9;
-}
-.details p {
-  max-width: 42ch;
-  font-size: 16px;
+  background: #FBF4A5;
 }
 @media (prefers-reduced-motion: no-preference) {
   .cursor {
@@ -273,7 +243,7 @@ footer {
   }
   @media (hover: hover) {
     .demo:hover {
-      border-color: #708675;
+      border-color: #8F83C9;
       box-shadow: 0 24px 65px #17251d30;
     }
   }
@@ -286,8 +256,15 @@ footer {
 
 /* The story after the demo: what gloss opens, and the two ways to have it. */
 .formats dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin:0}
-.formats dt{font-weight:700;color:#c44a27;margin-bottom:.25rem}
+.formats dt{font-weight:700;color:var(--accent);margin-bottom:.25rem}
 .formats dd{margin:0;color:inherit}
 .install,.launch,.formats{margin:2.5rem 0}
-.launch .button{display:inline-block;margin-top:.75rem;padding:.6rem 1.2rem;border-radius:8px;background:#c44a27;color:#fff;text-decoration:none;font-weight:600}
-.launch .button:hover{filter:brightness(1.1)}
+.examples{margin:2.5rem 0}
+.examples p{color:var(--muted)}
+.examples ul{list-style:none;margin:1rem 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem 2rem}
+.examples li{display:flex;flex-direction:column;gap:.5rem}
+.examples .command{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}
+.examples li span{font-size:13px;color:var(--muted)}
+.button{display:inline-block;padding:.45rem 1rem;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
+.button:hover{filter:brightness(1.1)}
+.launch .button{margin-top:.75rem;padding:.6rem 1.2rem}
