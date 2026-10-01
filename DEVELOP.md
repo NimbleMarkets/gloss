@@ -108,8 +108,15 @@ task web-check                     # browser helper tests; Node 18+
 this replacement does not affect the native CLI. Samples are compiled into the
 app with `go:embed` and read through the same document loaders. No user files
 are fetched or uploaded. Browser PDF rendering uses the NTCharts PDFium bridge,
-which downloads pinned PDFium 2.14.2 assets from jsDelivr; other runtime assets
-are served alongside the site. Meshes are drawn with WebGPU where the browser
+which loads PDFium from the `@embedpdf/pdfium` npm package. The generated shim
+points at a CDN, so `scripts/build-site.sh` instead downloads that exact version
+from the npm registry, checks it against a pinned SHA-512, serves it from
+`vendor/embedpdf-pdfium` on the site, and rewrites the shim to match (and fails
+if a CDN address is left). To move to another version, change the version and
+hash together in that script. Every page then runs only code from its own
+origin, which its Content-Security-Policy (a `<meta>` tag in each page) enforces;
+the only request to another host is a `?src=` address a visitor asks for. Other
+runtime assets are served alongside the site. Meshes are drawn with WebGPU where the browser
 has it, and by the software renderer where it does not.
 
 Embed the standalone terminal on another site:

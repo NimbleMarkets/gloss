@@ -45,7 +45,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## PDFium
 
-compiled to WebAssembly by github.com/klippa-app/go-pdfium and embedded in the native binary; the browser app fetches @embedpdf/pdfium from jsDelivr instead
+compiled to WebAssembly by github.com/klippa-app/go-pdfium and embedded in the native binary; the browser app serves @embedpdf/pdfium, which builds it, from the site itself (web/dist/vendor/embedpdf-pdfium, pinned and checked against its published hash)
 
 ```
 Copyright 2014 The PDFium Authors

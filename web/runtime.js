@@ -105,8 +105,10 @@ try {
       const where = $('#notice');
       try {
         const [name, data] = await fetchDocument(config.src);
-        await open([name], [data]);
-        if (where) { where.textContent = `Opened ${name} from ${new URL(config.src).host}: fetched by your browser at this link's request. Nothing else was fetched, and nothing was uploaded.`; where.hidden = false; }
+        // Shown, and not kept: a link must not be able to fill the visitor's library,
+        // pushing out the files they chose to keep.
+        await open([name], [data], { keep: false });
+        if (where) { where.textContent = `Opened ${name} from ${new URL(config.src).host}: fetched by your browser at this link's request, and not kept. Nothing else was fetched, and nothing was uploaded.`; where.hidden = false; }
       } catch (error) {
         if (where) { where.textContent = `${error.message} (${config.src})`; where.hidden = false; }
       }

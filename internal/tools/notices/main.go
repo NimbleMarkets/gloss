@@ -83,7 +83,7 @@ NTCharts3d software renderer, whose license is among those below.
 	if text, err := os.ReadFile(filepath.Join(strings.TrimSpace(string(goroot)), "LICENSE")); err == nil {
 		section(&b, "The Go runtime and standard library", "https://go.dev", text)
 	}
-	section(&b, "PDFium", "compiled to WebAssembly by github.com/klippa-app/go-pdfium and embedded in the native binary; the browser app fetches @embedpdf/pdfium from jsDelivr instead", []byte(pdfiumLicense))
+	section(&b, "PDFium", "compiled to WebAssembly by github.com/klippa-app/go-pdfium and embedded in the native binary; the browser app serves @embedpdf/pdfium, which builds it, from the site itself (web/dist/vendor/embedpdf-pdfium, pinned and checked against its published hash)", []byte(pdfiumLicense))
 	// picky is carried in the tree rather than linked as a module.
 	if text, err := os.ReadFile(filepath.Join("internal", "picky", "LICENSE")); err == nil {
 		section(&b, "github.com/pgavlin/picky", "carried in internal/picky, with additions", text)
