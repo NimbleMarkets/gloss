@@ -62,10 +62,11 @@ tasks:
     cmds:
       - 'go run ./internal/tools/notices | cmp -s - THIRD_PARTY_NOTICES.md || (echo "THIRD_PARTY_NOTICES.md is stale: run task notices" >&2; exit 1)'
   release:
-    desc: Package macOS/Linux binaries in dist (VERSION=vX.Y.Z)
-    env:
-      GLOSS_VERSION: '{{.VERSION}}'
-    cmds: ['sh scripts/release.sh "$GLOSS_VERSION"']
+    desc: Package a snapshot release into dist with GoReleaser, publishing nothing
+    cmds: [goreleaser release --snapshot --clean]
+  release-check:
+    desc: Check the GoReleaser configuration
+    cmds: [goreleaser check]
   demo:
     desc: Run the embedded sample gallery in your terminal
     dir: examples/demo

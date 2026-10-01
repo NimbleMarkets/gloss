@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# gloss .goreleaser.yaml
+# One pure-Go binary (CGO_ENABLED=0) for macOS, Linux, and Windows: archives,
+# Debian packages, and a Homebrew cask in NimbleMarkets/homebrew-tap.
+# Try it without publishing: task release
+
+version: 2
+
+metadata:
+  mod_timestamp: "{{ .CommitTimestamp }}"
+
+builds:
+  - id: gloss
+    main: ./cmd/gloss
+    binary: gloss
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags:
+      - -trimpath
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version=v{{.Version}}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: default
+    ids:
+      - gloss
+    formats:
+      - tar.gz
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - LICENSE
+      - THIRD_PARTY_NOTICES.md
+
+nfpms:
+  - id: packages
+    ids:
+      - gloss
+    package_name: gloss
+    formats:
+      - deb
+    vendor: Neomantra Corp
+    homepage: https://nimblemarkets.github.io/gloss/
+    maintainer: Evan Wies <evan@neomantra.net>
+    description: |-
+      Visual pager for the terminal
+      Like less, for images, SVG, PDF, STL and 3MF meshes, Markdown, HTML,
+      JSON, notebooks, Word, Excel, Grist, and CSV files.
+    license: MIT
+    section: utils
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/doc/gloss/copyright
+      - src: README.md
+        dst: /usr/share/doc/gloss/README.md
+      - src: THIRD_PARTY_NOTICES.md
+        dst: /usr/share/doc/gloss/THIRD_PARTY_NOTICES.md
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  github:
+    owner: NimbleMarkets
+    name: gloss
+  prerelease: auto
+
+# A cask installs the binary as it was built, so macOS must know who built
+# it: without the signing secrets the binary is left unsigned, and Gatekeeper
+# refuses it.
+notarize:
+  macos:
+    - enabled: '{{ isEnvSet "MACOS_SIGN_P12" }}'
+      ids:
+        - gloss
+      sign:
+        certificate: "{{.Env.MACOS_SIGN_P12}}"
+        password: "{{.Env.MACOS_SIGN_PASSWORD}}"
+      notarize:
+        issuer_id: "{{.Env.MACOS_NOTARY_ISSUER_ID}}"
+        key_id: "{{.Env.MACOS_NOTARY_KEY_ID}}"
+        key: "{{.Env.MACOS_NOTARY_KEY}}"
+        wait: true
+        timeout: 20m
+
+homebrew_casks:
+  - name: gloss
+    ids:
+      - default
+    url:
+      verified: github.com/NimbleMarkets/gloss
+    repository:
+      owner: NimbleMarkets
+      name: homebrew-tap
+      branch: main
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: goreleaserbot
+      email: goreleaserbot@nimble.markets
+    homepage: https://nimblemarkets.github.io/gloss/
+    description: Visual pager for the terminal, like less with pictures
+    license: MIT
+    skip_upload: auto
+    binaries:
+      - gloss

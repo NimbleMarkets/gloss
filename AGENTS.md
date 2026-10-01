@@ -20,7 +20,7 @@ user-facing reference; keep it and this file consistent with the code.
   Node-tested helpers (`node --test web/*.test.mjs`).
 - `examples`: small original runnable fixtures; `examples/demo` is a separate
   Go module pinning the Bubble Tea WASM fork used by the NTCharts demos.
-- `scripts`: release packaging (`release.sh`, `build-site.sh`) and fixture
+- `scripts`: site building (`build-site.sh`) and fixture
   generation (`gen-assets`, `gen-grist.py`).
 
 ## Capabilities
@@ -101,8 +101,11 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 - `task demo` / `task demo-check` — embedded gallery and its separate module.
 - `task build-wasm-site` / `task serve-wasm-site` / `task web-check` — browser
   demo site (Node 18+ for `web-check`).
-- `task release VERSION=vX.Y.Z` — packages macOS/Linux amd64/arm64 archives
-  into `dist/` (pushing a `v*` tag publishes them via GitHub Actions).
+- `task release` — GoReleaser snapshot into `dist/`, publishing nothing:
+  macOS/Linux/Windows amd64/arm64 archives, `.deb` packages, and the Homebrew
+  cask (`.goreleaser.yaml`; `task release-check` validates it). Pushing a
+  `v*` tag publishes them via GitHub Actions, the cask to
+  `NimbleMarkets/homebrew-tap`.
 - `task gen-assets` — regenerates the original PNG/HEIC/PDF/STL fixtures, and
   the Grist ones (needs `python3`).
 

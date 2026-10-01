@@ -25,6 +25,25 @@ allows it. Nothing is uploaded: files are read, shown, and kept in the
 browser, and the page says so when a link makes it fetch something.
 GitHub READMEs cannot run interactive iframes; the image above opens the Pages demo.
 
+## Install
+
+With [Homebrew](https://brew.sh), on macOS or Linux:
+
+```sh
+brew install --cask nimblemarkets/tap/gloss
+```
+
+On Debian or Ubuntu, download the `.deb` for your machine from the
+[latest release](https://github.com/NimbleMarkets/gloss/releases/latest) and install it:
+
+```sh
+sudo apt install ./gloss_*_linux_amd64.deb     # or _arm64
+```
+
+The release also has archives for macOS, Linux, and Windows (amd64 and arm64),
+each a single binary with nothing else to install. With Go, `go install
+github.com/NimbleMarkets/gloss/cmd/gloss@latest` builds it from source.
+
 ## Build and run
 
 Requires Go **1.26.8+** and [Task](https://taskfile.dev/) for the development commands.
@@ -567,13 +586,15 @@ The layout follows NTCharts' conventions, with one module for the CLI and a sepa
 - `internal/app`: terminal pager, selection menu, and Markdown layout.
 - `internal/document`: bounded loaders, renderers, and vision image sizing.
 - `examples`: small runnable fixtures.
-- `scripts`: release packaging.
+- `scripts`: site building and fixture generation.
 
 `task --list` lists development commands. GitHub Actions runs `task ci` on Linux
-and macOS for pushes and pull requests. Pushing a `v*` tag runs checks, packages
-macOS/Linux amd64 and arm64 binaries, and publishes archives and SHA-256 checksums
-to a GitHub Release. Locally, run `task release VERSION=v0.1.0` to produce the
-same archives in `dist/` without publishing. Release binaries use software STL
+and macOS for pushes and pull requests. Pushing a `v*` tag runs checks, and
+[GoReleaser](https://goreleaser.com) packages macOS, Linux, and Windows amd64 and
+arm64 binaries: archives, `.deb` packages, and SHA-256 checksums go to a GitHub
+Release, and a cask to the [Homebrew tap](https://github.com/NimbleMarkets/homebrew-tap).
+Locally, `task release` produces the same in `dist/` as a snapshot, without
+publishing. Release binaries use software STL
 rendering when native GPU support is unavailable.
 
 ### Building and embedding the demo
