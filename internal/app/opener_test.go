@@ -16,40 +16,74 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// pumpPatience is how long pump waits on one command before taking it for a
+// timer.
+var pumpPatience = 100 * time.Millisecond
+
 // pump runs a command and what follows from it, as the runtime would, but
-// does not wait on timers such as the cursor's blink.
+// does not wait on timers such as the cursor's blink. A command that is slow
+// rather than a timer is still heard: while a document is loading, pump waits
+// for the commands it passed over, so a slow machine loads what a fast one does.
 func pump(m *Model, cmd tea.Cmd, depth int) {
-	if cmd == nil || depth > 12 {
-		return
-	}
-	done := make(chan tea.Msg, 1)
-	go func() { done <- cmd() }()
-	var msg tea.Msg
-	select {
-	case msg = <-done:
-	case <-time.After(100 * time.Millisecond):
-		return
-	}
-	if batch, ok := msg.(tea.BatchMsg); ok {
-		for _, c := range batch {
-			pump(m, c, depth+1)
-		}
-		return
-	}
-	// A sequence is a slice of commands under a name of its own.
-	if v := reflect.ValueOf(msg); v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeOf(tea.Cmd(nil)) {
-		for i := 0; i < v.Len(); i++ {
-			if c, ok := v.Index(i).Interface().(tea.Cmd); ok {
-				pump(m, c, depth+1)
+	late, waiting := make(chan tea.Msg), 0
+	var run func(tea.Cmd, int)
+	deliver := func(msg tea.Msg, depth int) {
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			for _, c := range batch {
+				run(c, depth+1)
 			}
+			return
 		}
-		return
+		// A sequence is a slice of commands under a name of its own.
+		if v := reflect.ValueOf(msg); v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeOf(tea.Cmd(nil)) {
+			for i := 0; i < v.Len(); i++ {
+				if c, ok := v.Index(i).Interface().(tea.Cmd); ok {
+					run(c, depth+1)
+				}
+			}
+			return
+		}
+		if msg == nil {
+			return
+		}
+		_, next := m.Update(msg)
+		run(next, depth+1)
 	}
-	if msg == nil {
-		return
+	stop := make(chan struct{})
+	defer close(stop)
+	run = func(cmd tea.Cmd, depth int) {
+		if cmd == nil || depth > 12 {
+			return
+		}
+		done := make(chan tea.Msg, 1)
+		go func() { done <- cmd() }()
+		select {
+		case msg := <-done:
+			deliver(msg, depth)
+		case <-time.After(pumpPatience):
+			waiting++
+			go func() {
+				select {
+				case msg := <-done:
+					select {
+					case late <- msg:
+					case <-stop:
+					}
+				case <-stop:
+				}
+			}()
+		}
 	}
-	_, next := m.Update(msg)
-	pump(m, next, depth+1)
+	run(cmd, depth)
+	for deadline := time.After(30 * time.Second); m.loading && waiting > 0; {
+		select {
+		case msg := <-late:
+			waiting--
+			deliver(msg, 0)
+		case <-deadline:
+			return
+		}
+	}
 }
 
 func send(m *Model, msgs ...tea.Msg) {
