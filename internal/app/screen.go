@@ -53,6 +53,12 @@ func (m *Model) closeLayer() tea.Cmd {
 		if p == nil {
 			return nil
 		}
+		if p.bg {
+			if p.wasBg == nil {
+				return m.resetBackground()
+			}
+			return m.setBackground(*p.wasBg)
+		}
 		if p.wasTint == nil {
 			return m.unpaint()
 		}

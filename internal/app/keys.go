@@ -93,8 +93,8 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 		}
 		return nil, true
 	}
-	if m.chart != nil && m.mesh != nil && k == "C" {
-		m.openColorPicker()
+	if m.chart != nil && m.mesh != nil && (k == "C" || k == "B") {
+		m.openColorPicker(k == "B")
 		m.layer = layerColor
 		return nil, true
 	}

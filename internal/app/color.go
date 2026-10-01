@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"image"
 	"image/color"
 	"strings"
 
@@ -23,7 +24,25 @@ type colorPicker struct {
 	all     bool // Paint every face, not only those the file left plain.
 	wasTint *color.RGBA
 	wasAll  bool
+	browsed bool        // The swatch or palette has been moved, so Enter means it.
+	bg      bool        // Choosing the background, not the mesh's paint.
+	wasBg   *color.RGBA // The background before the picker opened.
+
+	// Where the box and its parts were last drawn, for the mouse. Rows count
+	// from the first line of text inside the border.
+	at   image.Rectangle
+	rows struct{ tabs, name, body, reset, scope int }
+	drag bool // A slider is being dragged.
 }
+
+// The picker's three ways to choose, in the order of its tabs.
+var pickerModes = []string{"Palette", "Sliders", "Hex"}
+
+const (
+	swatchCells = 5  // A swatch is four cells wide, with one between.
+	barCells    = 20 // A slider's bar.
+	barAt       = 4  // Where it starts: the marker, the channel's name and a space.
+)
 
 const (
 	pickPalette = iota
@@ -50,14 +69,65 @@ var palettes = []palette{
 		rgb(0xa8dcd9), rgb(0xa9c9ee), rgb(0xc3b8f0), rgb(0xf0b4d8), rgb(0xd9b99b), rgb(0xb0b0b0), rgb(0x8fb8de), rgb(0xd8c690)}},
 }
 
+// meshBackground is the color behind a mesh until another is chosen.
+var meshBackground = color.RGBA{R: 24, G: 26, B: 30, A: 255}
+
+// background is the color behind the mesh on screen.
+func (m *Model) background() color.RGBA {
+	if m.bg != nil {
+		return *m.bg
+	}
+	return meshBackground
+}
+
+// setBackground puts the color behind the mesh.
+func (m *Model) setBackground(c color.RGBA) tea.Cmd {
+	m.bg = &c
+	if m.chart == nil {
+		return nil
+	}
+	return m.chart.SetBackground(c)
+}
+
+// resetBackground puts the default color back behind the mesh.
+func (m *Model) resetBackground() tea.Cmd {
+	m.bg = nil
+	if m.chart == nil {
+		return nil
+	}
+	return m.chart.SetBackground(meshBackground)
+}
+
+// Backdrop is the palette for the background: darks and lights that let a
+// mesh stand out, then the brand colors.
+var backdrop = palette{"Backdrop", [16]color.RGBA{rgb(0x181a1e), rgb(0x000000), rgb(0x2b2b2b), rgb(0x555555), rgb(0x999999), rgb(0xd0d0d0), rgb(0xf0f0f0), rgb(0xffffff),
+	rgb(0x3f3080), rgb(0x655ba7), rgb(0xe24f36), rgb(0x4495aa), rgb(0xa7d7b1), rgb(0xfbf4a5), rgb(0x203040), rgb(0x30503a)}}
+
+// palettesFor lists the palettes the picker offers: the background has its own first.
+func (p *colorPicker) palettes() []palette {
+	if p.bg {
+		return append([]palette{backdrop}, palettes...)
+	}
+	return palettes
+}
+
 // pickingColor says whether the color picker is open over a mesh.
 
-func (m *Model) openColorPicker() {
+func (m *Model) openColorPicker(bg bool) {
 	start := document.DefaultMeshColor()
 	if m.tint != nil {
 		start = *m.tint
 	}
-	p := &colorPicker{r: int(start.R), g: int(start.G), b: int(start.B), all: m.tintAll, wasTint: m.tint, wasAll: m.tintAll}
+	if bg {
+		start = m.background()
+	}
+	all := m.tintAll
+	if !bg && m.tint == nil && m.mesh != nil && m.mesh.HasColors() {
+		// A model with colors of its own is meant to be recolored whole;
+		// Reset gives its colors back.
+		all = true
+	}
+	p := &colorPicker{r: int(start.R), g: int(start.G), b: int(start.B), all: all, wasTint: m.tint, wasAll: m.tintAll, bg: bg, wasBg: m.bg}
 	p.hex = p.hexString()
 	m.colorPicker = p
 }
@@ -89,16 +159,164 @@ func (m *Model) unpaint() tea.Cmd {
 	return m.chart.SetSeries(m.mesh)
 }
 
+// resetColor gives back what the picker started from: the file's own colors
+// for a mesh, or the default backdrop. The picker stays open.
+func (m *Model) resetColor(p *colorPicker) tea.Cmd {
+	if p.bg {
+		p.r, p.g, p.b = int(meshBackground.R), int(meshBackground.G), int(meshBackground.B)
+		p.hex = p.hexString()
+		return m.resetBackground()
+	}
+	p.r, p.g, p.b = int(document.DefaultMeshColor().R), int(document.DefaultMeshColor().G), int(document.DefaultMeshColor().B)
+	p.hex = p.hexString()
+	return m.unpaint()
+}
+
+// toggleScope paints all faces or only the plain ones, for a mesh whose file
+// has colors of its own, and paints again with the choice.
+func (m *Model) toggleScope(p *colorPicker) tea.Cmd {
+	if p.bg || m.mesh == nil || !m.mesh.HasColors() {
+		return nil
+	}
+	p.all = !p.all
+	p.hex = p.hexString()
+	return m.choose(p)
+}
+
+// finishColor closes the picker, keeping its color. In the palette, a swatch
+// that has been moved to is chosen first; one never moved to is left alone.
+func (m *Model) finishColor(p *colorPicker) tea.Cmd {
+	var cmd tea.Cmd
+	if p.mode == pickPalette && p.browsed {
+		c := p.palettes()[p.palette].swatches[p.swatch]
+		p.r, p.g, p.b = int(c.R), int(c.G), int(c.B)
+		p.hex = p.hexString()
+		cmd = m.choose(p)
+	}
+	m.colorPicker = nil
+	return cmd
+}
+
+// colorMouse gives the picker the mouse where it is over the box, so that a
+// click there does not orbit the mesh behind it. It reports whether it took
+// the message.
+func (m *Model) colorMouse(msg tea.MouseMsg) (tea.Cmd, bool) {
+	p := m.colorPicker
+	if p == nil || !m.pickingColor() || m.help {
+		return nil, false
+	}
+	mouse := msg.Mouse()
+	inside := image.Pt(mouse.X, mouse.Y).In(p.at)
+	lx, ly := mouse.X-(p.at.Min.X+2), mouse.Y-(p.at.Min.Y+1)
+	switch msg.(type) {
+	case tea.MouseClickMsg:
+		if !inside {
+			return nil, false
+		}
+		if mouse.Button != tea.MouseLeft {
+			return nil, true
+		}
+		return m.colorClick(p, lx, ly), true
+	case tea.MouseMotionMsg:
+		if p.drag {
+			return m.setChannel(p, lx-barAt), true
+		}
+		return nil, inside
+	case tea.MouseReleaseMsg:
+		dragging := p.drag
+		p.drag = false
+		return nil, dragging || inside
+	case tea.MouseWheelMsg:
+		return nil, inside
+	}
+	return nil, false
+}
+
+// colorClick answers a left click at (lx, ly) in the box's text.
+func (m *Model) colorClick(p *colorPicker, lx, ly int) tea.Cmd {
+	if ly == p.rows.reset {
+		return m.resetColor(p)
+	}
+	if ly == p.rows.scope && p.rows.scope >= 0 {
+		return m.toggleScope(p)
+	}
+	if ly == p.rows.tabs {
+		x := 0
+		for i, name := range pickerModes {
+			if lx >= x && lx < x+len(name)+2 {
+				p.mode = i
+				break
+			}
+			x += len(name) + 3
+		}
+		return nil
+	}
+	switch p.mode {
+	case pickPalette:
+		if ly == p.rows.name {
+			n, w := len(p.palettes()), len(p.palettes()[p.palette].name)+4
+			switch {
+			case lx >= 0 && lx < 2:
+				p.palette, p.browsed = (p.palette+n-1)%n, true
+			case lx >= w-2 && lx < w:
+				p.palette, p.browsed = (p.palette+1)%n, true
+			}
+			return nil
+		}
+		row, col := ly-p.rows.body, lx/swatchCells
+		if row < 0 || row > 3 || lx < 0 || col > 3 || lx%swatchCells == swatchCells-1 {
+			return nil
+		}
+		i := row*4 + col
+		if p.browsed && i == p.swatch {
+			return m.finishColor(p) // A second click on the swatch chooses it.
+		}
+		p.swatch, p.browsed = i, true
+		c := p.palettes()[p.palette].swatches[i]
+		p.r, p.g, p.b = int(c.R), int(c.G), int(c.B)
+		p.hex = p.hexString()
+		return m.choose(p)
+	case pickSliders:
+		if row := ly - p.rows.body; row >= 0 && row < 3 {
+			p.channel = row
+			if lx >= barAt && lx < barAt+barCells {
+				p.drag = true
+				return m.setChannel(p, lx-barAt)
+			}
+		}
+	}
+	return nil
+}
+
+// setChannel sets the slider in hand to where cell k of its bar is.
+func (m *Model) setChannel(p *colorPicker, k int) tea.Cmd {
+	v := max(0, min(barCells-1, k)) * 255 / (barCells - 1)
+	*[]*int{&p.r, &p.g, &p.b}[p.channel] = v
+	p.hex = p.hexString()
+	return m.choose(p)
+}
+
+// choose applies the picker's color to what it is choosing: the mesh or its background.
+func (m *Model) choose(p *colorPicker) tea.Cmd {
+	if p.bg {
+		return m.setBackground(p.color())
+	}
+	return m.paint(p.color(), p.all)
+}
+
 // colorKey handles a key while the picker is open, and reports whether it
 // was one of its own. Esc is the viewer's: it closes the picker and takes
 // the paint back.
 func (m *Model) colorKey(k string) (tea.Cmd, bool) {
 	p := m.colorPicker
-	apply := func() tea.Cmd { p.hex = p.hexString(); return m.paint(p.color(), p.all) }
+	apply := func() tea.Cmd { p.hex = p.hexString(); return m.choose(p) }
 	switch k {
 	case "enter":
-		m.colorPicker = nil
-		return nil, true
+		// In the palette, Enter chooses the swatch it is on, as Space does,
+		// and then closes; the sliders and hex have applied theirs already.
+		// Until the highlight has been moved, it is only where it started,
+		// and Enter leaves the color alone.
+		return m.finishColor(p), true
 	case "tab":
 		p.mode = (p.mode + 1) % 3
 		return nil, true
@@ -106,33 +324,27 @@ func (m *Model) colorKey(k string) (tea.Cmd, bool) {
 		p.mode = (p.mode + 2) % 3
 		return nil, true
 	case "r":
-		p.r, p.g, p.b = int(document.DefaultMeshColor().R), int(document.DefaultMeshColor().G), int(document.DefaultMeshColor().B)
-		p.hex = p.hexString()
-		return m.unpaint(), true
+		return m.resetColor(p), true
 	case "s":
-		if m.mesh != nil && m.mesh.HasColors() {
-			p.all = !p.all
-			return apply(), true
-		}
-		return nil, true
+		return m.toggleScope(p), true
 	}
 	switch p.mode {
 	case pickPalette:
 		switch k {
 		case "j", "down":
-			p.swatch = min(15, p.swatch+4)
+			p.swatch, p.browsed = min(15, p.swatch+4), true
 		case "k", "up":
-			p.swatch = max(0, p.swatch-4)
+			p.swatch, p.browsed = max(0, p.swatch-4), true
 		case "l", "right":
-			p.swatch = min(15, p.swatch+1)
+			p.swatch, p.browsed = min(15, p.swatch+1), true
 		case "h", "left":
-			p.swatch = max(0, p.swatch-1)
+			p.swatch, p.browsed = max(0, p.swatch-1), true
 		case "]", "n":
-			p.palette = (p.palette + 1) % len(palettes)
+			p.palette, p.browsed = (p.palette+1)%len(p.palettes()), true
 		case "[", "p":
-			p.palette = (p.palette + len(palettes) - 1) % len(palettes)
+			p.palette, p.browsed = (p.palette+len(p.palettes())-1)%len(p.palettes()), true
 		case "space":
-			c := palettes[p.palette].swatches[p.swatch]
+			c := p.palettes()[p.palette].swatches[p.swatch]
 			p.r, p.g, p.b = int(c.R), int(c.G), int(c.B)
 			return apply(), true
 		default:
@@ -184,7 +396,7 @@ func (m *Model) colorKey(k string) (tea.Cmd, bool) {
 		}
 		if c, err := document.ParseColor(p.hex); err == nil && len(p.hex) == 7 {
 			p.r, p.g, p.b = int(c.R), int(c.G), int(c.B)
-			return m.paint(c, p.all), true
+			return m.choose(p), true
 		}
 		return nil, true
 	}
@@ -194,13 +406,18 @@ func (m *Model) colorKey(k string) (tea.Cmd, bool) {
 func (m *Model) colorView(w, h int) string {
 	p := m.colorPicker
 	if h < 12 || w < 40 {
+		p.at = image.Rectangle{}
 		return ""
 	}
 	c := p.color()
+	title := "Color"
+	if p.bg {
+		title = "Background"
+	}
 	text, dim := boxText, boxDim
 	swatch := lipgloss.NewStyle().Background(c).Foreground(contrast(c)).Padding(0, 1).Render(p.hexString())
 	tabs := make([]string, 3)
-	for i, name := range []string{"Palette", "Sliders", "Hex"} {
+	for i, name := range pickerModes {
 		if i == p.mode {
 			tabs[i] = text.Bold(true).Reverse(true).Render(" " + name + " ")
 		} else {
@@ -208,17 +425,19 @@ func (m *Model) colorView(w, h int) string {
 		}
 	}
 	lines := []string{
-		text.Bold(true).Render("Color") + text.Render("  ") + swatch,
+		text.Bold(true).Render(title) + text.Render("  ") + swatch,
 		strings.Join(tabs, text.Render(" ")),
 		text.Render(""),
 	}
+	p.rows.tabs = 1
 	switch p.mode {
 	case pickPalette:
-		lines = append(lines, dim.Render("[ ")+text.Render(palettes[p.palette].name)+dim.Render(" ]"))
+		p.rows.name, p.rows.body = len(lines), len(lines)+1
+		lines = append(lines, dim.Render("[ ")+text.Render(p.palettes()[p.palette].name)+dim.Render(" ]"))
 		for row := 0; row < 4; row++ {
 			line := ""
 			for col := 0; col < 4; col++ {
-				i, s := row*4+col, palettes[p.palette].swatches[row*4+col]
+				i, s := row*4+col, p.palettes()[p.palette].swatches[row*4+col]
 				mark := "    "
 				if i == p.swatch {
 					mark = " ▪▪ "
@@ -228,6 +447,7 @@ func (m *Model) colorView(w, h int) string {
 			lines = append(lines, line)
 		}
 	case pickSliders:
+		p.rows.body = len(lines)
 		for i, name := range []string{"R", "G", "B"} {
 			v := []int{p.r, p.g, p.b}[i]
 			var fill color.RGBA
@@ -253,15 +473,24 @@ func (m *Model) colorView(w, h int) string {
 			lines = append(lines, dim.Render("#rrggbb"))
 		}
 	}
-	foot := "r file's colors"
-	if m.mesh != nil && m.mesh.HasColors() {
-		foot += " · s plain faces"
-		if p.all {
-			foot = "r file's colors · s all faces"
-		}
+	what := "file's colors"
+	if p.bg {
+		what = "default"
 	}
-	lines = append(lines, text.Render(""), dim.Render(foot))
-	return box(lines)
+	lines = append(lines, text.Render(""))
+	p.rows.reset, p.rows.scope = len(lines), -1
+	lines = append(lines, text.Bold(true).Reverse(true).Render(" Reset ")+dim.Render("  r  ")+text.Render(what))
+	if !p.bg && m.mesh != nil && m.mesh.HasColors() {
+		scope := "plain faces only"
+		if p.all {
+			scope = "all faces"
+		}
+		p.rows.scope = len(lines)
+		lines = append(lines, dim.Render("s  paint ")+text.Render(scope))
+	}
+	b := box(lines)
+	p.at = image.Rect(w-lipgloss.Width(b), 1, w, 1+lipgloss.Height(b))
+	return b
 }
 
 // contrast is black or white, whichever reads on c.

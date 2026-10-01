@@ -42,7 +42,9 @@ type Options struct {
 	// Parts picks the parts of every 3MF to show; the rest are left out.
 	Parts document.PartFilter
 	// Color paints the faces of a mesh that its file left plain.
-	Color      *color.RGBA
+	Color *color.RGBA
+	// Background is the color behind a mesh; nil keeps the default.
+	Background *color.RGBA
 	keptScreen bool // Set once picture numbers have been moved; previews inherit it.
 	// Save stores an export and returns the name it was given. Nil writes to
 	// the working directory; the browser demo offers a download instead.
@@ -73,6 +75,7 @@ type Model struct {
 	partPicker               *partPicker
 	mesh                     *document.Mesh // The mesh on the chart.
 	tint                     *color.RGBA    // Paint given to the mesh, if any.
+	bg                       *color.RGBA    // Background chosen behind the mesh, if any.
 	tintAll                  bool           // On every face, not only the plain ones.
 	colorPicker              *colorPicker
 	screen                   screen // What fills the body.
@@ -128,7 +131,7 @@ func New(opts Options) *Model {
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := nextKittyID()
-	m := &Model{opts: opts, tint: opts.Color, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
+	m := &Model{opts: opts, tint: opts.Color, bg: opts.Background, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
 	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
 		m.screen = screenList
 	}
@@ -305,6 +308,14 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, m.previewMouse(mouse)
 	}
+	if mouse, ok := msg.(tea.MouseMsg); ok && m.pickingColor() {
+		if cmd, took := m.colorMouse(mouse); took {
+			if m.colorPicker == nil {
+				m.layer = layerNone
+			}
+			return m, cmd
+		}
+	}
 	switch v := msg.(type) {
 	case previewResult:
 		if m.preview != nil && v.owner == m.preview.kittyID {
@@ -391,7 +402,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				mode = charts.Wireframe
 			}
 			m.chartID = nextKittyID()
-			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(color.RGBA{R: 24, G: 26, B: 30, A: 255}))
+			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(m.background()))
 			// The chart draws only through the commands it returns, so each
 			// is kept, whether or not it has anything to say before Init.
 			var setup []tea.Cmd

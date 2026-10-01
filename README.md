@@ -143,7 +143,9 @@ gloss photo.png drawing.svg model.stl -mP
 | `5` | Toggle mesh orthographic / perspective projection |
 | `c` | List the parts of a 3MF: `Space` shows or hides one, `Enter` focuses on it, `a` all, `n` only it |
 | `X` | Show every part of a 3MF again |
-| `C` | Pick a color for a mesh: `Tab` between palette, sliders, and hex; `Space` applies, `r` restores the file's colors, `Enter` keeps, `Esc` undoes |
+| `C` | Pick a color for a mesh: `Tab` between palette, sliders, and hex; `Space` applies the swatch, `Enter` chooses the swatch you have moved to and closes, `r` (the Reset button) restores the file's colors, `s` paints all faces or only plain ones, `Esc` undoes |
+| `B` | Pick the background color behind a mesh, with the same picker as `C`: `r` restores the default, `Enter` chooses the swatch you have moved to and closes, `Esc` undoes |
+| Click, in the `C` / `B` picker | Click a tab, swatch, or slider bar; a swatch applies at once and a second click on it chooses it and closes; drag along a slider |
 | Drag / Shift-drag / wheel | Mesh (STL, 3MF) orbit / pan / zoom |
 | Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
 
@@ -534,9 +536,11 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
 - Mesh color: an STL, and the faces of a 3MF its file leaves plain, are drawn
   in one default blue. `C` opens a color picker over the mesh: a palette of
   swatches, one slider per channel, or a hex number typed in, each change
-  painted as it is made; `Enter` keeps it, `Esc` undoes it, and `r` restores
-  the file's colors. A 3MF with colors of its own keeps them unless `s` turns
-  the paint onto all faces. `--color #rrggbb`, or a name such as `orange`,
+  painted as it is made; `Enter` chooses the swatch you have moved to (or keeps
+  the color set) and closes, changing nothing if you have not moved; `Esc`
+  undoes it. A 3MF with colors of its own is recolored whole, and the picker's
+  Reset button (or `r`) gives its colors back; `s` limits the paint to the faces
+  its file left plain. `--color #rrggbb`, or a name such as `orange`,
   paints the viewer and exports alike.
 - 3MF parts: what the build places is listed by name, from the model or the
   slicer's settings, and `c` opens that list over the mesh: `Space` shows or

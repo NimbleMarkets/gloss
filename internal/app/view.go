@@ -101,7 +101,8 @@ const helpText = "gloss — a visual pager\n\n" +
 	"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
 	"R              reload file\n" +
 	"e / i          export as PNG / file details\n" +
-	"r              auto-rotate mesh (reload other files)\n\n" +
+	"r              auto-rotate mesh (reload other files)\n" +
+	"C / B          mesh color / background color\n" +
 	"Drop files on the terminal to add them\n" +
 	"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
 	"Markdown: arrows/wheel scroll, Space/b page, s source\n\n" +
@@ -285,6 +286,9 @@ func (m *Model) detail(w, h int) string {
 		if m.tint != nil {
 			detail += fmt.Sprintf(" · painted #%02x%02x%02x", m.tint.R, m.tint.G, m.tint.B)
 		}
+		if m.bg != nil {
+			detail += fmt.Sprintf(" · background #%02x%02x%02x", m.bg.R, m.bg.G, m.bg.B)
+		}
 	case m.markdown != nil:
 		mode := "rendered"
 		if m.markdown.raw {
@@ -352,7 +356,7 @@ func (m *Model) hints() string {
 			keys = " Enter open address ·" + strings.TrimPrefix(keys, " q quit ·")
 		}
 	case m.chart != nil && m.mesh != nil:
-		keys = " q quit · ? help · m files · [/] files · e export · i info · C color"
+		keys = " q quit · ? help · m files · [/] files · e export · i info · C color · B bg-color"
 		if m.hasParts() {
 			keys += " · c parts"
 		}
