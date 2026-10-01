@@ -1,737 +1,79 @@
 # gloss
 
-A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, HTML, plain
-text, JSON, Jupyter notebooks, Word, Excel, Grist, and CSV files.
-Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
-[NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
-[NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
-[NTCharts3d](https://github.com/NimbleMarkets/ntcharts3d).
-
-## Live demo
+A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF
+meshes, Markdown, HTML, plain text, JSON, Jupyter notebooks, Word, Excel, Grist,
+and CSV files.
 
 [**Try gloss in your browser →**](https://nimblemarkets.github.io/gloss/)
 
 [![Embedded landscape sample — open the live gloss demo](examples/landscape.png)](https://nimblemarkets.github.io/gloss/)
 
-The live terminal runs the actual Go pager using WebAssembly and Booba, with
-embedded samples, one of each kind: PNG, HEIC, SVG, a two-page PDF, the block-built GLOSS sculpture (STL), a
-three-part lantern (3MF), Markdown, a saved HTML page, plain text, JSONL, a notebook, Word, Excel, Grist, and CSV. Choose a format
-or use the menu and preview pane. Click the terminal to focus its keyboard.
-The site's second page, [`app.html`](https://nimblemarkets.github.io/gloss/app.html),
-is gloss for your own files: drop them or open them with the browser's picker,
-and they are kept in your browser's storage for the site, so a later visit
-finds them again; `app.html?src=<url>` opens a document from an address that
-allows it. Nothing is uploaded: files are read, shown, and kept in the
-browser, and the page says so when a link makes it fetch something.
-GitHub READMEs cannot run interactive iframes; the image above opens the Pages demo.
-
 ## Install
 
-With [Homebrew](https://brew.sh), on macOS or Linux:
-
 ```sh
-brew install --cask nimblemarkets/tap/gloss
+brew install --cask nimblemarkets/tap/gloss     # macOS or Linux
 ```
 
-On Debian or Ubuntu, download the `.deb` for your machine from the
-[latest release](https://github.com/NimbleMarkets/gloss/releases/latest) and install it:
+On Debian or Ubuntu, download the `.deb` from the
+[latest release](https://github.com/NimbleMarkets/gloss/releases/latest) and run
+`sudo apt install ./gloss_*_linux_amd64.deb` (or `_arm64`). The release also has
+archives for macOS, Linux, and Windows: one binary, nothing else to install. With
+Go, `go install github.com/NimbleMarkets/gloss/cmd/gloss@latest` builds it from
+source.
+
+## Use
 
 ```sh
-sudo apt install ./gloss_*_linux_amd64.deb     # or _arm64
+gloss photo.png report.pdf model.stl   # page through them
+gloss --menu *.png                     # choose from a menu
+gloss --preview ~/Documents/*          # a menu with a preview pane
+gloss ~/Pictures                       # browse a folder
+gloss --page 3 report.pdf              # a page of a PDF
+cat drawing.svg | gloss                # read from a pipe
 ```
 
-The release also has archives for macOS, Linux, and Windows (amd64 and arm64),
-each a single binary with nothing else to install. With Go, `go install
-github.com/NimbleMarkets/gloss/cmd/gloss@latest` builds it from source.
-
-## Build and run
-
-Requires Go **1.26.8+** and [Task](https://taskfile.dev/) for the development commands.
-Without Task, build with `go build -o gloss ./cmd/gloss`. Go's automatic toolchain selection can download that
-version. Dependencies are pinned in `go.mod`; sibling checkouts aren't needed.
-
-```sh
-task build
-./gloss photo.png drawing.svg report.pdf model.stl
-./gloss examples/shapes.svg examples/tetrahedron.stl
-./gloss --menu photo.png report.pdf model.stl
-./gloss --preview photo.png report.pdf model.stl
-task install                     # installs gloss into your Go bin directory
-```
-
-Kitty graphics are selected automatically on supporting terminals, with colored
-half-block glyphs as a fallback. The program uses the alternate screen and
-restores the terminal on exit. With `-X` (`--no-alt-screen`, as in `less`) it
-draws on the main screen instead: the scrollback is left alone, and the last
-view stays where it was drawn when you quit. The choice can wait until you
-quit: `q` quits as launched, and `Q` quits leaving the last view in the
-scrollback either way, so a picture worth keeping beside the next command
-stays, and one that is not does not. Direct PNG transport works over SSH; no shared
-filesystem or external converter is needed. In tmux, enable passthrough with
-`set -g allow-passthrough on`.
-
-```sh
-gloss --page 12 report.pdf
-gloss --dpi 300 report.pdf        # higher PDF raster resolution
-gloss --render glyph photo.png   # universal terminal rendering
-gloss --render kitty photo.png   # override capability detection
-gloss --3d software model.stl    # bypass GPU initialization
-gloss --3d wireframe model.stl
-cat drawing.svg | gloss
-cat model.stl | gloss --type stl -
-gloss -- -filename.png
-gloss -X photo.png               # keep the scrollback; the picture stays after q
-gloss --serve report.pdf         # show the viewer on a web page instead
-gloss --serve --pick             # ask the user for a file; print its path
-gloss --pick --prompt "The invoice, please"   # and say what for
-gloss --glob images --glob meshes ~/models    # open every match under a folder
-gloss                            # no file yet; drop files or press o to browse
-gloss ~/Pictures                 # browse a folder for a file to open
-```
-
-Options use `pflag` GNU syntax and may appear before or after filenames. Both
-`--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|grist|csv|json|ipynb|html|text|markdown` overrides detection for all
-inputs. Content detection supports extensionless files. A `-` reads stdin once
-into a temporary file, removed on exit; keyboard input comes from the controlling
-terminal. Interactive output must be a terminal; image export works in scripts.
-`gloss --help` lists flags.
-
-Unsupported files, directories, and other non-regular entries are reported on
-stderr and skipped, so globs can include unrelated entries. Directories are not
-traversed. If none remain, gloss exits with an error, unless a folder was
-named: then it opens the file browser there. Supported files
-still enforce size limits; `--type` explicitly forces an input format.
-
-Common short options: `-h` help, `-V` version, `-m` menu, `-P` preview,
-`-X` main screen,
-`-p` page, `-d` DPI, `-r` render mode, `-t` type, `-o` output PNG,
-`-O` output directory, and `-s` maximum image edge.
-
-```sh
-gloss report.pdf -p3 -o page.png --vision-profile openai-high
-gloss photo.png drawing.svg model.stl -mP
-```
-
-## Controls
-
-| Key | Action |
+| Key | |
 | --- | --- |
-| `q`, `Ctrl-C` | Quit |
-| `q`, `Q` | Quit / quit leaving the last view in the scrollback, whatever `-X` said |
-| `?`, `Esc` | Show help / dismiss help |
-| `Esc` | Back to the file list, with previews, from a document |
-| `t` | In the file list, show the files as a grid of thumbnails, and back |
-| `m` | Open the file-selection menu |
-| `o`, `O` | Browse folders for a file to open |
-| `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
-| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page, sheet, or Grist table; next / previous file for other formats |
-| `Home` / `End`, `G` | First / last PDF page |
-| Arrows, `h j k l` | Move about a spreadsheet by row and column |
-| `x`, `X` | Hide the column under the cursor / show every column |
-| `c` | List the columns, to show and hide them: `Space` toggles, `a` all, `n` none |
-| `Enter` | With `--fetch`, open the web address under the cursor |
-| `Esc` | Close a fetched file and return to its cell |
-| `+`, `-` | Zoom in / out |
-| Arrows, `h j k l` | Pan zoomed images; orbit meshes |
-| `f`, `0` | Fit image / reset camera |
-| `g` | Toggle Kitty / glyph output when Kitty is supported |
-| `R` | Reload file from disk |
-| `e` | Export the current page as a PNG in the working directory |
-| `i` | Show or hide a box of details about the current file and the terminal |
-| `r` | Toggle mesh auto-rotation; reload other formats |
-| `5` | Toggle mesh orthographic / perspective projection |
-| `c` | List the parts of a 3MF: `Space` shows or hides one, `Enter` focuses on it, `a` all, `n` only it |
-| `X` | Show every part of a 3MF again |
-| `C` | Pick a color for a mesh: `Tab` between palette, sliders, and hex; `Space` applies the swatch, `Enter` chooses the swatch you have moved to and closes, `r` (the Reset button) restores the file's colors, `s` paints all faces or only plain ones, `Esc` undoes |
-| `B` | Pick the background color behind a mesh, with the same picker as `C`: `r` restores the default, `Enter` chooses the swatch you have moved to and closes, `Esc` undoes |
-| Click, in the `C` / `B` picker | Click a tab, swatch, or slider bar; a swatch applies at once and a second click on it chooses it and closes; drag along a slider |
-| Drag / Shift-drag / wheel | Mesh (STL, 3MF) orbit / pan / zoom |
-| Drop files, or paste their paths | Add files to the list; one opens at once, several open the menu |
+| `?` | Help |
+| `q` | Quit |
+| `n` / `p` | Next / previous page, or file |
+| `[` / `]` | Previous / next file |
+| `m` / `o` | File menu / browse for a file |
+| `+` / `-`, arrows | Zoom and pan; orbit a mesh |
+| `i` | Details about the file |
+| `e` | Export what you see as a PNG |
 
-At a PDF boundary, page navigation stays on that page. Use `[` and `]` to change
-files. Loading and rendering run asynchronously; errors appear in the viewer
-with retry and next-file controls.
+Pictures use Kitty graphics where the terminal has them, and colored half-blocks
+where it does not. Drag files onto the terminal to add them.
 
-The file menu preserves argument order and marks the active file with `*`.
-Use arrows or `j`/`k` to select, `Enter` to open, and `Esc` to cancel without
-changing the current page, zoom, or camera. `PageUp`/`PageDown` scroll through
-long lists; `Home`/`End` jump to the ends. Full paths distinguish duplicate names.
-Press `v` to toggle an independent preview pane. PDF previews show page 1 at
-reduced DPI; mesh previews are drawn as the viewer draws them, and 3MF previews show the
-picture the file carries, when it has one: a slicer's rendering of the plate
-if there is one, otherwise the declared thumbnail. The pane appears in terminals
-at least 64 columns wide and 9 rows high. `--menu` starts in the selector;
-`--preview` starts there with previews enabled. `t` in the list shows the
-files as a grid of thumbnails instead: one picture, made from each file's own
-as they are drawn in turn, with the file's kind standing in where it has
-none. Arrows move about it, `Enter` opens, a click selects and a second click
-opens, and `t` returns to the list. `Esc` from a document comes back to
-whichever style was last used.
+## From a script or an agent
 
-Drag files from a file manager onto the terminal to add them to the list.
-Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text
-that does not read as paths is ignored. Dropped files follow the same format and
-size rules as arguments, and any that are skipped are reported on exit. A
-folder dropped on its own opens the file browser there, as a folder named on
-the command line does; one dropped beside files is skipped.
-`gloss` alone opens the viewer with no file, as a drop target. In the
-browser demo, dropped files stay in the tab's memory until it reloads.
-
-Press `o` to browse for a file instead, starting in the folder of the one you
-are viewing. Type to filter the list, or type a path such as `~/Pictures/` to
-go straight there; `Tab` completes, `Enter` opens a file or enters a folder,
-and `Esc` cancels. The chosen file joins the list like a dropped one.
-`gloss folder` starts in the browser at that folder. Beside files, folders are
-skipped, so globs stay safe.
-
-Files gloss cannot show are greyed and cannot be chosen; `Ctrl-T` hides them,
-and again shows them. Known kinds are judged by extension; any other file is
-looked into as the folder is listed, and offered when it reads as text, so
-only binary files are greyed. `Ctrl-X` sets text files aside, for folders
-where they are clutter, and offers them again. With `--type`, nothing is
-greyed. Each file is marked by kind: 📁 folders, 📷 pictures, 🎨 SVG, 📕 PDF,
-🧊 meshes, 📝 Markdown, HTML, and text, 📃 text by content, 🧾 JSON, 📓 notebooks, 📄 Word, 📊 tables.
-`Ctrl-S` changes the order: by name, by date with the newest first, or by
-kind; folders always come first, and the order is kept for the next browse.
-`G`, with nothing typed in the filter, asks for a folder's path, starting from
-the one shown: `Tab` completes it, `~/` starts from home, `Enter` goes there,
-and `Esc` comes back to the listing.
-
-`/`, likewise, searches the folder shown and those under it. Ask for globs
-(`*.png`, `report*`, `deep/*.pdf`), extensions (`png`), or kinds (`images`,
-`svg`, `pdf`, `docs`, `word`, `meshes`, `tables`, `excel`, `grist`, `csv`,
-`markdown`, `html`, `text`, `json`, `notebooks`), several at once; names are matched
-without regard to case. `Enter` searches, then opens the file under the
-cursor; `Ctrl-A` adds every match; `Esc` returns to the listing. A search is
-kept safe by its limits: hidden folders and links are not entered, folders
-deeper than 6 are not searched, at most 10,000 entries are looked at and 500
-matches shown, and it stops after 3 seconds, saying which limit it met.
-`--glob pattern` does the same from the command line for the folders named,
-or the current one: `gloss --glob images --glob '*.stl' ~/models` opens every
-match, and with `-o` or `--info` exports or describes them all.
-The browser is [picky](https://github.com/pgavlin/picky), carried in
-`internal/picky` with those two additions; the embedded demo, which has no
-folders, does not offer it.
-
-Press `e` to export what you are viewing: the current image, SVG, or PDF page,
-or a mesh from the camera's position. The PNG is rendered as `--output` would
-render it, honors `--max-edge`, and is named after the file
-(`report-page-3.png`). An existing file is never replaced; the name gains a
-number instead. The browser demo offers the PNG as a download.
-
-Press `i` for what a file says about itself. Every format shows its path, size,
-and modification time, followed by:
-
-| Format | Details |
-| --- | --- |
-| Images | Format, pixel dimensions, color model; from Exif in JPEG, TIFF, and HEIC: camera, lens, date taken, exposure, orientation, location, software, artist, copyright |
-| SVG | Declared size, view box, title, description, element count |
-| PDF | Version, page count, size of the current page, title, author, subject, keywords, creator, producer, dates |
-| STL | Encoding, name, triangle count, extent, surface area (STL records no unit) |
-| 3MF | Title, designer, description, application, dates, license, object and triangle counts, the parts by name, extent and surface area in the file's unit, thumbnail size |
-| Markdown | Title, lines, words, headings, links, images |
-| Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
-| Excel | Sheets with their size, title, author, dates, application |
-| Grist | Tables with their size, time zone, schema version, what is not shown |
-| CSV | Separator, rows, columns |
-| JSON | Whether it is one value or lines of records, how many, the top-level kind and first keys |
-| Notebook | Format version, language, kernel, cells by kind, outputs, pictures |
-| HTML | Title, and the lines, words, headings, links, and images of the text |
-| Text | Lines, words, characters |
-
-Only fields present in the file are listed. The box sits in the top-right
-corner over the document, which stays in use beneath it: the details follow as
-you turn pages or change files. `i` or `Esc` closes it.
-
-The box ends with a `Terminal` section: the screen size in cells and, when the
-terminal has said, in pixels; whether pictures are drawn as glyphs or Kitty
-graphics and whether Kitty graphics were found to be supported; how meshes are
-rendered; the terminal program and multiplexer; and which screen is in use.
-With no file open, `i` shows that section alone, so `gloss` then `i` says what
-the terminal can do.
-
-## Asking for a file
-
-A program that cannot show a terminal, such as an agent working for you, can
-still ask you for a file, or show you one:
+gloss works without a terminal too: it exports PNGs sized for vision models,
+takes out a file's text or its details, and can ask a person for a file.
 
 ```sh
-gloss --serve --pick             # prints the paths you send, one to a line
-gloss --serve report.pdf         # shows you the file; prints nothing
-gloss --pick                     # the same question, asked in the terminal
+gloss --output page.png --page 3 report.pdf   # a PNG, with no terminal
+gloss --text report.docx                      # Markdown on stdout
+gloss --info --json model.3mf                 # what a file says about itself
+gloss --serve --pick                          # ask the user for a file; print its path
+gloss --skill --install                       # teach your agents all of this
 ```
 
-`--serve` starts a temporary server on this machine, opens the viewer on a page
-in your browser, and ends when you quit the viewer or close the tab. The page is
-the native viewer, not the demo: `o` browses your own folders, and a pasted path
-is read from your disk. Files dropped on the page are handed to gloss.
+## Documentation
 
-`--prompt "Drop the March invoice here"` shows the request in a box under the
-viewer, where it stays through the whole pick, so that whoever launched gloss
-can say what they are after; `--prompt-loc top` puts it above the viewer
-instead. The box is shown wherever the viewer is, in the terminal or the
-served page.
+The [documentation](https://nimblemarkets.github.io/gloss/docs/) has the rest: the
+controls, the formats gloss opens and their limits, exporting for vision models,
+handing files over, and every option, grouped by what it is for. `gloss --help`
+lists the options, and `man gloss` is installed with the `.deb` and in the
+release archives.
 
-`--pick` waits for you to hand files over by dropping them, pasting their
-paths, or choosing them with `o`. The viewer shows what you gave and says what
-`Enter` will send; `Enter` sends it and quits, and `q` sends nothing. With files
-named on the command line and none handed over, `Enter` sends the one on screen.
-Standard output carries only the answer, as full paths. In a terminal the viewer
-draws on the terminal itself, so the answer can be piped. With `--fetch`, a file
-fetched from an address in a table can be picked too; it is then kept for you.
-
-| Exit status | Meaning |
-| --- | --- |
-| 0 | Paths were printed |
-| 1 | An error |
-| 2 | Nothing was chosen |
-| 124 | `--timeout` ran out |
-
-### Without a terminal
-
-When standard input is not a terminal, as when an agent starts gloss, `--pick`
-and `--serve` do not block. gloss starts the server as a process of its own and
-prints one JSON object on standard output, exiting 0, with no browser opened
-(`--no-open` is then the default; on a terminal it is still opt-in):
-
-```json
-{"status":"waiting","url":"http://127.0.0.1:41233/<token>/","dir":"/tmp/gloss-pick-…","timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
-```
-
-`url` carries the token and is for the human; `dir` is the private folder
-(mode 0700) where dropped files land; `--timeout` defaults to 10 minutes off a
-terminal and bounds the server's life. `gloss --resume <token>` then waits for
-the answer and gives it as a terminal pick does: the paths on standard output
-(or `--json`, `{"status","paths","error"}`) and exit status 0, 2, or 124, from
-any process, whether or not the one that started it is alive.
-`--resume <token> --timeout 30s` bounds only the waiting (exit 124, with a
-message saying the pick is still open), so a harness can poll; a settled pick
-answers at once. An input that cannot be shown fails the start itself: exit 1,
-nothing on standard output.
-
-Files handed over are kept for the caller, which must delete `dir` when done.
-gloss deletes it on timeout, on a decline, and when the server dies unanswered,
-but never after an answer.
-
-Files dropped on a page are written to a folder of their own under the system's
-temporary directory, readable by you alone. If they are the answer to a pick
-they are left there for the program that asked, which must delete them when it
-is done. Otherwise they are removed when gloss exits, and on a timeout.
-
-The server listens on 127.0.0.1 only, on a port chosen at random. The page's
-address carries a token, without which nothing is served, so other programs and
-other pages cannot reach the viewer or drop files on it. `--no-open` prints the
-address without opening a browser; `--timeout 10m` gives up after that long.
-With `--serve` or `--pick`, standard input is read only when `-` is named.
-
-## Markdown
-
-Open `.md`, `.markdown`, or `.mdown` files, or pipe text with `--type markdown`.
-Glamour renders headings, lists, tables, and syntax-highlighted code. Local
-Markdown image references (including reference-style links) use the existing
-raster and SVG renderers, shown as block figures following their text line.
-Paths resolve relative to the Markdown file, or the working directory for stdin.
-Missing and remote images show placeholders; HTML image tags are not rendered.
-
-```sh
-gloss examples/readme.md
-gloss --preview examples/readme.md examples/shapes.svg
-cat README.md | gloss --type markdown -
-```
-
-Use `j`/`k`, arrows, or the mouse wheel to scroll; `Space`/`b` page down/up;
-`Ctrl-D`/`Ctrl-U` move half a page; `Home`/`End` jump to the ends. Press `s` to
-switch between rendered Markdown and source. File navigation remains `[`/`]`.
-Documents are limited to 2 MiB of UTF-8 and 32 image references, with a combined
-16-megapixel decoded image budget after resizing. Embedded images fit within
-1600 pixels. Markdown PNG export is not supported: send Markdown text directly
-to a model and export individual images when needed.
-
-## For agents
-
-[`skills/gloss/SKILL.md`](skills/gloss/SKILL.md) teaches an agent gloss's
-headless surface, in the order an agent needs it: `--text`, a sized PNG export,
-`--info --json`, then `--pick` or `--serve`. The
-binary carries it, so it always matches the flags it was built with:
-
-```sh
-gloss --skill --install                          # install it for the agents found on this machine
-gloss --skill --install=~/.claude/skills         # or into the skills folder named
-gloss --skill                                    # print it, to place it by hand
-```
-
-Or, with Node, the [skills CLI](https://github.com/vercel-labs/skills) installs
-it from the repository for every agent it finds:
-
-```sh
-npx skills add NimbleMarkets/gloss
-```
-
-## Images for vision models
-
-Export PNGs without opening a terminal UI. The default maximum edge is **1536
-pixels**; choose the size appropriate to your model and the detail you need.
-This is a configurable size budget, not a promise of identical model token costs.
-
-```sh
-gloss --output page.png --max-edge 1536 --page 3 report.pdf
-gloss --output diagram.png --max-edge 1024 drawing.svg
-gloss --output mesh.png --max-edge 1536 model.stl
-gloss --output page.png --vision-profile claude-standard report.pdf   # an alias, see below
-gloss --output-dir model-inputs --max-edge 768 photo.png drawing.svg report.pdf
-gloss --output-dir pages --page all report.pdf         # every page, or 2-5, or 1,3
-cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
-```
-
-The size is a pixel budget, and `--max-edge` is the stable flag for it: set it
-from what your model accepts. `--vision-profile` (`openai-high`,
-`claude-standard`, `claude-high`) is only a convenience alias that resolves to a
-`--max-edge` (1600, 1092, and 1932: the edge at which a square picture fits the
-provider's patch budget, checked 2026-09-29). Providers change their budgets, so
-the aliases **will go stale**, and no names will be added; harnesses should pass
-`--max-edge`. An explicit `--max-edge` wins over a profile.
-
-Standard output carries the answer, in the form asked for: the PNG bytes with
-`--output -`, else the paths written, one to a line, as `--pick` prints them.
-Nothing is ever overwritten: a taken name gains a number before its extension
-(`page.png`, then `page-2.png`), and `--output-dir` names each file after its
-input with an index (`001-shapes.png`, `001-report-page-2.png`). `--json`
-prints a manifest instead, one object per file and page: `path`, `kind`,
-`page`, `pages`, `output`, `width`, `height`, `max_edge` (the edge it was sized
-to), and `error` where one failed; when a profile was named, also
-`vision_profile` and a short `vision_reason`. A failure is reported on stderr
-and the rest go on; the exit status is 1.
-
-### Text for language models
-
-`--text` takes the text out, for a reader that wants words rather than a
-picture: the Markdown gloss makes of a Word document, an HTML page, or a
-notebook; Markdown as it is; text and JSON as they are, unfenced; and a sheet
-as CSV. A PDF gives the text layer of the page asked for. Pictures, SVG, and meshes
-have no text, and say so, pointing at `--output`.
-
-```sh
-gloss --text report.docx                          # Markdown on stdout
-gloss --text --page all --output-dir sheets sales.xlsx   # one CSV per sheet
-gloss --text --page 3 report.pdf                  # the text layer of one page
-gloss --text --page all --output-dir text report.pdf   # one .txt per page
-gloss --text --json notes.txt sales.csv           # [{path, kind, text}, …]
-gloss --glob docs --text --output-dir text ~/Documents
-```
-
-One text goes to stdout; several (inputs, sheets, or pages) go to files with
-`--output-dir`, whose paths are then the answer, or into a `--json` manifest
-with a `text` field each. A PDF page with no text layer, as a scan or a figure
-has none, is an `error` on that page and never a blank success; the other pages
-are still made and the exit status is 1. Fall back to `--output` for such a
-page. A PDF's pages are bounded as for export (10,000), and a page's text to
-16 MiB.
-
-Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
-transparency onto white, and contain no terminal chrome. Smaller raster sources
-are not enlarged. SVG and PDF are rasterized for the requested size (PDF remains
-subject to the 600-DPI and pixel-budget caps). Mesh exports are square and use
-the default NTCharts3d camera, or the viewer's when saved with `e`. They are
-drawn on the GPU, and in software where there is none or where `--3d` names
-another renderer. Software draws every face, without the viewer's triangle
-sampling, and the same picture. A single view does not reveal hidden surfaces.
-
-### Views of a mesh
-
-```sh
-gloss --output front.png --view front model.stl
-gloss --output sheet.png --view all --vision-profile claude-high model.3mf
-gloss --output sheet.png --view iso,front,top,right model.stl
-gloss --output posed.png --camera 20,-120 --projection perspective model.stl
-gloss --view top model.stl       # the viewer starts there; f returns to it
-gloss --parts head --view iso -o head.png assembly.3mf   # one part of a project
-gloss --color orange --view iso -o part.png part.stl     # painted
-```
-
-`--view` names where a mesh is seen from: `front`, `back`, `left`, `right`,
-`top`, `bottom`, or `iso`, which is from the front, the right, and above. X runs
-to the right, Y away from the viewer at the front, and Z up. `--camera` places
-the camera by its elevation and azimuth in degrees, the azimuth counted from the
-X axis, and optionally its distance. `--projection` is `ortho` or `perspective`.
-
-Several views, as `front,top` or `all` for the six sides, are exported as one
-sheet of square tiles, each named in its corner. The sheet as a whole keeps to
-`--max-edge` and the vision profile. On the GPU the mesh is uploaded once for
-all of them.
-
-A view fits the mesh to nine tenths of the picture, unless `--camera` gives a
-distance. A mesh that is long toward the camera, a plank seen from its end, is
-drawn smaller: in NTCharts3d's orthographic projection distance is also scale,
-and the camera must stand clear of the mesh. Views asked for are lit from over
-the viewer's shoulder, so that the back and the underside show as much as the
-front. With no view asked for, the camera and the light are the viewer's.
-
-### What a file says about itself
-
-```sh
-gloss --info model.3mf report.pdf
-gloss --info --json -p 3 report.pdf
-```
-
-`--info` prints what the viewer shows with `i`, and does not open the viewer.
-`--json` prints an array with an object for each file: its `path` and `kind`,
-`page` and `pages` for a PDF, and `details` by section and label, as
-`details.Model.Triangles`. Values are as the viewer words them. A file that
-cannot be described has an `error` in place of what is missing, the others are
-described all the same, and the exit status is 1.
-
-Model profiles also fit the rounded patch budget, which a maximum edge alone
-cannot enforce. These profiles implement sizing envelopes, not a measured
-accuracy optimum or exact billing calculation. Verified against official
-[OpenAI](https://developers.openai.com/api/docs/guides/images-vision) and
-[Claude](https://platform.claude.com/docs/en/build-with-claude/vision) documentation
-on 2026-09-29:
-
-| Profile | Maximum edge | Patch size / budget | Largest square |
-| --- | --- | --- | --- |
-| `openai-high` | 2048 | 32×32 / 2500 | 1600×1600 |
-| `claude-standard` | 1568 | 28×28 / 1568 | 1092×1092 |
-| `claude-high` | 2576 | 28×28 / 4784 | 1932×1932 |
-
-The OpenAI profile is a conservative common envelope for GPT-6 Astra and GPT-5.6
-with API `detail: high`; it does not set that API parameter. Claude high applies
-to models supporting the high-resolution tier (currently 4.7 and later).
-An explicit `--max-edge` can further reduce a profile's output. Smaller inputs
-remain smaller. Model/API rules can change; inspect the dimensions printed on
-stderr and consult the target model's documentation.
-
-PNG is useful for text, diagrams, and thin lines because it is lossless. For
-dense documents, retain an overview and supply detail crops where needed. For
-3D interpretation, several views reveal more than one larger image: see
-[views of a mesh](#views-of-a-mesh). Automatic detail crops and JPEG output are
-not implemented yet.
-
-`--output` accepts one input; `--output-dir` exports all supplied inputs in order,
-with numbered filenames. Each PDF exports the selected `--page` (page 1 by
-default, clamped to the document's page range). Existing output files are never
-overwritten. `--output -` sends PNG bytes to redirected stdout, with diagnostics
-on stderr. Export works without a TTY and cannot be combined with menu flags.
-
-## Formats and current limits
-
-- PNG, JPEG, GIF, WebP, BMP, TIFF: first frame/page, up to 32 megapixels. Animated
-  playback and AVIF aren't supported.
-- HEIC/HEIF: primary still image, up to 32 megapixels, with container rotation
-  and mirroring. Uses the [pure-Go h265 decoder](https://github.com/gen2brain/h265),
-  without CGO or external converters. Unsupported HEVC features report decoder
-  errors. HEIC works in Markdown, previews, PNG exports, and the browser demo.
-- SVG: NTCharts' pure-Go SVG renderer, rasterized to a 2400-pixel maximum edge.
-  SVG support follows the underlying oksvg renderer, not a full browser engine.
-- PDF: PDFium via embedded WebAssembly; no Poppler, MuPDF, CGO, or external
-  runtime installation. Pages render at 150 DPI by default (`--dpi 36..600`),
-  with a 32-megapixel raster budget and a 10,000-page limit. Password-protected
-  PDFs aren't supported. This version provides visual paging, without text search.
-- STL: ASCII and binary, flat-shaded triangles, up to 932,067 faces: as many as
-  NTCharts3d draws, which is as many as any GPU is sure to hold. Normals are recomputed from vertex winding. GPU
-  rendering falls back to software and then wireframe. Software draws at full
-  size for Kitty output, smaller only while its frames are slow, and samples
-  meshes above 20,000 triangles; wireframe samples above 2,000 triangles, so
-  large models can lose detail in fallback modes.
-- Mesh color: an STL, and the faces of a 3MF its file leaves plain, are drawn
-  in one default blue. `C` opens a color picker over the mesh: a palette of
-  swatches, one slider per channel, or a hex number typed in, each change
-  painted as it is made; `Enter` chooses the swatch you have moved to (or keeps
-  the color set) and closes, changing nothing if you have not moved; `Esc`
-  undoes it. A 3MF with colors of its own is recolored whole, and the picker's
-  Reset button (or `r`) gives its colors back; `s` limits the paint to the faces
-  its file left plain. `--color #rrggbb`, or a name such as `orange`,
-  paints the viewer and exports alike.
-- 3MF parts: what the build places is listed by name, from the model or the
-  slicer's settings, and `c` opens that list over the mesh: `Space` shows or
-  hides a part, `Enter` shows it alone with the camera fitted to it, `n` keeps
-  only it, `a` and `X` bring all back. `--parts name,name` and `--partn 2,4-6`
-  choose parts for the viewer, an export, or `--info`, so an agent can pose
-  one part of an assembly. The triangle limit applies to the parts shown, so a
-  project too large to draw whole can be seen part by part.
-- 3MF: the core specification's meshes, components, and build transforms;
-  colors from base materials and color groups; objects kept in separate parts
-  of the package, as slicers write them. Projects from Bambu Studio and its
-  relatives are drawn in their filament colors, which those programs keep in
-  settings of their own; colors painted onto faces are not read. Textures, beam lattices, slices, and
-  encrypted content are not read. The same 932,067-face limit applies: a larger
-  model is shown by its embedded thumbnail, and described by `i`. A package may
-  hold 4,096 entries and unpack to 128 MiB.
-- Plain text (`.txt`, `.text`, `.log`, and any file that is not binary):
-  shown as it is, in the document view, so that no line of it is read as a
-  heading, a list, or emphasis. Returns and a byte order mark are dropped,
-  bytes that are not UTF-8 stand as �, and a file longer than 2 MiB is cut.
-  A file of no known kind is read as text when its first 8 KiB hold no NUL
-  byte, are UTF-8, and are mostly printable, as `less` would show it; source
-  code and configuration open that way, highlighted by
-  [chroma](https://github.com/alecthomas/chroma) in the language its name or
-  first line says. Only binary files are unsupported.
-- JSON (`.json`, `.jsonl`, `.ndjson`): pretty-printed and highlighted as a
-  fenced block; `s` shows it as it is in the file. A file with one value to a
-  line, such as a training set, a batch request, or a log export, is shown as
-  numbered records, whatever its name. Malformed JSON is refused with the line
-  it fails on. Extensionless JSON and stdin are recognised by parsing. The
-  view is cut at 2 MiB of pretty-printed text; `i` says how many records
-  there are.
-- Jupyter notebooks (`.ipynb`, nbformat 4): Markdown cells as they are, code
-  cells fenced in the kernel's language after their `In [n]` count, and each
-  output after its cell: text as it was printed, errors without their colour
-  codes, and PNG, JPEG, GIF, and SVG outputs as pictures. Widgets, HTML, and
-  LaTeX outputs fall back to their text.
-- HTML (`.html`, `.htm`): converted to Markdown with
-  [html-to-markdown](https://github.com/JohannesKaufmann/html-to-markdown), so
-  saved pages and wiki exports read as documents: headings, lists, tables,
-  links, code, and pictures beside the file are kept; scripts, styles, and
-  layout are not. Nothing is fetched. A page may be 8 MiB.
-- Word (`.docx`, `.docm`): turned into Markdown and shown as such, so `s` shows
-  the Markdown. Headings, lists, tables, links, pictures, and bold, italic, and
-  struck text are kept; page layout, headers and footers, footnotes, comments,
-  and text boxes are not. A document longer than 2 MiB of Markdown is cut.
-- Excel (`.xlsx`, `.xlsm`): each sheet is a grid that scrolls by row and column,
-  with `n` and `p` turning between sheets. Cells show their values, formulas
-  by their last result, and dates and times where a cell's style says so. Up to
-  100,000 rows and 1,024 columns of a sheet are read; the rest are counted.
-  Formatting, merged cells, charts, and pictures are not shown.
-- Grist (`.grist`): a Grist document is a SQLite database, and each of its
-  tables is shown as a sheet is, with `n` and `p` turning between tables. The
-  first row holds the columns' labels, and rows and columns stand in the order
-  Grist keeps them in; summary tables come after the others. Cells show what
-  is stored: formulas by their last result, as Grist saved it, and an error
-  by its name (`#TypeError`). Dates and times are written out, a reference
-  shows what Grist shows for it, or `Table[row]` where it shows the row,
-  lists are joined with commas, and attachments are named, not opened. A
-  hyperlink cell shows its words and leads to its address, as an Excel link
-  does. Row
-  ids, the positions rows are sorted by, Grist's helper columns, and a
-  summary's list of the rows behind each line are left out. Nothing is worked out anew: no formulas, access rules, widgets, or
-  number formats, and nothing is written. Up to 100,000 rows and 1,024
-  columns of a table are read. A document in SQLite's WAL mode is not read,
-  nor is any other SQLite database: gloss is not a database browser.
-- CSV (`.csv`, `.tsv`): shown as a sheet is. The separator is read from the
-  file: a comma, tab, semicolon, or pipe, whichever the first lines agree on;
-  a `.tsv` is read as tabs. Quoted values may hold the separator and line
-  breaks. Only the file's name says it is a table: text is not sniffed.
-- Columns of a table: `x` hides the one under the cursor, `X` brings them all
-  back, and `c` lists them to tick and untick. Hidden columns keep their
-  letters, and one column always stays. `--cols Name,City` shows only the
-  columns with those headers (or letters), and `--coln 2,4-6` those numbered
-  so, in every table opened; a table with none of them is shown whole.
-- Web addresses in tables: a cell that holds an address or, in Excel and
-  Grist, links to one is marked 🔗, and is a link to the terminal as well:
-  click it as your terminal has links clicked (often with Cmd, Ctrl, or
-  Shift held, since gloss takes plain clicks) and the terminal opens it in
-  your browser. gloss itself starts no browser. A sheet has a cursor, and the
-  status bar shows the address under it. With `--fetch`, `Enter` on such
-  a cell downloads what it names and opens it like a dropped file; a picture
-  is shown as one, and `Esc` closes it and returns to the cell. Only http and
-  https are fetched, of no more than 128 MiB, and only on `Enter`: gloss never
-  fetches on its own. Fetched files are removed when closed or when gloss
-  exits, unless they were picked.
-- Input files and stdin are limited to 128 MiB. One active document and, when
-  enabled, one independent preview are kept open.
-  Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;
-  use a higher PDF DPI for more detail. There is no file watching, and no
-  fetching unless `--fetch` is given; even then only `Enter` on a cell fetches.
-
-## Development
-
-```sh
-task test
-task ci                         # formatting, modules, race tests, vet, build
-go build -ldflags '-X main.version=0.1.0' -o gloss ./cmd/gloss
-```
-
-Tests cover CLI validation, malformed files, STL geometry, PDF rendering and
-navigation, SVG rasterization, viewport cropping, terminal-safe labels, and
-stale asynchronous results. The example SVG and STL are small original fixtures.
-
-The layout follows NTCharts' conventions, with one module for the CLI and a separate browser-demo module:
-
-- `cmd/gloss`: CLI flags, stdin handling, export orchestration, and the
-  temporary server behind `--serve`.
-- `web`: the demo site, and the page `--serve` shows.
-- `internal/app`: terminal pager, selection menu, and Markdown layout.
-- `internal/document`: bounded loaders, renderers, and vision image sizing.
-- `examples`: small runnable fixtures.
-- `scripts`: site building and fixture generation.
-- `docs/hugo`: the documentation site, published at `/docs/` beside the demo.
-
-### Documentation
-
-The documentation is written from the code, so it cannot say what gloss does not
-do. gloss has no subcommands; its options are grouped into *domains* (opening and
-viewing, documents, meshes, exporting, text and details, handing files over,
-agents), and `cmd/gloss/domains.go` is where an option is given its domain. A
-test fails for an option that has none.
-
-```sh
-task docs                       # the gloss(1) man page, the command reference, the guide
-task docs:hugo:serve            # the site, while you edit it (needs hugo, extended)
-task docs:hugo:build            # the site, in docs/hugo/public
-```
-
-The command reference and the man page are generated by gloss itself
-(`--docs-man`, `--docs-markdown`, hidden from `--help`); the guide pages are this
-README and `skills/gloss/SKILL.md`, cut into pages by `internal/tools/docsite`.
-Edit those, not the generated pages. The man page ships in the release archives
-and the Debian package. The theme, [hugo-book](https://github.com/alex-shpak/hugo-book),
-is a Git submodule: clone with `--recurse-submodules`, or run
-`git submodule update --init`.
-The site wears the Nimble brand from `docs/hugo/assets/_custom.scss` (the palette in
-both color modes, and the same Open Sans fonts as the demo, mounted from
-`web/fonts`), with a wordmark partial in `docs/hugo/layouts`.
-
-`task --list` lists development commands. GitHub Actions runs `task ci` on Linux
-and macOS for pushes and pull requests. Pushing a `v*` tag runs checks, and
-[GoReleaser](https://goreleaser.com) packages macOS, Linux, and Windows amd64 and
-arm64 binaries: archives, `.deb` packages, and SHA-256 checksums go to a GitHub
-Release, and a cask to the [Homebrew tap](https://github.com/NimbleMarkets/homebrew-tap).
-Locally, `task release` produces the same in `dist/` as a snapshot, without
-publishing. Release binaries use software STL
-rendering when native GPU support is unavailable.
-
-### Building and embedding the demo
-
-```sh
-task demo                         # embedded gallery in your terminal
-task demo -- --sample landscape.heic
-task serve-wasm-site               # http://localhost:8000
-task build-wasm-site               # static site in web/dist
-task web-check                     # browser helper tests; Node 18+
-```
-
-`examples/demo` pins the same Bubble Tea WASM fork used by the NTCharts demos;
-this replacement does not affect the native CLI. Samples are compiled into the
-app with `go:embed` and read through the same document loaders. No user files
-are fetched or uploaded. Browser PDF rendering uses the NTCharts PDFium bridge,
-which downloads pinned PDFium 2.14.2 assets from jsDelivr; other runtime assets
-are served alongside the site. Meshes are drawn with WebGPU where the browser
-has it, and by the software renderer where it does not.
-
-Embed the standalone terminal on another site:
-
-```html
-<iframe src="https://nimblemarkets.github.io/gloss/demo.html?sample=field-guide.pdf"
-        title="gloss live terminal" width="100%" height="560"
-        style="border:0" loading="lazy"></iframe>
-```
-
-Omit `sample` to start in the file menu; accepted filenames are listed in
-`examples/assets.go`. The native keys work in the demo; quitting offers a
-restart button. Choosing another format restarts the embedded terminal at that sample; clicking
-the active format preserves the session. Restart explicitly reloads it. The
-loading screen reports received bytes and compilation/startup stages.
-
-The Pages workflow builds for pull requests and deploys pushes to `main`.
-Set repository **Settings → Pages → Source → GitHub Actions** to enable hosting.
-The fixtures are original; `task gen-assets` regenerates PNG, HEIC, PDF, the block-letter STL, and, with
-`python3`, the Grist document, which is written by hand to Grist's layout rather than saved from Grist.
+To work on gloss, see [DEVELOP.md](DEVELOP.md).
 
 ## License
 
 This `gloss` project is released under the [MIT License](https://en.wikipedia.org/wiki/MIT_License), see [LICENSE.txt](./LICENSE.txt). The licenses of the modules gloss links are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-Copyright (c) 2026 [Neomantra Corp](https://www.neomantra.com).   
+Copyright (c) 2026 [Neomantra Corp](https://www.neomantra.com).
 
 ----
 Made with :heart: and :fire: by the team behind [Nimble.Markets](https://nimble.markets).
