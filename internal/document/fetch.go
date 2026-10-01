@@ -41,24 +41,19 @@ func Fetch(ctx context.Context, address, dir string) (string, error) {
 		return "", fmt.Errorf("%s: HTTP %d", svg.SanitizeForTerminal(u.Host), resp.StatusCode)
 	}
 	name := fetchedName(resp.Request.URL, resp.Header.Get("Content-Type"))
-	f, err := exclusive(dir, name)
+	kept, size, err := WriteNewFrom(filepath.Join(dir, name), io.LimitReader(resp.Body, MaxFileBytes+1), 0o600)
 	if err != nil {
-		return "", err
-	}
-	size, copyErr := io.Copy(f, io.LimitReader(resp.Body, MaxFileBytes+1))
-	if err := errors.Join(copyErr, f.Close()); err != nil {
-		os.Remove(f.Name())
 		return "", fmt.Errorf("%s: %s", svg.SanitizeForTerminal(u.Host), sanitizeErr(err))
 	}
 	if size > MaxFileBytes {
-		os.Remove(f.Name())
-		return "", fmt.Errorf("%s exceeds 128 MiB", svg.SanitizeForTerminal(name))
+		os.Remove(kept)
+		return "", fmt.Errorf("%s: %w", svg.SanitizeForTerminal(name), ErrTooLarge)
 	}
-	if _, err := Probe(f.Name(), ""); err != nil {
-		os.Remove(f.Name())
+	if _, err := Probe(kept, ""); err != nil {
+		os.Remove(kept)
 		return "", fmt.Errorf("%s: %s", svg.SanitizeForTerminal(name), SkipReason(err))
 	}
-	return f.Name(), nil
+	return kept, nil
 }
 
 // fetchRedirect decides whether a redirect is followed: only on the web, only
@@ -111,23 +106,6 @@ func fetchedName(u *url.URL, contentType string) string {
 		}
 	}
 	return name
-}
-
-// exclusive creates a file of the name, or the nearest free one.
-func exclusive(dir, name string) (*os.File, error) {
-	ext := filepath.Ext(name)
-	stem := strings.TrimSuffix(name, ext)
-	for n := 1; n < 1000; n++ {
-		if n > 1 {
-			name = fmt.Sprintf("%s-%d%s", stem, n, ext)
-		}
-		f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-		if errors.Is(err, os.ErrExist) {
-			continue
-		}
-		return f, err
-	}
-	return nil, fmt.Errorf("%s: too many downloads with this name", name)
 }
 
 // URL is the web address a cell holds or links to, if any.

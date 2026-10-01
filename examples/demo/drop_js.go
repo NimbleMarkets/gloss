@@ -25,7 +25,7 @@ func acceptDrops(send func(tea.Msg), files *document.Overlay) {
 			name, content := args[0].Index(i).String(), args[1].Index(i)
 			// Check before allocating: the page's own limit is advisory.
 			if content.Length() > document.MaxFileBytes {
-				fmt.Fprintln(os.Stderr, document.Skipped(name, fmt.Errorf("file exceeds 128 MiB")))
+				fmt.Fprintln(os.Stderr, document.Skipped(name, document.ErrTooLarge))
 				continue
 			}
 			data := make([]byte, content.Length())

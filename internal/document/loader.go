@@ -46,6 +46,8 @@ const FormatsShort = "Images, SVG, PDF, Word, Excel, Grist, Jupyter, Markdown, H
 var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, Grist, CSV, or text")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
+var ErrTooLarge = errors.New("file exceeds 128 MiB")
+var ErrEmpty = errors.New("empty input")
 
 // Probe identifies files using a bounded prefix before applying the size limit.
 // The total size lets binary STL detection work without reading the whole mesh.
@@ -104,7 +106,7 @@ func Probe(path, forced string) (string, error) {
 		return "", err
 	}
 	if info.Size() > MaxFileBytes {
-		return "", fmt.Errorf("file exceeds 128 MiB")
+		return "", ErrTooLarge
 	}
 	return kind, nil
 }
@@ -227,12 +229,6 @@ func (l *Loader) Load(q Request) (out Result) {
 	}
 	if l.book != nil {
 		return l.turnSheet(q)
-	}
-	if l.Files == nil {
-		if _, err := Probe(q.Path, q.Type); err != nil {
-			out.Err = err
-			return out
-		}
 	}
 	data, err := readFileFrom(l.Files, q.Path)
 	if err != nil {
@@ -478,6 +474,18 @@ func readFileFrom(files fs.FS, path string) ([]byte, error) {
 	var f fs.File
 	var err error
 	if files == nil {
+		// Check before opening: a FIFO would otherwise block waiting for a
+		// writer. The open file is checked again below, and is the only one read.
+		pre, statErr := os.Stat(path)
+		if statErr != nil {
+			return nil, statErr
+		}
+		if pre.IsDir() {
+			return nil, ErrDirectory
+		}
+		if !pre.Mode().IsRegular() {
+			return nil, ErrNotRegular
+		}
 		f, err = os.Open(path)
 	} else {
 		f, err = files.Open(path)
@@ -494,7 +502,7 @@ func readFileFrom(files fs.FS, path string) ([]byte, error) {
 		return nil, fmt.Errorf("%q is not a regular file", path)
 	}
 	if info.Size() > MaxFileBytes {
-		return nil, fmt.Errorf("file exceeds 128 MiB")
+		return nil, ErrTooLarge
 	}
 	return ReadLimited(f)
 }
@@ -505,10 +513,10 @@ func ReadLimited(r io.Reader) ([]byte, error) {
 		return nil, err
 	}
 	if len(b) > MaxFileBytes {
-		return nil, fmt.Errorf("input exceeds 128 MiB")
+		return nil, ErrTooLarge
 	}
 	if len(b) == 0 {
-		return nil, fmt.Errorf("empty input")
+		return nil, ErrEmpty
 	}
 	return b, nil
 }

@@ -26,10 +26,10 @@ func (o *Overlay) Add(name string, data []byte) (string, error) {
 		return "", fmt.Errorf("invalid file name")
 	}
 	if len(data) == 0 {
-		return "", fmt.Errorf("empty input")
+		return "", ErrEmpty
 	}
 	if len(data) > MaxFileBytes {
-		return "", fmt.Errorf("file exceeds 128 MiB")
+		return "", ErrTooLarge
 	}
 	o.mu.Lock()
 	defer o.mu.Unlock()
