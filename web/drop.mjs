@@ -1,4 +1,7 @@
-export const maxBytes = 128 * 2 ** 20; // The same limit as gloss on the command line.
+// The same limit as gloss on the command line (document.MaxFileBytes; a test
+// in limits.test.mjs holds the two together), and how messages name it.
+export const maxBytes = 128 * 2 ** 20;
+export const maxLabel = `${maxBytes / 2 ** 20} MiB`;
 
 // Files dropped on target are read in the page and handed to send(names,
 // contents). Every drag is cancelled so the browser never navigates away from
@@ -32,7 +35,7 @@ export function installDrop(target, hint, send, report) {
     const skipped = [];
     for (const file of event.dataTransfer.files) {
       if (file.size > maxBytes) {
-        skipped.push(`${file.name} (over 128 MiB)`);
+        skipped.push(`${file.name} (over ${maxLabel})`);
         continue;
       }
       try {

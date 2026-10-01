@@ -23,7 +23,8 @@ is read from your disk. Files dropped on the page are handed to gloss.
 `--prompt "Choose the March invoice so I can check its totals"` tells you what
 the caller needs and why. In the browser it is a persistent heading above the
 viewer, with a **Choose files** button that opens your browser's file picker.
-You can also drop files onto the page. Review them in the viewer, then press
+You can also drop files onto the page. A choice or drop of more than 200 files
+reads only the first 200, and says how many it left out. Review them in the viewer, then press
 `Enter` there to send them; choosing or dropping files alone does not send
 the answer. Press `q` in the viewer to decline.
 

@@ -1,4 +1,4 @@
-import { maxBytes } from './drop.mjs';
+import { maxBytes, maxLabel } from './drop.mjs';
 
 // A pick reads at most this many files, so that a folder of thousands
 // does not stall the page.
@@ -18,7 +18,7 @@ export async function readChosen(files) {
     const name = f.name ?? '';
     const base = name.split('/').pop();
     if (base.startsWith('.')) { skipped.push(`${base} (hidden)`); continue; }
-    if (f.size > maxBytes) { skipped.push(`${base} (over 128 MiB)`); continue; }
+    if (f.size > maxBytes) { skipped.push(`${base} (over ${maxLabel})`); continue; }
     if (f.size === 0) { skipped.push(`${base} (empty)`); continue; }
     try {
       names.push(name);

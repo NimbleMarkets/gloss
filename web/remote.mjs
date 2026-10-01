@@ -1,4 +1,4 @@
-import { maxBytes } from './drop.mjs';
+import { maxBytes, maxLabel } from './drop.mjs';
 
 const extensions = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/gif': '.gif', 'image/webp': '.webp', 'image/svg+xml': '.svg', 'application/pdf': '.pdf', 'text/markdown': '.md', 'text/html': '.html', 'text/plain': '.txt', 'text/csv': '.csv', 'application/json': '.json', 'model/stl': '.stl', 'model/3mf': '.3mf' };
 
@@ -25,9 +25,9 @@ export async function fetchDocument(address, send = fetch) {
   }
   if (!response.ok) throw new Error(`The document could not be fetched: HTTP ${response.status}.`);
   const length = Number(response.headers.get('content-length'));
-  if (length > maxBytes) throw new Error('The document is over 128 MiB.');
+  if (length > maxBytes) throw new Error(`The document is over ${maxLabel}.`);
   const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.length > maxBytes) throw new Error('The document is over 128 MiB.');
+  if (bytes.length > maxBytes) throw new Error(`The document is over ${maxLabel}.`);
   if (bytes.length === 0) throw new Error('The document is empty.');
   return [nameFor(address, response.headers.get('content-type')), bytes];
 }
