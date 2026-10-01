@@ -76,14 +76,14 @@ or as [`SKILL.md`](skills/gloss/SKILL.md).
 The [documentation](https://nimblemarkets.github.io/gloss/docs/) has the rest: the
 controls, the formats gloss opens and their limits, exporting for vision models,
 handing files over, and every option, grouped by what it is for. `gloss --help`
-lists the options, and `man gloss` is installed with the `.deb` and in the
-release archives.
+lists the options, and `man gloss` works after a Homebrew or `.deb` install; the
+release archives carry the page too.
 
 To work on gloss, see [DEVELOP.md](DEVELOP.md).
 
 ## License
 
-This `gloss` project is released under the [MIT License](https://en.wikipedia.org/wiki/MIT_License), see [LICENSE.txt](./LICENSE.txt). The licenses of the modules gloss links are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+This `gloss` project is released under the [MIT License](https://en.wikipedia.org/wiki/MIT_License), see [LICENSE](./LICENSE). The licenses of the modules gloss links are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 Copyright (c) 2026 [Neomantra Corp](https://www.neomantra.com).
 

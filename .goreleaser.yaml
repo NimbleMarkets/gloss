@@ -128,3 +128,5 @@ homebrew_casks:
     skip_upload: auto
     binaries:
       - gloss
+    manpages:
+      - man/gloss.1

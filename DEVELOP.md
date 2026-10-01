@@ -82,7 +82,8 @@ task docs:hugo:build            # the site, in docs/hugo/public
   submodule. The site wears the Nimble brand from `docs/hugo/assets/_custom.scss`
   (the palette in both color modes, and the same Open Sans fonts as the demo,
   mounted from `web/fonts`), with a wordmark partial in `docs/hugo/layouts`.
-- The man page ships in the release archives and the Debian package.
+- The man page ships in the release archives, the Debian package, and the
+  Homebrew cask (`manpages` in `.goreleaser.yaml`).
 
 ## Releases
 
@@ -139,5 +140,5 @@ repository **Settings → Pages → Source → GitHub Actions** to enable hostin
 
 ## License
 
-MIT; see [LICENSE.txt](LICENSE.txt). The licenses of the modules gloss links
+MIT; see [LICENSE](LICENSE). The licenses of the modules gloss links
 are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
