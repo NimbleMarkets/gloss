@@ -55,11 +55,58 @@ type Options struct {
 	MarkdownBase      string // Base directory for piped Markdown assets.
 }
 
+// meshState is what the model keeps for a mesh on a chart: the chart itself,
+// the parts and paint chosen for it, and the camera it starts from. It is
+// embedded in Model, so its fields read as the model's own.
+type meshState struct {
+	chart       *charts.Model
+	chartID     int
+	triangles   int
+	parts       []document.Part // What a 3MF build places, when a mesh is made of parts.
+	assemble    func([]bool) (*document.Mesh, error)
+	partsShown  []bool // Which parts are on the chart; nil for all.
+	partPicker  *partPicker
+	mesh        *document.Mesh // The mesh on the chart.
+	tint        *color.RGBA    // Paint given to the mesh, if any.
+	bg          *color.RGBA    // Background chosen behind the mesh, if any.
+	tintAll     bool           // On every face, not only the plain ones.
+	colorPicker *colorPicker
+	savedCamera *charts.Camera
+	home        charts.Camera  // Where the camera starts, and returns on reset.
+	homeView    *document.View // The view the home is fitted from, when it is a fit.
+}
+
+// textState is what the model keeps for a Markdown or sheet document, and the
+// view to return to when a fetched file closes.
+type textState struct {
+	markdown      *markdownView
+	savedMarkdown *markdownView
+	sheet         *sheetView
+	savedSheet    *sheetView // The cell to return to when a fetched file closes.
+}
+
+// browserState is what the file browser remembers between visits.
+type browserState struct {
+	opener          *opener
+	hideUnsupported bool // The browser's choice outlasts any one visit.
+	sortBy          int  // The order the browser lists in; kept likewise.
+	thumbs          bool // The list is shown as a grid of thumbnails, last time and next.
+	grid            *grid
+	noTextFiles     bool // The browser sets text files aside; kept likewise.
+}
+
+// Model is the pager. A preview pane is itself a Model (isPreview set) that
+// the list owns (see updatePreview): built with Menu and Preview off, so it
+// has no preview of its own, it takes no drops or mouse input, and it loads
+// with Request.Preview so the loader keeps it small.
 type Model struct {
+	meshState
+	textState
+	browserState
+
 	opts                     Options
 	loader                   *document.Loader
 	pic                      picture.Model
-	chart                    *charts.Model
 	width, height, index     int
 	page, pages              int
 	generation               uint64
@@ -69,45 +116,21 @@ type Model struct {
 	source                   image.Image
 	zoom                     int
 	panX, panY               float64
-	triangles                int
-	parts                    []document.Part // What a 3MF build places, when a mesh is made of parts.
-	assemble                 func([]bool) (*document.Mesh, error)
-	partsShown               []bool // Which parts are on the chart; nil for all.
-	partPicker               *partPicker
-	mesh                     *document.Mesh // The mesh on the chart.
-	tint                     *color.RGBA    // Paint given to the mesh, if any.
-	bg                       *color.RGBA    // Background chosen behind the mesh, if any.
-	tintAll                  bool           // On every face, not only the plain ones.
-	colorPicker              *colorPicker
 	screen                   screen // What fills the body.
 	layer                    layer  // What floats over a document.
 	selection                int
 	preview                  *Model
 	isPreview                bool
 	kittyID                  int
-	chartID                  int
 	previewDrag              bool
 	suspended                bool
-	savedCamera              *charts.Camera
-	savedMarkdown            *markdownView
-	markdown                 *markdownView
-	sheet                    *sheetView
 	note                     string // Outcome of the last drop, shown until the next key.
 	fields                   []document.Field
-	opener                   *opener
-	hideUnsupported          bool // The browser's choice outlasts any one visit.
-	sortBy                   int  // The order the browser lists in; kept likewise.
-	thumbs                   bool // The list is shown as a grid of thumbnails, last time and next.
-	grid                     *grid
-	noTextFiles              bool         // The browser sets text files aside; kept likewise.
 	quitting                 bool         // The view being drawn is the one left behind.
 	added                    []string     // What the user has handed over, by full path.
 	fetched                  []fetchedDoc // Files fetched from the web this session.
-	savedSheet               *sheetView   // The cell to return to when a fetched file closes.
 	picked                   []string
-	home                     charts.Camera  // Where the camera starts, and returns on reset.
-	homeView                 *document.View // The view the home is fitted from, when it is a fit.
-	skipped                  []string       // Reported on stderr once the terminal is restored.
+	skipped                  []string // Reported on stderr once the terminal is restored.
 }
 
 var nextModelID atomic.Int64
@@ -132,7 +155,7 @@ func New(opts Options) *Model {
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := nextKittyID()
-	m := &Model{opts: opts, tint: opts.Color, bg: opts.Background, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
+	m := &Model{opts: opts, meshState: meshState{tint: opts.Color, bg: opts.Background}, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
 	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
 		m.screen = screenList
 	}
@@ -367,86 +390,7 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case thumbResult:
 		return m, m.thumbnailMade(v)
 	case document.Result:
-		if v.Generation != m.generation || m.suspended {
-			return m, nil
-		}
-		m.loading, m.err, m.fields = false, v.Err, v.Info
-		if v.Err != nil {
-			return m, m.clearGraphics()
-		}
-		cleanup := tea.Batch(m.clearMarkdown(), m.clearChart())
-		m.sheet = nil
-		m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
-		if v.Sheet != nil {
-			m.source, m.sheet = nil, newSheetView(v.Sheet)
-			m.sheet.setHidden(m.opts.Columns.Hidden(v.Sheet))
-			if m.savedSheet != nil {
-				m.sheet.setHidden(m.savedSheet.hidden)
-				m.sheet.row, m.sheet.col, m.sheet.at = m.savedSheet.row, m.savedSheet.col, m.savedSheet.at
-				m.sheet.settle(m.width, m.bodyHeight()-1)
-				m.savedSheet = nil
-			}
-			return m, tea.Sequence(cleanup, m.pic.SetImage(nil))
-		}
-		if v.Markdown != nil {
-			m.source = nil
-			m.markdown = newMarkdownView(v.Markdown, nextKittyID())
-			if m.savedMarkdown != nil {
-				m.markdown.raw, m.markdown.offset = m.savedMarkdown.raw, m.savedMarkdown.offset
-				m.savedMarkdown = nil
-			}
-			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty), m.layoutMarkdown()))
-		}
-		if v.Mesh != nil {
-			mode := charts.WebGPU
-			switch m.opts.Render3D {
-			case "software":
-				mode = charts.Software
-			case "wireframe":
-				mode = charts.Wireframe
-			}
-			m.chartID = nextKittyID()
-			m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(m.background()))
-			// The chart draws only through the commands it returns, so each
-			// is kept, whether or not it has anything to say before Init.
-			var setup []tea.Cmd
-			setup = append(setup, m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}}))
-			setup = append(setup, m.chart.SetColorLegendVisible(false), m.chart.SetSeries(v.Mesh))
-			m.mesh = v.Mesh
-			m.parts, m.assemble, m.partsShown = v.Parts, v.Assemble, v.Shown
-			m.keepLayer()
-			// The start, and where f returns to, is fitted to this mesh: the
-			// view asked for, or the default angles at a distance that shows
-			// the whole of it, as an export would.
-			d := charts.DefaultCamera()
-			home := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}
-			m.homeView = &home
-			switch {
-			case len(m.opts.Views) > 0:
-				m.homeView = &m.opts.Views[0]
-			case m.opts.STLCamera != nil:
-				m.homeView = nil
-			}
-			if m.opts.STLCamera != nil {
-				m.home = *m.opts.STLCamera
-			}
-			if m.homeView != nil {
-				m.home = m.homeView.CameraFor(v.Mesh, m.frameAspect())
-			}
-			if m.savedCamera != nil {
-				setup = append(setup, m.chart.SetCamera(*m.savedCamera))
-				m.savedCamera = nil
-			} else {
-				setup = append(setup, m.chart.SetCamera(m.home))
-			}
-			// Apply a capability already established before this chart existed.
-			_, applied := m.chart.Update(struct{}{})
-			setup = append(setup, applied)
-			m.triangles, m.err = v.Mesh.Triangles(), m.chart.Err()
-			return m, tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(setup...), m.chart.Init())
-		}
-		m.source = v.Image
-		return m, tea.Sequence(cleanup, m.refreshImage())
+		return m, m.loaded(v)
 	case tea.MouseWheelMsg:
 		if m.markdown != nil && !m.help && m.screen == screenDocument {
 			if v.Button == tea.MouseWheelUp {
@@ -502,6 +446,95 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 	return m, tea.Batch(cmds...)
+}
+
+// loaded takes what the loader made of the current file onto the screen.
+func (m *Model) loaded(v document.Result) tea.Cmd {
+	if v.Generation != m.generation || m.suspended {
+		return nil
+	}
+	m.loading, m.err, m.fields = false, v.Err, v.Info
+	if v.Err != nil {
+		return m.clearGraphics()
+	}
+	cleanup := tea.Batch(m.clearMarkdown(), m.clearChart())
+	m.sheet = nil
+	m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
+	if v.Sheet != nil {
+		m.source, m.sheet = nil, newSheetView(v.Sheet)
+		m.sheet.setHidden(m.opts.Columns.Hidden(v.Sheet))
+		if m.savedSheet != nil {
+			m.sheet.setHidden(m.savedSheet.hidden)
+			m.sheet.row, m.sheet.col, m.sheet.at = m.savedSheet.row, m.savedSheet.col, m.savedSheet.at
+			m.sheet.settle(m.width, m.bodyHeight()-1)
+			m.savedSheet = nil
+		}
+		return tea.Sequence(cleanup, m.pic.SetImage(nil))
+	}
+	if v.Markdown != nil {
+		m.source = nil
+		m.markdown = newMarkdownView(v.Markdown, nextKittyID())
+		if m.savedMarkdown != nil {
+			m.markdown.raw, m.markdown.offset = m.savedMarkdown.raw, m.savedMarkdown.offset
+			m.savedMarkdown = nil
+		}
+		return tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty), m.layoutMarkdown()))
+	}
+	if v.Mesh != nil {
+		return m.showMesh(v, cleanup)
+	}
+	m.source = v.Image
+	return tea.Sequence(cleanup, m.refreshImage())
+}
+
+// showMesh puts a loaded mesh on a new chart, at the camera it starts from.
+func (m *Model) showMesh(v document.Result, cleanup tea.Cmd) tea.Cmd {
+	mode := charts.WebGPU
+	switch m.opts.Render3D {
+	case "software":
+		mode = charts.Software
+	case "wireframe":
+		mode = charts.Wireframe
+	}
+	m.chartID = nextKittyID()
+	m.chart = charts.New(m.width, m.bodyHeight(), charts.WithKittyID(m.chartID), charts.WithAutoRotate(false), charts.WithRenderMode(mode), charts.WithBackground(m.background()))
+	// The chart draws only through the commands it returns, so each
+	// is kept, whether or not it has anything to say before Init.
+	var setup []tea.Cmd
+	setup = append(setup, m.chart.SetAxes(charts.Axes{X: charts.Axis{Hidden: true}, Y: charts.Axis{Hidden: true}, Z: charts.Axis{Hidden: true}}))
+	setup = append(setup, m.chart.SetColorLegendVisible(false), m.chart.SetSeries(v.Mesh))
+	m.mesh = v.Mesh
+	m.parts, m.assemble, m.partsShown = v.Parts, v.Assemble, v.Shown
+	m.keepLayer()
+	// The start, and where f returns to, is fitted to this mesh: the
+	// view asked for, or the default angles at a distance that shows
+	// the whole of it, as an export would.
+	d := charts.DefaultCamera()
+	home := document.View{Alpha: d.Alpha, Beta: d.Beta, Projection: d.Projection}
+	m.homeView = &home
+	switch {
+	case len(m.opts.Views) > 0:
+		m.homeView = &m.opts.Views[0]
+	case m.opts.STLCamera != nil:
+		m.homeView = nil
+	}
+	if m.opts.STLCamera != nil {
+		m.home = *m.opts.STLCamera
+	}
+	if m.homeView != nil {
+		m.home = m.homeView.CameraFor(v.Mesh, m.frameAspect())
+	}
+	if m.savedCamera != nil {
+		setup = append(setup, m.chart.SetCamera(*m.savedCamera))
+		m.savedCamera = nil
+	} else {
+		setup = append(setup, m.chart.SetCamera(m.home))
+	}
+	// Apply a capability already established before this chart existed.
+	_, applied := m.chart.Update(struct{}{})
+	setup = append(setup, applied)
+	m.triangles, m.err = v.Mesh.Triangles(), m.chart.Err()
+	return tea.Sequence(tea.Batch(cleanup, m.pic.SetImage(nil)), tea.Batch(setup...), m.chart.Init())
 }
 
 func (m *Model) refreshImage() tea.Cmd {
