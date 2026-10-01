@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/NimbleMarkets/gloss/internal/document"
 )
 
 // pageRange is what --page asks for: one page, some, or all. The viewer
@@ -30,8 +32,13 @@ func parsePages(s string) (pageRange, error) {
 		if err != nil || from < 1 || to < from {
 			return r, fmt.Errorf("--page: %q is not a page number, a range like 2-5, or all", part)
 		}
-		for i := from; i <= to; i++ {
-			r.pages = append(r.pages, i)
+		// No document has more pages than that, and a range is listed in
+		// full: 1-9999999999 must not be given the memory to be.
+		if to-from >= document.MaxPages || len(r.pages)+(to-from+1) > document.MaxPages {
+			return r, fmt.Errorf("--page: %q names more than %d pages; use all for every page", part, document.MaxPages)
+		}
+		for i := 0; i <= to-from; i++ {
+			r.pages = append(r.pages, from+i)
 		}
 	}
 	if len(r.pages) == 0 {

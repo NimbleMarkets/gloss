@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -37,6 +38,11 @@ var (
 )
 
 const maxDrops = 256 // Files in one drop.
+
+// maxSessionBytes is all that one session keeps from the page, over every
+// drop: the token holder is trusted, but a page that loops should fill no disk.
+// It is a variable so that tests can lower it.
+var maxSessionBytes int64 = 1 << 30
 
 // server shows the viewer on a page of its own, for as long as it is wanted.
 //
@@ -57,9 +63,10 @@ type server struct {
 	once, ended   sync.Once
 	logged        io.Writer // Where the process logger wrote before the session.
 
-	mu    sync.Mutex
-	model *app.Model
-	dir   string // Where drops are kept; made when the first arrives.
+	mu     sync.Mutex
+	model  *app.Model
+	dir    string       // Where drops are kept; made when the first arrives.
+	stored atomic.Int64 // Bytes kept so far, against maxSessionBytes.
 }
 
 func random() (string, error) {
@@ -259,10 +266,12 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var paths []string
+	var taken int64 // What this drop has kept, to give back if it fails.
 	fail := func(code int, reason string) {
 		for _, path := range paths {
 			os.Remove(path)
 		}
+		s.stored.Add(-taken)
 		http.Error(w, reason, code)
 	}
 	for {
@@ -276,26 +285,38 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		// Only the last element of the name is the page's to choose.
 		name := path.Base(strings.ReplaceAll(part.FileName(), `\`, "/"))
-		if part.FileName() == "" || name == "." || name == ".." || name == "/" || strings.ContainsFunc(name, func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		if part.FileName() == "" || name == "." || name == ".." || name == "/" || !usableName(name) {
 			continue
 		}
 		if len(paths) == maxDrops {
 			fail(http.StatusRequestEntityTooLarge, "too many files")
 			return
 		}
-		kept, size, err := s.keep(name, io.LimitReader(part, document.MaxFileBytes+1))
+		// One file may be 128 MiB, and the session has only so much to give.
+		room := min(document.MaxFileBytes, maxSessionBytes-s.stored.Load())
+		if room <= 0 {
+			fail(http.StatusRequestEntityTooLarge, "this session has kept all the files it will")
+			return
+		}
+		kept, size, err := s.keep(name, io.LimitReader(part, room+1))
 		switch {
 		case err != nil:
 			fail(http.StatusInternalServerError, "the drop could not be kept")
 			return
-		case size > document.MaxFileBytes:
+		case size > room:
 			os.Remove(kept)
-			fail(http.StatusRequestEntityTooLarge, "file exceeds 128 MiB")
+			if room == document.MaxFileBytes {
+				fail(http.StatusRequestEntityTooLarge, "file exceeds 128 MiB")
+			} else {
+				fail(http.StatusRequestEntityTooLarge, "this session has kept all the files it will")
+			}
 			return
 		case size == 0:
 			os.Remove(kept)
 			continue
 		}
+		s.stored.Add(size)
+		taken += size
 		paths = append(paths, kept)
 	}
 	if len(paths) == 0 {
@@ -314,14 +335,9 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 
 // keep writes a dropped file under its own name, or the nearest one free.
 func (s *server) keep(name string, from io.Reader) (string, int64, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.dir == "" {
-		dir, err := os.MkdirTemp("", "gloss-")
-		if err != nil {
-			return "", 0, err
-		}
-		s.dir = dir
+	dir, err := s.folder()
+	if err != nil {
+		return "", 0, err
 	}
 	ext := filepath.Ext(name)
 	stem := strings.TrimSuffix(name, ext)
@@ -329,7 +345,9 @@ func (s *server) keep(name string, from io.Reader) (string, int64, error) {
 		if n > 1 {
 			name = fmt.Sprintf("%s-%d%s", stem, n, ext)
 		}
-		f, err := os.OpenFile(filepath.Join(s.dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
+		// O_EXCL makes the name ours alone, so nothing holds a lock while the
+		// page, possibly slow, sends the bytes.
+		f, err := os.OpenFile(filepath.Join(dir, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
 		if errors.Is(err, fs.ErrExist) {
 			continue
 		}
@@ -344,6 +362,41 @@ func (s *server) keep(name string, from io.Reader) (string, int64, error) {
 		return f.Name(), size, nil
 	}
 	return "", 0, fmt.Errorf("%s: too many drops with this name", name)
+}
+
+// folder is where drops are kept, made when the first arrives.
+func (s *server) folder() (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.dir == "" {
+		dir, err := os.MkdirTemp("", "gloss-")
+		if err != nil {
+			return "", err
+		}
+		s.dir = dir
+	}
+	return s.dir, nil
+}
+
+// usableName says whether a dropped file's name is safe to keep it under, on
+// any system: no control characters, and on Windows none of the characters
+// that name a stream, a device, or a pattern, nor the device names themselves.
+func usableName(name string) bool {
+	if strings.ContainsFunc(name, func(r rune) bool { return r < ' ' || r == 0x7f }) {
+		return false
+	}
+	if runtime.GOOS != "windows" {
+		return true
+	}
+	if strings.ContainsAny(name, `:<>"|?*`) || strings.HasSuffix(name, ".") || strings.HasSuffix(name, " ") {
+		return false
+	}
+	stem, _, _ := strings.Cut(name, ".")
+	switch strings.ToUpper(strings.TrimSpace(stem)) {
+	case "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		return false
+	}
+	return true
 }
 
 // browse opens the page in the user's browser.

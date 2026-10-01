@@ -65,7 +65,7 @@ func installSkill(where string, stdout, stderr io.Writer) error {
 		if _, err := os.Stat(path); err == nil {
 			verb = "updated"
 		}
-		if err := os.WriteFile(path, []byte(skills.Gloss), 0o644); err != nil {
+		if err := writeFileAtomic(path, []byte(skills.Gloss), 0o644); err != nil {
 			return err
 		}
 		if h.agent != "" {
@@ -76,6 +76,25 @@ func installSkill(where string, stdout, stderr io.Writer) error {
 		fmt.Fprintln(stdout, path)
 	}
 	return nil
+}
+
+// writeFileAtomic writes the file whole or not at all: to a temporary file in
+// the same folder, then renamed over the name. A name that is a symbolic link
+// is replaced, and what it pointed at is left alone.
+func writeFileAtomic(path string, data []byte, mode os.FileMode) error {
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".gloss-skill-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name()) // Gone once renamed; otherwise, not left behind.
+	if _, err := tmp.Write(data); err != nil {
+		tmp.Close()
+		return err
+	}
+	if err := errors.Join(tmp.Chmod(mode), tmp.Close()); err != nil {
+		return err
+	}
+	return os.Rename(tmp.Name(), path)
 }
 
 // expandHome resolves a leading ~/ , which the shell leaves alone after =.

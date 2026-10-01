@@ -26,7 +26,10 @@ import (
 const defaultDetachedTimeout = 10 * time.Minute
 
 // startGrace is how long the server has to come up, and to be seen to.
-const startGrace = 15 * time.Second
+var startGrace = 15 * time.Second // A variable so that tests can shorten it.
+
+// executable finds the program to start as the server; tests stand in another.
+var executable = os.Executable
 
 var tokenPattern = regexp.MustCompile(`^[0-9a-f]{32}$`)
 
@@ -147,7 +150,7 @@ func detach(args []string, opts options, stdout, stderr io.Writer) error {
 	}
 	// Ahead of the rest, so that nothing after a -- is taken for a flag.
 	child = append(extra, child...)
-	exe, err := os.Executable()
+	exe, err := executable()
 	if err != nil {
 		return err
 	}
@@ -161,9 +164,14 @@ func detach(args []string, opts options, stdout, stderr io.Writer) error {
 	if err := cmd.Start(); err != nil {
 		return err
 	}
-	_ = cmd.Process.Release()
-	// Say where it is once it is up, or why it is not.
-	for end := time.Now().Add(startGrace); ; time.Sleep(25 * time.Millisecond) {
+	// Watch the child for the moment, so that one that dies at once (a flag it
+	// refuses, say) is said so, and not waited on for the whole grace period.
+	exited := make(chan error, 1)
+	go func() { exited <- cmd.Wait() }()
+	// Say where it is once it is up, or why it is not. A child that is not up
+	// by then is stopped: it would otherwise run on, to its timeout, with a
+	// state file nobody holds the token to.
+	for end := time.Now().Add(startGrace); ; {
 		cur, err := readState(file)
 		if err == nil && cur.Status == statusError {
 			return errors.New(cur.Error)
@@ -172,7 +180,13 @@ func detach(args []string, opts options, stdout, stderr io.Writer) error {
 			st = cur
 			break
 		}
+		select {
+		case <-exited:
+			return errors.New("the server stopped before it was up")
+		case <-time.After(25 * time.Millisecond):
+		}
 		if time.Now().After(end) {
+			_ = cmd.Process.Kill()
 			return errors.New("the server did not start")
 		}
 	}
