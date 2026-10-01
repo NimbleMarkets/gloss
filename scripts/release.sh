@@ -18,7 +18,7 @@ for target in darwin/amd64 darwin/arm64 linux/amd64 linux/arm64; do
   mkdir -p "$stage/$name"
   CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build -mod=readonly -trimpath \
     -ldflags "-s -w -X main.version=$version" -o "$stage/$name/gloss" ./cmd/gloss
-  cp README.md THIRD_PARTY_NOTICES.md "$stage/$name/"
+  cp README.md LICENSE THIRD_PARTY_NOTICES.md "$stage/$name/"
   tar -czf "dist/$name.tar.gz" -C "$stage" "$name"
 done
 cd dist

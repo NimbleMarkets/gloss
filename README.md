@@ -591,3 +591,12 @@ loading screen reports received bytes and compilation/startup stages.
 The Pages workflow builds for pull requests and deploys pushes to `main`.
 Set repository **Settings → Pages → Source → GitHub Actions** to enable hosting.
 The fixtures are original; `task gen-assets` regenerates PNG, HEIC, PDF, and the block-letter STL.
+
+## License
+
+This `gloss` project is released under the [MIT License](https://en.wikipedia.org/wiki/MIT_License), see [LICENSE.txt](./LICENSE.txt). The licenses of the modules gloss links are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Copyright (c) 2026 [Neomantra Corp](https://www.neomantra.com).   
+
+----
+Made with :heart: and :fire: by the team behind [Nimble.Markets](https://nimble.markets).
