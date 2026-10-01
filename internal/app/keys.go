@@ -180,6 +180,17 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 			return cmd, true
 		}
 		return nil, false // The mesh has a glyph toggle of its own.
+	case "r":
+		if m.chart != nil {
+			// NTCharts toggles rotation on r too, but it counts the key as
+			// input and waits out its idle delay before turning, so the key
+			// seems to do nothing. Set the camera instead: rotation starts
+			// at once.
+			cam := m.chart.Camera()
+			cam.AutoRotate = !cam.AutoRotate
+			return m.chart.SetCamera(cam), true
+		}
+		return m.pictureKey(k), true
 	case "0", "f":
 		if m.chart != nil {
 			return m.chart.SetCamera(m.home), true

@@ -133,3 +133,19 @@ func TestHelpFitsAStandardTerminal(t *testing.T) {
 		}
 	}
 }
+
+func TestRTogglesMeshRotationAtOnce(t *testing.T) {
+	m := painted(t)
+	defer m.Close()
+	if m.chart.Camera().AutoRotate {
+		t.Fatal("a mesh starts still")
+	}
+	_, cmd := m.Update(press("r"))
+	if !m.chart.Camera().AutoRotate || cmd == nil {
+		t.Fatalf("r did not start rotation: %+v cmd=%v", m.chart.Camera(), cmd != nil)
+	}
+	m.Update(press("r"))
+	if m.chart.Camera().AutoRotate {
+		t.Fatal("a second r did not stop rotation")
+	}
+}
