@@ -1,0 +1,9 @@
+# Built by `task docs:hugo:build`.
+/public
+/resources
+
+# Written by `task docs:md:build`: the command reference from gloss's options,
+# and the guide from the README and skill. Edit those, not these.
+/content/command/
+/content/guide/
+/.hugo_build.lock

@@ -16,6 +16,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: true # the hugo-book theme for the docs
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
@@ -25,7 +27,13 @@ jobs:
       - uses: go-task/setup-task@v2
         with:
           version: '3.x'
+      - uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: '0.167.0'
+          extended: true
       - run: task web-check demo-check build-wasm-site
+      # The documentation is the site's /docs/, beside the demo.
+      - run: task docs:hugo:build -- --destination ../../web/dist/docs
       - uses: actions/upload-pages-artifact@v5
         with:
           path: web/dist

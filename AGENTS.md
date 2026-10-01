@@ -20,6 +20,10 @@ user-facing reference; keep it and this file consistent with the code.
   Node-tested helpers (`node --test web/*.test.mjs`).
 - `examples`: small original runnable fixtures; `examples/demo` is a separate
   Go module pinning the Bubble Tea WASM fork used by the NTCharts demos.
+- `docs/hugo`: the documentation site (Hugo, hugo-book theme as a submodule),
+  published at `/docs/` beside the demo. Only `hugo.toml` and the home page are
+  written by hand; `content/command` and `content/guide` are generated and
+  ignored.
 - `scripts`: site building (`build-site.sh`) and fixture
   generation (`gen-assets`, `gen-grist.py`).
 
@@ -106,6 +110,11 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 - `task test` — `go test ./...`; `task test-race`, `task vet`
 - `task ci` — the full gate: `fmt-check`, `go-tidy-check`, `go-verify`,
   `test-race`, `vet`, `build`. Run this before considering work done.
+- `task docs` — the `gloss(1)` man page (`docs/man`), the command reference
+  (`gloss --docs-man`/`--docs-markdown --docs-hugo`, hidden options) and the
+  guide pages (`internal/tools/docsite`, cut from README.md and
+  skills/gloss/SKILL.md). `docs:hugo:serve` / `docs:hugo:build` need `hugo`
+  (extended); `docs-check` runs in `task ci` and needs no Hugo.
 - `task demo` / `task demo-check` — embedded gallery and its separate module.
 - `task build-wasm-site` / `task serve-wasm-site` / `task web-check` — browser
   demo site (Node 18+ for `web-check`).
@@ -129,6 +138,14 @@ pinned in `go.mod`; builds use `-mod=readonly`.
 - Never overwrite an existing output file; number the name instead.
 - Interactive output requires a terminal; export (`--output`) and `--info`
   paths must keep working without a TTY and write only the payload to stdout.
+- gloss has no subcommands. Every visible option belongs to exactly one *domain*
+  in `cmd/gloss/domains.go` (the clusters the man page and reference are grouped
+  by); a new option without one fails the tests. Each domain's examples may only
+  use real options.
+- The guide pages on the site are generated from the README's `##` sections
+  (and the skill): edit the README, keep every section placed in
+  `internal/tools/docsite`, and do not hand-edit `docs/hugo/content/guide` or
+  `content/command`.
 - Fixtures in `examples/` are original; do not add third-party sample files
   without checking licensing (see `THIRD_PARTY_NOTICES.md`).
 - `skills/gloss/SKILL.md` teaches external agents gloss's headless surface
