@@ -327,8 +327,16 @@ headless surface: export, `--text`, `--info`, `--pick`, and `--serve`. The
 binary carries it, so it always matches the flags it was built with:
 
 ```sh
-gloss --skill                 # print the skill
-gloss --skill > SKILL.md      # install it where your agent looks for skills
+gloss --skill --install                          # install it for the agents found on this machine
+gloss --skill --install=~/.claude/skills         # or into the skills folder named
+gloss --skill                                    # print it, to place it by hand
+```
+
+Or, with Node, the [skills CLI](https://github.com/vercel-labs/skills) installs
+it from the repository for every agent it finds:
+
+```sh
+npx skills add NimbleMarkets/gloss
 ```
 
 ## Images for vision models

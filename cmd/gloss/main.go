@@ -44,6 +44,7 @@ type options struct {
 	Globs         []string
 	Text          bool      // Take the text out, rather than draw.
 	Pages         pageRange // What --page asked for; Page holds it when it is one.
+	SkillInstall  string    // Where --skill --install writes, "auto" to find the agents here.
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -83,6 +84,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVar(&opts.VisionProfile, "vision-profile", "", "export sizing: openai-high, claude-standard, claude-high")
 	showVersion := f.BoolP("version", "V", false, "print version")
 	showSkill := f.Bool("skill", false, "print the skill that teaches agents to use gloss (SKILL.md), and exit")
+	skillInstall := f.String("install", "", "with --skill, install the skill for the agents found on this machine, or into the skills folder named (--install=FOLDER)")
+	f.Lookup("install").NoOptDefVal = "auto"
 	showHelp := f.BoolP("help", "h", false, "show help")
 	f.Usage = func() {
 		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word, Excel and CSV.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
@@ -101,8 +104,15 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		return opts, true, nil
 	}
 	if *showSkill {
+		if f.Changed("install") {
+			opts.SkillInstall = *skillInstall
+			return opts, false, nil
+		}
 		fmt.Fprint(out, skills.Gloss)
 		return opts, true, nil
+	}
+	if f.Changed("install") {
+		return opts, false, fmt.Errorf("--install goes with --skill: gloss --skill --install")
 	}
 	if !slices.Contains([]string{"auto", "kitty", "glyph"}, opts.Render) {
 		return opts, false, fmt.Errorf("--render must be auto, kitty, or glyph")
@@ -236,6 +246,9 @@ func run(args []string) error {
 	}
 	if err != nil {
 		return err
+	}
+	if opts.SkillInstall != "" {
+		return installSkill(opts.SkillInstall, os.Stdout, os.Stderr)
 	}
 	stdinTTY := term.IsTerminal(os.Stdin.Fd())
 	opts.MarkdownBase, err = os.Getwd()

@@ -21,7 +21,8 @@ instead. Diagnostics go to stderr. Exit status 1 means at least one input
 failed; the rest were still done.
 
 `gloss --skill` prints this file, so the installed binary can always say what
-it itself does: `gloss --skill > SKILL.md`.
+it itself does; `gloss --skill --install` writes it where the agents on the
+machine look for skills.
 
 It handles PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF, STL, 3MF,
 Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, Grist

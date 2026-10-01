@@ -3,7 +3,9 @@
 ## Unreleased
 
   * `gloss --skill` prints the skill that teaches agents to use gloss, so an
-    installed binary can write out `SKILL.md` for the version it is
+    installed binary can write out `SKILL.md` for the version it is;
+    `gloss --skill --install` puts it where the agents on the machine look for
+    skills, and `npx skills add NimbleMarkets/gloss` does the same with Node
 
 ## `v0.1.0` (2026-10-01)
 
