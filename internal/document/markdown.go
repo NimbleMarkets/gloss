@@ -61,13 +61,19 @@ func loadMarkdownFrom(path string, data []byte, baseDir string, files fs.FS) (*M
 		}
 		return r
 	}, string(data))
+	if err := checkMarkdownNesting(source); err != nil {
+		return nil, err
+	}
 	md := &Markdown{Source: []byte(source)}
 	if baseDir == "" {
 		baseDir = filepath.Dir(path)
 	}
 	cache := make(map[string]MarkdownImage)
 	pixels := 0
-	root := MarkdownTree(md.Source)
+	root, err := withDeadline(parseDeadline, "reading the Markdown", func() (ast.Node, error) { return MarkdownTree(md.Source), nil })
+	if err != nil {
+		return nil, err
+	}
 	_ = ast.Walk(root, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		img, ok := n.(*ast.Image)
 		if !entering || !ok {

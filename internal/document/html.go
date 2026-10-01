@@ -36,6 +36,9 @@ func ReadHTML(data []byte) (*Page, error) {
 	if !utf8.Valid(data) {
 		return nil, fmt.Errorf("HTML must be UTF-8")
 	}
+	if err := checkHTMLTables(data); err != nil {
+		return nil, err
+	}
 	conv := converter.NewConverter(converter.WithPlugins(
 		base.NewBasePlugin(),
 		commonmark.NewCommonmarkPlugin(),

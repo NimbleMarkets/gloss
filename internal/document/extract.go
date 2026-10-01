@@ -16,7 +16,7 @@ const MaxPageTextBytes = 16 << 20
 // or a figure has, is an error rather than an empty text, so that a caller
 // does not take silence for a blank page.
 func pdfPageText(reader *pdf.Reader, page int) (string, error) {
-	text, err := reader.Page(page).GetPlainText(nil)
+	text, err := pageText(reader, page)
 	if err != nil {
 		return "", fmt.Errorf("page %d: text layer unreadable: %w", page, err)
 	}

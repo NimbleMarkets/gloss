@@ -2,7 +2,6 @@
 package document
 
 import (
-	"archive/zip"
 	"bytes"
 	"encoding/binary"
 	"encoding/xml"
@@ -89,7 +88,7 @@ func Probe(path, forced string) (string, error) {
 	}
 	// A ZIP archive lists its contents at its end, beyond the prefix.
 	if err != nil && bytes.HasPrefix(header, []byte("PK\x03\x04")) {
-		if archive, zipErr := zip.NewReader(f, info.Size()); zipErr == nil && opcKind(archive) != "" {
+		if archive, zipErr := openZip(f, info.Size()); zipErr == nil && opcKind(archive) != "" {
 			kind, err = opcKind(archive), nil
 		}
 	}
@@ -124,6 +123,9 @@ func rasterSignature(b []byte) bool {
 	}
 	return len(b) >= 12 && string(b[:4]) == "RIFF" && string(b[8:12]) == "WEBP"
 }
+
+// MaxPages is the most pages of a PDF gloss will open.
+const MaxPages = 10000
 
 type Request struct {
 	Path, Type string
@@ -260,14 +262,18 @@ func (l *Loader) Load(q Request) (out Result) {
 		details = func() []Field {
 			return Section("Document", Field{"Format", strings.TrimSpace("PDF " + pdfVersion(data))})
 		}
+		if err := checkPDFStreams(data); err != nil {
+			out.Err = err
+			return out
+		}
 		reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 		if err != nil {
 			out.Err = err
 			return out
 		}
 		pages := reader.NumPage()
-		if pages < 1 || pages > 10000 {
-			out.Err = fmt.Errorf("PDF page count must be 1..10000")
+		if pages < 1 || pages > MaxPages {
+			out.Err = fmt.Errorf("PDF page count must be 1..%d", MaxPages)
 			return out
 		}
 		l.path, l.pages, l.pdfData = q.Path, pages, data
@@ -409,7 +415,12 @@ func decodeRaster(data []byte) (image.Image, error) {
 	return img, err
 }
 
+// renderSVG draws an SVG, giving up on one that never finishes.
 func renderSVG(name string, data []byte, edge int) (image.Image, error) {
+	return renderSVGWithin(name, data, edge)
+}
+
+func renderSVGUnbounded(name string, data []byte, edge int) (image.Image, error) {
 	r, err := svg.DefaultRendererFactory()(name, data)
 	if err != nil {
 		return nil, err
@@ -422,17 +433,12 @@ func (l *Loader) renderPDF(q Request) Result {
 	page := max(1, min(q.Page, l.pages))
 	dpi := q.DPI
 	if q.MaxEdge > 0 && l.pdfReader != nil {
-		// MediaBox is inherited from the nearest page-tree ancestor.
-		for node, depth := l.pdfReader.Page(page).V, 0; !node.IsNull() && depth < 64; node, depth = node.Key("Parent"), depth+1 {
-			box := node.Key("MediaBox")
-			if box.Len() != 4 {
-				continue
-			}
-			edge := math.Max(math.Abs(box.Index(2).Float64()-box.Index(0).Float64()), math.Abs(box.Index(3).Float64()-box.Index(1).Float64()))
-			if edge > 0 && !math.IsNaN(edge) && !math.IsInf(edge, 0) {
-				dpi = int(math.Ceil(float64(q.MaxEdge) * 72 / edge))
-			}
-			break
+		w, h, ok, err := mediaBox(l.pdfReader, page)
+		if err != nil {
+			return Result{Generation: q.Generation, Kind: "pdf", Err: err}
+		}
+		if edge := math.Max(w, h); ok && edge > 0 {
+			dpi = int(math.Ceil(float64(q.MaxEdge) * 72 / edge))
 		}
 	}
 	out := Result{Generation: q.Generation, Kind: "pdf", Page: page, Pages: l.pages}
@@ -520,7 +526,7 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "pdf", nil
 	}
 	if bytes.HasPrefix(data, []byte("PK\x03\x04")) {
-		if archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data))); err == nil && opcKind(archive) != "" {
+		if archive, err := openZip(bytes.NewReader(data), int64(len(data))); err == nil && opcKind(archive) != "" {
 			return opcKind(archive), nil
 		}
 	}

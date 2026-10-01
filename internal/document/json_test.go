@@ -1,6 +1,8 @@
 package document
 
 import (
+	"bytes"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -66,3 +68,28 @@ func TestLongJSONIsCut(t *testing.T) {
 }
 
 func hasField(fields []Field, label, value string) bool { return field(fields, label) == value }
+
+// A few kilobytes of nested brackets must not be given gigabytes of indent.
+func TestNestedJSONIsBounded(t *testing.T) {
+	deep := strings.Repeat("[", 9000) + strings.Repeat("]", 9000)
+	bomb := []byte("[" + strings.TrimSuffix(strings.Repeat(deep+",", 6), ",") + "]") // ~108 KB
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+	doc, err := ReadJSON("bomb.json", bomb)
+	runtime.ReadMemStats(&after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if grew := after.TotalAlloc - before.TotalAlloc; grew > 64<<20 {
+		t.Fatalf("a %d-byte file allocated %d MiB", len(bomb), grew>>20)
+	}
+	if len(doc.Markdown) > MaxMarkdownBytes || !doc.cut {
+		t.Fatalf("markdown %d bytes, cut=%v", len(doc.Markdown), doc.cut)
+	}
+	// The same, one value to a line.
+	lines := bytes.Repeat(append([]byte(deep), '\n'), 20)
+	rec, err := ReadJSON("bomb.jsonl", lines)
+	if err != nil || len(rec.Markdown) > MaxMarkdownBytes {
+		t.Fatalf("records: %v, %d bytes", err, len(rec.Markdown))
+	}
+}

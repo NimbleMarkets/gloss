@@ -287,10 +287,11 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	out := &Model3MF{Unit: model.unit, metadata: model.metadata, pkg: p, root: root, build: build, settings: p.slicer()}
 	// Count before building: a model over the limit is measured, not stored.
 	objects := map[*object3MF]bool{}
+	visits := 0
 	for _, item := range build {
 		// A slicer's name for the object, else the model's own, else its id.
 		part, named := Part{Name: out.settings.names[item.object]}, false
-		err := out.walk(item, root, item.object, identity3MF, 0, func(_ *part3MF, o *object3MF, _ matrix3MF, _ color.RGBA) error {
+		err := out.walk(item, root, item.object, identity3MF, 0, &visits, func(_ *part3MF, o *object3MF, _ matrix3MF, _ color.RGBA) error {
 			if !named {
 				part.Name, named = cmp.Or(part.Name, o.name), true
 			}
@@ -350,7 +351,12 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 
 // walk gives emit each object placed by at, where it is placed, and the
 // color for faces that name none; then the objects it holds, likewise.
-func (m *Model3MF) walk(at placed3MF, from, top string, transform matrix3MF, depth int, emit func(*part3MF, *object3MF, matrix3MF, color.RGBA) error) error {
+func (m *Model3MF) walk(at placed3MF, from, top string, transform matrix3MF, depth int, visits *int, emit func(*part3MF, *object3MF, matrix3MF, color.RGBA) error) error {
+	// Sixteen levels of fifty components each, every one the next level, is
+	// fifty to the sixteenth: count the objects placed, not only the depth.
+	if *visits++; *visits > max3MFVisits {
+		return fmt.Errorf("3MF places more than %d objects", max3MFVisits)
+	}
 	if depth > max3MFDepth {
 		return fmt.Errorf("3MF objects nest too deeply, or within themselves")
 	}
@@ -370,7 +376,7 @@ func (m *Model3MF) walk(at placed3MF, from, top string, transform matrix3MF, dep
 		return err
 	}
 	for _, c := range object.components {
-		if err := m.walk(c, from, top, transform, depth+1, emit); err != nil {
+		if err := m.walk(c, from, top, transform, depth+1, visits, emit); err != nil {
 			return err
 		}
 	}
@@ -381,11 +387,12 @@ func (m *Model3MF) walk(at placed3MF, from, top string, transform matrix3MF, dep
 // when shown is nil, placed and wound as the build has them, with the
 // color of the face.
 func (m *Model3MF) each(shown []bool, emit func(*part3MF, *object3MF, [3]math3d.Vec3, color.RGBA) error) error {
+	visits := 0
 	for i, item := range m.build {
 		if shown != nil && (i >= len(shown) || !shown[i]) {
 			continue
 		}
-		err := m.walk(item, m.root, item.object, identity3MF, 0, func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {
+		err := m.walk(item, m.root, item.object, identity3MF, 0, &visits, func(part *part3MF, o *object3MF, transform matrix3MF, plain color.RGBA) error {
 			mirrored := transform.mirrors()
 			for _, t := range o.triangles {
 				var v [3]math3d.Vec3

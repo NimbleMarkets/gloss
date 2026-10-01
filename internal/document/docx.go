@@ -378,8 +378,16 @@ func (w *Word) convert(data []byte) error {
 				for _, r := range table {
 					width = max(width, len(r))
 				}
+				// Rows are padded to the widest, so one wide row among many is
+				// a square of cells: keep the table to a size that can be shown.
+				width = min(width, maxSheetColumns)
+				cut := false
+				if rows := maxWordTableCells / max(width, 1); len(table) > rows {
+					table, cut = table[:rows], true
+				}
 				var lines []string
 				for i, r := range table {
+					r = r[:min(len(r), width)]
 					for len(r) < width {
 						r = append(r, "")
 					}
@@ -387,6 +395,9 @@ func (w *Word) convert(data []byte) error {
 					if i == 0 {
 						lines = append(lines, "|"+strings.Repeat(" --- |", width))
 					}
+				}
+				if cut {
+					lines = append(lines, "", "*The rest of the table was cut.*")
 				}
 				add(strings.Join(lines, "\n"), "")
 				w.Tables++

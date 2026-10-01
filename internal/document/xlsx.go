@@ -224,6 +224,7 @@ func (w *Workbook) readSheet(name string, data []byte, rels map[string]string) (
 	d := xml.NewDecoder(strings.NewReader(string(data)))
 	var row []string
 	rowAt, at, kind, style := -1, -1, "", 0
+	cells := 0 // Slots held for cells, empty ones among them, against maxSheetCells.
 	var value, inline strings.Builder
 	var text *strings.Builder
 	depth := 0
@@ -303,8 +304,17 @@ func (w *Workbook) readSheet(name string, data []byte, rels map[string]string) (
 					sheet.MoreColumns = max(sheet.MoreColumns, at+1-maxSheetColumns)
 					continue
 				}
-				for len(row) <= at {
-					row = append(row, "")
+				if grow := at + 1 - len(row); grow > 0 {
+					// A sparse row is padded to its last cell: a hundred thousand
+					// rows with one cell at the far column are a hundred million.
+					if cells+grow > maxSheetCells {
+						sheet.MoreColumns = max(sheet.MoreColumns, 1)
+						continue
+					}
+					cells += grow
+					for len(row) <= at {
+						row = append(row, "")
+					}
 				}
 				row[at] = w.cellText(kind, style, value.String(), inline.String())
 			case "row":

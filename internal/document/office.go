@@ -23,7 +23,7 @@ type opc struct {
 }
 
 func openOPC(data []byte) (*opc, error) {
-	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	archive, err := openZip(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
 	}

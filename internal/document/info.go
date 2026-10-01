@@ -8,7 +8,6 @@ import (
 	"image"
 	"image/color"
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -199,6 +198,9 @@ func pdfVersion(data []byte) string {
 }
 
 func pdfInfo(data []byte, page int) ([]Field, error) {
+	if err := checkPDFStreams(data); err != nil {
+		return nil, err
+	}
 	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, err
@@ -236,17 +238,8 @@ func pdfDate(s string) string {
 
 func pdfFields(reader *pdf.Reader, version string, pages, page int) []Field {
 	size := ""
-	// MediaBox is inherited from the nearest page-tree ancestor.
-	for node, depth := reader.Page(page).V, 0; !node.IsNull() && depth < 64; node, depth = node.Key("Parent"), depth+1 {
-		box := node.Key("MediaBox")
-		if box.Len() != 4 {
-			continue
-		}
-		w, h := math.Abs(box.Index(2).Float64()-box.Index(0).Float64()), math.Abs(box.Index(3).Float64()-box.Index(1).Float64())
-		if w > 0 && h > 0 && !math.IsInf(w, 0) && !math.IsInf(h, 0) {
-			size = fmt.Sprintf("%.0f × %.0f pt (%.2f × %.2f in)", w, h, w/72, h/72)
-		}
-		break
+	if w, h, ok, err := mediaBox(reader, page); err == nil && ok {
+		size = fmt.Sprintf("%.0f × %.0f pt (%.2f × %.2f in)", w, h, w/72, h/72)
 	}
 	info := reader.Trailer().Key("Info")
 	text := func(key string) string { return info.Key(key).Text() }

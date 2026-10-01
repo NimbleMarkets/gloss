@@ -1,7 +1,16 @@
 package document
 
 import (
+	"bytes"
+	"encoding/json"
+	"image"
+	"image/color"
+	"image/gif"
+	"image/jpeg"
+	"image/png"
 	"testing"
+
+	"github.com/NimbleMarkets/gloss/examples"
 )
 
 // The parsers take files from anywhere. Each must refuse or read what it
@@ -98,5 +107,103 @@ func FuzzSharedStrings(f *testing.F) {
 	f.Add(`<sst><si><t>a</t></si><si><r><t>b</t></r><rPh><t>c</t></rPh></si></sst>`)
 	f.Fuzz(func(t *testing.T, data string) {
 		sharedStrings([]byte(data))
+	})
+}
+
+// seedImage is a few pixels, encoded as each format the standard library writes.
+func seedImage(f *testing.F, encode func(*bytes.Buffer, image.Image) error) []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 3, 2))
+	img.Set(1, 1, color.RGBA{R: 200, A: 255})
+	var b bytes.Buffer
+	if err := encode(&b, img); err != nil {
+		f.Fatal(err)
+	}
+	return b.Bytes()
+}
+
+func FuzzDecodeRaster(f *testing.F) {
+	f.Add(seedImage(f, func(b *bytes.Buffer, i image.Image) error { return png.Encode(b, i) }))
+	f.Add(seedImage(f, func(b *bytes.Buffer, i image.Image) error { return jpeg.Encode(b, i, nil) }))
+	f.Add(seedImage(f, func(b *bytes.Buffer, i image.Image) error { return gif.Encode(b, i, nil) }))
+	for _, name := range []string{"landscape.png", "landscape.heic"} {
+		if data, err := examples.Files.ReadFile(name); err == nil {
+			f.Add(data)
+		}
+	}
+	f.Add([]byte("BM"))
+	f.Add([]byte("II*\x00"))
+	f.Add([]byte("RIFF\x00\x00\x00\x00WEBPVP8 "))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		// Dimensions are read before pixels are allocated, so whatever the
+		// header claims, the decode stays inside the pixel budget.
+		if img, err := decodeRaster(data); err == nil {
+			if b := img.Bounds(); b.Dx() <= 0 || b.Dy() <= 0 || b.Dx() > MaxPixels/b.Dy() {
+				t.Fatalf("decoded %v, over the %d-pixel budget", b, MaxPixels)
+			}
+		}
+	})
+}
+
+func FuzzRenderSVG(f *testing.F) {
+	if data, err := examples.Files.ReadFile("shapes.svg"); err == nil {
+		f.Add(data)
+	}
+	f.Add([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="1e9" height="1e9"><rect width="5" height="5"/></svg>`))
+	f.Add([]byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 0 0"><use href="#a"/></svg>`))
+	f.Add([]byte(`<svg xmlns="http://www.w3.org/2000/svg"><g id="a"><use href="#a"/></g></svg>`))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		renderSVG("f.svg", data, 32)
+		svgFields(data)
+	})
+}
+
+func FuzzMarkdown(f *testing.F) {
+	f.Add([]byte("# Title\n\n![a](x.png)\n\n[ref]: y.svg\n\n| a | b |\n|---|---|\n| 1 | 2 |\n"))
+	f.Add([]byte("![](../../../../etc/passwd)\n![](/dev/zero)\n![](https://example.com/x.png)\n"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		loadMarkdown("f.md", data, t.TempDir())
+	})
+}
+
+// The option parsers read words a person or an agent typed; none may panic,
+// and what they accept must be inside the bounds they promise.
+func FuzzParseOptionWords(f *testing.F) {
+	f.Add("#ff8800", "name,other", "2,4-6", "front,top", "20,-120,3")
+	f.Add("orange", "", "1-", "all", "90")
+	f.Add("", ",,,", "-1,0,999999999999999999999", "iso,,", "1e309,nan,inf")
+	f.Fuzz(func(t *testing.T, colour, names, indexes, views, camera string) {
+		ParseColor(colour)
+		ParseColumns(names, indexes)
+		ParseParts(names, indexes)
+		ParseViews(views)
+		ParseCamera(camera)
+		ParseDrop(names + "\n" + colour)
+	})
+}
+
+// prettyJSON is json.Indent with a ceiling: given room, it must lay out every
+// valid value exactly as json.Indent does, and given little, it must keep to it.
+func FuzzPrettyJSON(f *testing.F) {
+	for _, seed := range []string{`{"a":[1,2,{"b":null}],"c":"x\"y,]"}`, `[]`, `{}`, `[[],{}]`, `  [ 1 , 2 ]  `, `"a\\"`, `-1.5e+3`, `[{"k":[[],[{}]]}]`} {
+		f.Add(seed, 7)
+	}
+	f.Fuzz(func(t *testing.T, doc string, limit int) {
+		if !json.Valid([]byte(doc)) {
+			return
+		}
+		src := bytes.TrimSpace([]byte(doc))
+		var want bytes.Buffer
+		if err := json.Indent(&want, src, "", "  "); err != nil {
+			return
+		}
+		got, lines, cut := prettyJSON(src, want.Len()+16)
+		if cut || !bytes.Equal(got, want.Bytes()) || lines != bytes.Count(want.Bytes(), []byte("\n"))+1 {
+			t.Fatalf("not json.Indent:\ndoc=%q\ngot=%q (cut=%v lines=%d)\nwant=%q", doc, got, cut, lines, want.Bytes())
+		}
+		limit = max(0, min(limit, want.Len()))
+		small, _, tooBig := prettyJSON(src, limit)
+		if len(small) > limit || (limit < want.Len()) != tooBig || !bytes.HasPrefix(want.Bytes(), small) {
+			t.Fatalf("limit %d: kept %d bytes, cut=%v, of %d", limit, len(small), tooBig, want.Len())
+		}
 	})
 }

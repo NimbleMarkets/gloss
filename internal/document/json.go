@@ -36,18 +36,17 @@ func ReadJSON(path string, data []byte) (*JSONDoc, error) {
 	if json.Valid(data) {
 		return doc.single(data)
 	}
-	lines := bytes.Split(data, []byte("\n"))
-	if ext := strings.ToLower(filepath.Ext(path)); ext == ".json" && !looksLikeLines(lines) {
+	if ext := strings.ToLower(filepath.Ext(path)); ext == ".json" && !looksLikeLines(data) {
 		return nil, jsonError(data)
 	}
-	return doc.records(lines)
+	return doc.records(data)
 }
 
 // looksLikeLines says whether the first two values of the file each keep to
 // a line: then a .json file is read as lines too.
-func looksLikeLines(lines [][]byte) bool {
+func looksLikeLines(data []byte) bool {
 	n := 0
-	for _, line := range lines {
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
 		if line = bytes.TrimSpace(line); len(line) > 0 {
 			if !json.Valid(line) {
 				return false
@@ -60,22 +59,18 @@ func looksLikeLines(lines [][]byte) bool {
 
 func (doc *JSONDoc) single(data []byte) (*JSONDoc, error) {
 	doc.kind, doc.count, doc.keys = topLevel(data)
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, bytes.TrimSpace(data), "", "  "); err != nil {
-		return nil, err
-	}
-	lines := bytes.Count(pretty.Bytes(), []byte("\n")) + 1
+	pretty, lines, cut := prettyJSON(bytes.TrimSpace(data), maxJSONMarkdown)
 	shown := lines
-	if pretty.Len() > maxJSONMarkdown {
-		cut := bytes.LastIndexByte(pretty.Bytes()[:maxJSONMarkdown], '\n')
-		pretty.Truncate(max(0, cut))
-		shown = bytes.Count(pretty.Bytes(), []byte("\n")) + 1
+	if cut {
+		at := bytes.LastIndexByte(pretty, '\n')
+		pretty = pretty[:max(0, at)]
+		shown = bytes.Count(pretty, []byte("\n")) + 1
 		doc.cut = true
 	}
-	doc.Plain = pretty.String() + "\n"
+	doc.Plain = string(pretty) + "\n"
 	var md bytes.Buffer
 	md.WriteString("```json\n")
-	md.Write(pretty.Bytes())
+	md.Write(pretty)
 	md.WriteString("\n```\n")
 	if doc.cut {
 		fmt.Fprintf(&md, "\n*First %s of %s lines shown.*\n", grouped(shown), grouped(lines))
@@ -84,10 +79,13 @@ func (doc *JSONDoc) single(data []byte) (*JSONDoc, error) {
 	return doc, nil
 }
 
-func (doc *JSONDoc) records(lines [][]byte) (*JSONDoc, error) {
+func (doc *JSONDoc) records(data []byte) (*JSONDoc, error) {
 	doc.Lines = true
 	var md bytes.Buffer
-	for i, line := range lines {
+	var plain strings.Builder
+	i := -1
+	for line := range bytes.SplitSeq(data, []byte("\n")) {
+		i++
 		line = bytes.TrimSpace(line)
 		if len(line) == 0 {
 			continue
@@ -102,23 +100,94 @@ func (doc *JSONDoc) records(lines [][]byte) (*JSONDoc, error) {
 		if doc.cut {
 			continue
 		}
-		var pretty bytes.Buffer
-		if err := json.Indent(&pretty, line, "", "  "); err != nil {
-			return nil, fmt.Errorf("line %d: %w", i+1, err)
-		}
-		if md.Len()+pretty.Len() > maxJSONMarkdown {
+		pretty, _, tooBig := prettyJSON(line, max(0, maxJSONMarkdown-md.Len()))
+		if tooBig {
 			doc.cut = true
 			continue
 		}
-		fmt.Fprintf(&md, "#### %d\n\n```json\n%s\n```\n\n", doc.Records, pretty.Bytes())
-		doc.Plain += pretty.String() + "\n"
+		fmt.Fprintf(&md, "#### %d\n\n```json\n%s\n```\n\n", doc.Records, pretty)
+		plain.Write(pretty)
+		plain.WriteByte('\n')
 		doc.Shown++
 	}
+	doc.Plain = plain.String()
 	if doc.cut {
 		fmt.Fprintf(&md, "*First %s of %s records shown.*\n", grouped(doc.Shown), grouped(doc.Records))
 	}
 	doc.Markdown = md.Bytes()
 	return doc, nil
+}
+
+// prettyJSON lays out valid JSON as json.Indent does, with two spaces, but
+// keeps at most limit bytes of it. Nested brackets multiply whitespace, so a
+// few kilobytes of "[[[[" ask json.Indent for gigabytes: this one counts the
+// lines the whole would have, and drops what does not fit. cut says it did.
+func prettyJSON(src []byte, limit int) (out []byte, lines int, cut bool) {
+	lines = 1
+	depth, inString, escaped, needIndent := 0, false, false, false
+	put := func(c byte) {
+		if len(out) <= limit {
+			out = append(out, c)
+		}
+	}
+	newline := func(d int) {
+		lines++
+		put('\n')
+		for i := 0; i < d && len(out) <= limit; i++ {
+			put(' ')
+			put(' ')
+		}
+	}
+	for _, c := range src {
+		if inString {
+			put(c)
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inString = false
+			}
+			continue
+		}
+		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+			continue
+		}
+		if needIndent && c != '}' && c != ']' {
+			needIndent = false
+			depth++
+			newline(depth)
+		}
+		switch c {
+		case '"':
+			inString = true
+			put(c)
+		case '{', '[':
+			needIndent = true
+			put(c)
+		case ',':
+			put(c)
+			newline(depth)
+		case ':':
+			put(c)
+			put(' ')
+		case '}', ']':
+			if needIndent {
+				needIndent = false
+			} else {
+				depth--
+				newline(depth)
+			}
+			put(c)
+		default:
+			put(c)
+		}
+	}
+	if len(out) > limit {
+		out, cut = out[:limit], true
+	}
+	return out, lines, cut
 }
 
 // jsonError says on which line the JSON went wrong.

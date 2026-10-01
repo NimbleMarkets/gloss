@@ -31,6 +31,9 @@ func ReadCSV(path string, data []byte) (*Sheet, error) {
 	} else if r, n := sniffDelimiter(text); n != "" {
 		delimiter, name = r, n
 	}
+	if tooWide(text, delimiter) {
+		return nil, fmt.Errorf("a line has more than %d values", maxCSVFields)
+	}
 	r := csv.NewReader(strings.NewReader(text))
 	r.Comma, r.FieldsPerRecord, r.LazyQuotes, r.ReuseRecord = delimiter, -1, true, true
 	sheet := &Sheet{Name: strings.TrimSuffix(filepath.Base(path), filepath.Ext(path)), Delimiter: name}

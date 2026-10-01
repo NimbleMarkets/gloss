@@ -26,15 +26,7 @@ func Fetch(ctx context.Context, address, dir string) (string, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", fmt.Errorf("only http and https addresses are fetched")
 	}
-	client := &http.Client{CheckRedirect: func(r *http.Request, via []*http.Request) error {
-		if r.URL.Scheme != "http" && r.URL.Scheme != "https" {
-			return errors.New("redirected away from the web")
-		}
-		if len(via) >= 10 {
-			return errors.New("too many redirects")
-		}
-		return nil
-	}}
+	client := &http.Client{CheckRedirect: fetchRedirect}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return "", err
@@ -67,6 +59,26 @@ func Fetch(ctx context.Context, address, dir string) (string, error) {
 		return "", fmt.Errorf("%s: %s", svg.SanitizeForTerminal(name), SkipReason(err))
 	}
 	return f.Name(), nil
+}
+
+// fetchRedirect decides whether a redirect is followed: only on the web, only
+// ten times, and never from https to http, which would send in the clear what
+// was asked for over a secure connection.
+func fetchRedirect(r *http.Request, via []*http.Request) error {
+	if r.URL.Scheme != "http" && r.URL.Scheme != "https" {
+		return errors.New("redirected away from the web")
+	}
+	if len(via) >= 10 {
+		return errors.New("too many redirects")
+	}
+	if r.URL.Scheme == "http" {
+		for _, earlier := range via {
+			if earlier.URL.Scheme == "https" {
+				return errors.New("redirected from https to http")
+			}
+		}
+	}
+	return nil
 }
 
 func sanitizeErr(err error) string {
