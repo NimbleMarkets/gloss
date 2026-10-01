@@ -244,6 +244,31 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 	if view := m.View().Content; !strings.Contains(view, "Drop files here to open") || !strings.Contains(view, "3D:     STL and 3MF meshes") {
 		t.Fatalf("no drop target, or no word on what can be opened:\n%s", view)
 	}
+	// The name is drawn above, and outranks the rest as the screen
+	// shortens: the list of formats goes first, then the words on what to
+	// do, and the name stays.
+	const name = `\_| |_ \_/ __) __)`
+	for _, c := range []struct {
+		height              int
+		banner, text, short bool
+	}{{30, true, true, false}, {16, true, true, true}, {12, true, true, false}, {9, true, false, false}, {5, true, false, false}} {
+		m.Update(tea.WindowSizeMsg{Width: 100, Height: c.height})
+		view := ansi.Strip(m.View().Content)
+		if strings.Contains(view, name) != c.banner || strings.Contains(view, "Drop files here to open") != c.text || strings.Contains(view, document.FormatsShort) != c.short {
+			t.Fatalf("%d rows: banner=%v text=%v short list=%v:\n%s", c.height, c.banner, c.text, c.short, view)
+		}
+	}
+	// Where even the name does not fit, it is said in letters.
+	for _, c := range []struct {
+		size tea.WindowSizeMsg
+		want string
+	}{{tea.WindowSizeMsg{Width: 100, Height: 3}, "GLOSS -- drag here"}, {tea.WindowSizeMsg{Width: 19, Height: 30}, "GLOSS -- drag here"}, {tea.WindowSizeMsg{Width: 12, Height: 30}, "GLOSS"}} {
+		m.Update(c.size)
+		if view := ansi.Strip(m.View().Content); !strings.Contains(view, c.want) || strings.Contains(view, name) || (c.want == "GLOSS" && strings.Contains(view, "drag")) {
+			t.Fatalf("%dx%d:\n%s", c.size.Width, c.size.Height, view)
+		}
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	// The labels line up when the block is centred, and a short screen
 	// gets the short list.
 	lines := strings.Split(ansi.Strip(m.View().Content), "\n")
@@ -259,7 +284,7 @@ func TestEmptySessionIsADropTarget(t *testing.T) {
 	if len(starts) != 1 {
 		t.Fatalf("labels do not line up:\n%s", ansi.Strip(m.View().Content))
 	}
-	m.Update(tea.WindowSizeMsg{Width: 100, Height: 8})
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 16})
 	if view := ansi.Strip(m.View().Content); strings.Contains(view, "Images: ") || !strings.Contains(view, document.FormatsShort) {
 		t.Fatalf("short screen:\n%s", view)
 	}

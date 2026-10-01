@@ -120,14 +120,40 @@ func (m *Model) emptyView(w int) string {
 	if m.opts.Pick {
 		body = "Drop a file here to send it\n\nDrag it from a file manager, paste its path, or press o to browse."
 	}
-	switch h := m.bodyHeight(); {
-	case h >= 12:
-		// Padded to one width, the lines stay aligned once centred.
-		body += "\n\n" + lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n\n"))
-	case h >= 5:
-		body += "\n\n" + lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
+	// The name outranks the rest: as the screen shortens, the list of
+	// formats goes first, then the words on what to do, and the name stays.
+	h, lines := m.bodyHeight(), strings.Count(body, "\n")+1
+	long := lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n\n"))
+	short := lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
+	name, gap := strings.Join(banner, "\n"), "\n\n\n"
+	room := func(extra int) bool { return h >= len(banner)+2+lines+extra }
+	switch {
+	case w < lipgloss.Width(name) || h < len(banner):
+		// Too small to draw the name, so it is said, with what to do if
+		// there is room to say it.
+		if w >= len(tiny) {
+			return tiny
+		}
+		return "GLOSS"
+	case room(3 + strings.Count(long, "\n") + 1):
+		return name + gap + body + gap + long
+	case room(3 + 1):
+		return name + gap + body + gap + short
+	case room(0):
+		return name + gap + body
 	}
-	return body
+	return name
+}
+
+// tiny stands in for the whole screen where the banner will not fit.
+const tiny = "GLOSS -- drag here"
+
+// banner is the name, drawn small; its lines are of one width, so that
+// centring the lot keeps them aligned.
+var banner = []string{
+	"  __     _   __  __ ",
+	" /__ |  / \\ (_  (_  ",
+	" \\_| |_ \\_/ __) __) ",
 }
 
 // layered lays the document's layer over its body, where the screen is a
