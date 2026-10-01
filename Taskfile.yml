@@ -51,6 +51,21 @@ tasks:
     cmds:
       - go build -mod=readonly -o /dev/null ./...
       - go vet -mod=readonly ./...
+  fuzz:
+    desc: Fuzz the loaders, one target after another (FUZZTIME=60s; FUZZ=FuzzParseSTL for just one)
+    vars:
+      FUZZTIME: '{{.FUZZTIME | default "60s"}}'
+    cmds:
+      # Each target runs on its own, as go test -fuzz requires; a failure does
+      # not stop the others, and fails the task at the end.
+      - |
+        failed=0
+        targets="{{.FUZZ}}"
+        [ -n "$targets" ] || targets=$(grep -ho '^func Fuzz[A-Za-z0-9_]*' internal/document/fuzz_test.go | cut -d' ' -f2)
+        for t in $targets; do
+          go test ./internal/document -run '^$' -fuzz "^${t}\$" -fuzztime {{.FUZZTIME}} || failed=1
+        done
+        exit $failed
   staticcheck:
     desc: Run staticcheck
     cmds: [go run honnef.co/go/tools/cmd/staticcheck@latest ./...]

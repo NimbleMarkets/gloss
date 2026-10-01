@@ -32,6 +32,7 @@ go build -ldflags '-X main.version=0.1.0' -o gloss ./cmd/gloss
 
 ```sh
 task test
+task fuzz                       # fuzz each loader, 60s apiece (FUZZTIME=5m, FUZZ=FuzzParseSTL)
 task ci                         # formatting, modules, race tests, vet (also for Windows), build, notices, docs
 ```
 

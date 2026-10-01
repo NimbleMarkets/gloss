@@ -21,19 +21,11 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
-      # Each target runs on its own, as go test -fuzz requires; a failure
-      # does not stop the others, and fails the job at the end.
+      - uses: go-task/setup-task@a00fbb05ce67b35648be3c78cbc9fd85354c757e # v2
+        with:
+          version: '3.x'
       - name: Fuzz each target
-        env:
-          FUZZTIME: ${{ inputs.fuzztime || '60s' }}
-        run: |
-          failed=0
-          for target in $(grep -ho '^func Fuzz[A-Za-z0-9_]*' internal/document/fuzz_test.go | cut -d' ' -f2); do
-            echo "::group::$target"
-            go test ./internal/document -run '^$' -fuzz "^${target}\$" -fuzztime "$FUZZTIME" || failed=1
-            echo "::endgroup::"
-          done
-          exit $failed
+        run: task fuzz FUZZTIME="${{ inputs.fuzztime || '60s' }}"
       # A crash is written under testdata/fuzz as a seed that reproduces it.
       - name: Keep the crashing inputs
         if: failure()
