@@ -96,6 +96,10 @@ func TestTextTakesTheTextOut(t *testing.T) {
 	if got := text("../../examples/sales.xlsx"); !strings.HasPrefix(got, "Region,Quarter,Units,Revenue,Booked\n") || !strings.Contains(got, "North,Q1,120,48.5,2026-03-31") {
 		t.Errorf("xlsx: %q", got)
 	}
+	// A Grist table is a sheet: its labels, then its rows as Grist orders them.
+	if got := text("../../examples/notes.grist"); !strings.HasPrefix(got, "Species,Site,How many,Weight (kg),Confirmed?,Seen on,Logged at,Tags,Source,Count per kg,Photos\nOtter,Alder Creek,1,8,TRUE,2026-03-09,") {
+		t.Errorf("grist: %q", got)
+	}
 	if got := text("../../examples/sales.csv"); !strings.HasPrefix(got, "region,quarter,units,revenue,booked\n") {
 		t.Errorf("csv: %q", got)
 	}
@@ -178,5 +182,13 @@ func TestPageRanges(t *testing.T) {
 	}
 	if lines := strings.Split(strings.TrimSpace(stdout.String()), "\n"); len(lines) != 2 || !strings.HasSuffix(lines[1], "001-sales-sheet-2.csv") {
 		t.Fatalf("sheets: %q", stdout.String())
+	}
+	stdout.Reset()
+	opts = options{Options: app.Options{Files: []string{"../../examples/notes.grist"}, OutputDir: dir, Page: 1, DPI: 72}, Text: true, Pages: pageRange{all: true}}
+	if err := textFiles(opts, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	if lines := strings.Split(strings.TrimSpace(stdout.String()), "\n"); len(lines) != 4 || !strings.HasSuffix(lines[1], "001-notes-table-2.csv") {
+		t.Fatalf("tables: %q", stdout.String())
 	}
 }

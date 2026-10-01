@@ -184,6 +184,8 @@ func deliver(opts options, i int, path string, r document.Result, ext string, da
 			suffix = fmt.Sprintf("-page-%d", r.Page)
 		case r.Kind == "xlsx" && r.Pages > 1:
 			suffix = fmt.Sprintf("-sheet-%d", r.Page)
+		case r.Kind == "grist" && r.Pages > 1:
+			suffix = fmt.Sprintf("-table-%d", r.Page)
 		}
 		target = filepath.Join(opts.OutputDir, fmt.Sprintf("%03d-%s%s%s", i+1, base, suffix, ext))
 	}

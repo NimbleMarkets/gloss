@@ -146,7 +146,7 @@ func SkipReason(err error) string {
 	if errors.As(err, &pathErr) {
 		reason = pathErr.Err.Error() // The message already names the path.
 	}
-	if errors.Is(err, ErrUnsupported) {
+	if errors.Is(err, ErrUnsupported) && !errors.Is(err, ErrNotGrist) {
 		reason = "unsupported format"
 	}
 	return reason

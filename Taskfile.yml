@@ -89,5 +89,7 @@ tasks:
     deps: [build-wasm-site]
     cmds: [python3 -m http.server 8000 --directory web/dist --bind 127.0.0.1]
   gen-assets:
-    desc: Regenerate the original PNG, HEIC, and PDF fixtures
-    cmds: [go run ./scripts/gen-assets]
+    desc: Regenerate the original PNG, HEIC, PDF, and Grist fixtures
+    cmds:
+      - go run ./scripts/gen-assets
+      - python3 scripts/gen-grist.py

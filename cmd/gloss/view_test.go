@@ -190,3 +190,34 @@ func TestInfoAsJSON(t *testing.T) {
 		t.Fatalf("%v %+v\n%s", err, pdf, stdout.String())
 	}
 }
+
+func TestInfoDescribesAGristDocument(t *testing.T) {
+	plain := "../../internal/document/testdata/plain.sqlite"
+	opts, _, _ := parse([]string{"--info", "--json", "../../examples/notes.grist", plain}, &bytes.Buffer{})
+	var stdout, stderr bytes.Buffer
+	if err := describe(opts, &stdout, &stderr); err == nil || !strings.Contains(err.Error(), "1 of 2") {
+		t.Fatalf("err = %v", err)
+	}
+	var files []struct {
+		Kind    string
+		Error   string
+		Details map[string]map[string]string
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &files); err != nil || len(files) != 2 {
+		t.Fatalf("%v\n%s", err, stdout.String())
+	}
+	doc, other := files[0], files[1]
+	if doc.Kind != "grist" || doc.Error != "" || !strings.HasPrefix(doc.Details["Grist document"]["Tables"], "Field sightings (4 rows × 11 columns), Sites (2 rows × 3 columns)") || doc.Details["Grist document"]["Not shown"] == "" {
+		t.Errorf("%+v", doc)
+	}
+	// Another database is refused for what it is, not as a broken document.
+	if other.Kind != "" || other.Error != "a SQLite database, but not a Grist document" {
+		t.Errorf("%+v", other)
+	}
+	// As text, and of the table asked for.
+	opts, _, _ = parse([]string{"--info", "-p", "2", "../../examples/notes.grist"}, &bytes.Buffer{})
+	stdout.Reset()
+	if err := describe(opts, &stdout, &stderr); err != nil || !strings.Contains(stdout.String(), "Grist document") || !strings.Contains(stdout.String(), "Schema version  46") {
+		t.Fatalf("%v\n%s", err, stdout.String())
+	}
+}

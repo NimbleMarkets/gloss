@@ -1,7 +1,7 @@
 # gloss
 
 A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF meshes, Markdown, HTML, plain
-text, JSON, Jupyter notebooks, Word, Excel, and CSV files.
+text, JSON, Jupyter notebooks, Word, Excel, Grist, and CSV files.
 Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 [NTCharts SVG](https://github.com/NimbleMarkets/ntcharts-svg),
 [NTCharts PDF](https://github.com/NimbleMarkets/ntcharts-pdf), and
@@ -15,7 +15,7 @@ Built in Go on [NTCharts](https://github.com/NimbleMarkets/ntcharts),
 
 The live terminal runs the actual Go pager using WebAssembly and Booba, with
 embedded samples, one of each kind: PNG, HEIC, SVG, a two-page PDF, the block-built GLOSS sculpture (STL), a
-three-part lantern (3MF), Markdown, a saved HTML page, plain text, JSONL, a notebook, Word, Excel, and CSV. Choose a format
+three-part lantern (3MF), Markdown, a saved HTML page, plain text, JSONL, a notebook, Word, Excel, Grist, and CSV. Choose a format
 or use the menu and preview pane. Click the terminal to focus its keyboard.
 The site's second page, [`app.html`](https://nimblemarkets.github.io/gloss/app.html),
 is gloss for your own files: drop them or open them with the browser's picker,
@@ -72,7 +72,7 @@ gloss ~/Pictures                 # browse a folder for a file to open
 
 Options use `pflag` GNU syntax and may appear before or after filenames. Both
 `--page=3` and `-p3` work; boolean short flags can be grouped (`-mP`). Use `--` to
-end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|text|markdown` overrides detection for all
+end option parsing. `--type image|svg|pdf|stl|3mf|docx|xlsx|grist|csv|json|ipynb|html|text|markdown` overrides detection for all
 inputs. Content detection supports extensionless files. A `-` reads stdin once
 into a temporary file, removed on exit; keyboard input comes from the controlling
 terminal. Interactive output must be a terminal; image export works in scripts.
@@ -106,7 +106,7 @@ gloss photo.png drawing.svg model.stl -mP
 | `m` | Open the file-selection menu |
 | `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
-| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page or sheet; next / previous file for other formats |
+| `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page, sheet, or Grist table; next / previous file for other formats |
 | `Home` / `End`, `G` | First / last PDF page |
 | Arrows, `h j k l` | Move about a spreadsheet by row and column |
 | `x`, `X` | Hide the column under the cursor / show every column |
@@ -179,8 +179,8 @@ and `Esc` comes back to the listing.
 
 `/`, likewise, searches the folder shown and those under it. Ask for globs
 (`*.png`, `report*`, `deep/*.pdf`), extensions (`png`), or kinds (`images`,
-`svg`, `pdf`, `docs`, `word`, `meshes`, `tables`, `excel`, `csv`, `markdown`,
-`html`, `text`, `json`, `notebooks`), several at once; names are matched
+`svg`, `pdf`, `docs`, `word`, `meshes`, `tables`, `excel`, `grist`, `csv`,
+`markdown`, `html`, `text`, `json`, `notebooks`), several at once; names are matched
 without regard to case. `Enter` searches, then opens the file under the
 cursor; `Ctrl-A` adds every match; `Esc` returns to the listing. A search is
 kept safe by its limits: hidden folders and links are not entered, folders
@@ -212,6 +212,7 @@ and modification time, followed by:
 | Markdown | Title, lines, words, headings, links, images |
 | Word | Title, author, dates, application, pages and words as Word counts them, headings, tables, images, links |
 | Excel | Sheets with their size, title, author, dates, application |
+| Grist | Tables with their size, time zone, schema version, what is not shown |
 | CSV | Separator, rows, columns |
 | JSON | Whether it is one value or lines of records, how many, the top-level kind and first keys |
 | Notebook | Format version, language, kernel, cells by kind, outputs, pictures |
@@ -505,6 +506,21 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   by their last result, and dates and times where a cell's style says so. Up to
   100,000 rows and 1,024 columns of a sheet are read; the rest are counted.
   Formatting, merged cells, charts, and pictures are not shown.
+- Grist (`.grist`): a Grist document is a SQLite database, and each of its
+  tables is shown as a sheet is, with `n` and `p` turning between tables. The
+  first row holds the columns' labels, and rows and columns stand in the order
+  Grist keeps them in; summary tables come after the others. Cells show what
+  is stored: formulas by their last result, as Grist saved it, and an error
+  by its name (`#TypeError`). Dates and times are written out, a reference
+  shows what Grist shows for it, or `Table[row]` where it shows the row,
+  lists are joined with commas, and attachments are named, not opened. A
+  hyperlink cell shows its words and leads to its address, as an Excel link
+  does. Row
+  ids, the positions rows are sorted by, Grist's helper columns, and a
+  summary's list of the rows behind each line are left out. Nothing is worked out anew: no formulas, access rules, widgets, or
+  number formats, and nothing is written. Up to 100,000 rows and 1,024
+  columns of a table are read. A document in SQLite's WAL mode is not read,
+  nor is any other SQLite database: gloss is not a database browser.
 - CSV (`.csv`, `.tsv`): shown as a sheet is. The separator is read from the
   file: a comma, tab, semicolon, or pipe, whichever the first lines agree on;
   a `.tsv` is read as tabs. Quoted values may hold the separator and line
@@ -515,7 +531,7 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   columns with those headers (or letters), and `--coln 2,4-6` those numbered
   so, in every table opened; a table with none of them is shown whole.
 - Web addresses in tables: a sheet has a cursor, and the status bar shows the
-  address a cell holds or, in Excel, links to. With `--fetch`, `Enter` on such
+  address a cell holds or, in Excel and Grist, links to. With `--fetch`, `Enter` on such
   a cell downloads what it names and opens it like a dropped file; a picture
   is shown as one, and `Esc` closes it and returns to the cell. Only http and
   https are fetched, of no more than 128 MiB, and only on `Enter`: gloss never
@@ -590,7 +606,8 @@ loading screen reports received bytes and compilation/startup stages.
 
 The Pages workflow builds for pull requests and deploys pushes to `main`.
 Set repository **Settings → Pages → Source → GitHub Actions** to enable hosting.
-The fixtures are original; `task gen-assets` regenerates PNG, HEIC, PDF, and the block-letter STL.
+The fixtures are original; `task gen-assets` regenerates PNG, HEIC, PDF, the block-letter STL, and, with
+`python3`, the Grist document, which is written by hand to Grist's layout rather than saved from Grist.
 
 ## License
 

@@ -142,7 +142,7 @@ func (m *Model) loadThumb(path string) tea.Cmd {
 
 // kindWord is what a tile says for a file that has no picture.
 func kindWord(kind string) string {
-	if word, ok := map[string]string{"ipynb": "notebook", "docx": "Word", "xlsx": "Excel", "csv": "CSV", "json": "JSON", "html": "HTML"}[kind]; ok {
+	if word, ok := map[string]string{"ipynb": "notebook", "docx": "Word", "xlsx": "Excel", "grist": "Grist", "csv": "CSV", "json": "JSON", "html": "HTML"}[kind]; ok {
 		return word
 	}
 	return kind

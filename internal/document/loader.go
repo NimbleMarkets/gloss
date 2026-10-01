@@ -31,20 +31,20 @@ const MaxPixels = 32 << 20
 
 // Extensions are the file extensions Detect accepts on their own. Content is
 // examined first, so a supported file need not carry one of them.
-var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".txt", ".text", ".log", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
+var Extensions = []string{".md", ".markdown", ".mdown", ".pdf", ".svg", ".stl", ".3mf", ".xlsx", ".xlsm", ".grist", ".docx", ".docm", ".csv", ".tsv", ".json", ".jsonl", ".ndjson", ".ipynb", ".html", ".htm", ".txt", ".text", ".log", ".heic", ".heif", ".hif", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff"}
 
 // Formats says, for people, what gloss opens: labelled lines, and a short
 // line for when there is no room for them.
 var Formats = []string{
 	"Images: PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC",
-	"Doc:    SVG, PDF, Word, Excel, Jupyter",
+	"Doc:    SVG, PDF, Word, Excel, Grist, Jupyter",
 	"Text:   Markdown, HTML, JSON, CSV, plain text and source",
 	"3D:     STL and 3MF meshes",
 }
 
-const FormatsShort = "Images, SVG, PDF, Word, Excel, Jupyter, Markdown, HTML, text, JSON, CSV, STL, 3MF"
+const FormatsShort = "Images, SVG, PDF, Word, Excel, Grist, Jupyter, Markdown, HTML, text, JSON, CSV, STL, 3MF"
 
-var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, CSV, or text")
+var ErrUnsupported = errors.New("unsupported format; expected an image, SVG, PDF, STL, 3MF, Markdown, HTML, JSON, a notebook, Word, Excel, Grist, CSV, or text")
 var ErrNotRegular = errors.New("not a regular file")
 var ErrDirectory = errors.New("is a directory")
 
@@ -91,6 +91,14 @@ func Probe(path, forced string) (string, error) {
 	if err != nil && bytes.HasPrefix(header, []byte("PK\x03\x04")) {
 		if archive, zipErr := zip.NewReader(f, info.Size()); zipErr == nil && opcKind(archive) != "" {
 			kind, err = opcKind(archive), nil
+		}
+	}
+	// A database keeps the list of its tables wherever it finds room for it.
+	if errors.Is(err, ErrNotGrist) && info.Size() > int64(len(header)) && info.Size() <= MaxFileBytes {
+		if _, seekErr := f.Seek(0, io.SeekStart); seekErr == nil {
+			if data, readErr := ReadLimited(f); readErr == nil && isGrist(data) {
+				kind, err = "grist", nil
+			}
 		}
 	}
 	if err != nil {
@@ -163,7 +171,16 @@ type Loader struct {
 	pdfVersion string
 	file       []Field
 	pages      int
-	book       *Workbook // Kept, like the PDF, for turning between sheets.
+	book       book   // Kept, like the PDF, for turning between sheets.
+	bookKind   string // xlsx or grist.
+}
+
+// book is a file of several sheets: a workbook's, or the tables of a Grist
+// document.
+type book interface {
+	Names() []string
+	Sheet(i int) (*Sheet, error)
+	fields() []Field
 }
 
 func (l *Loader) Close() error {
@@ -331,7 +348,16 @@ func (l *Loader) Load(q Request) (out Result) {
 			out.Err = err
 			return out
 		}
-		l.book, l.path, l.file = book, q.Path, file
+		l.book, l.bookKind, l.path, l.file = book, kind, q.Path, file
+		return l.turnSheet(q)
+	case "grist":
+		details = func() []Field { return Section("Grist document", Field{"Format", "Grist document"}) }
+		doc, err := OpenGrist(data)
+		if err != nil {
+			out.Err = err
+			return out
+		}
+		l.book, l.bookKind, l.path, l.file = doc, kind, q.Path, file
 		return l.turnSheet(q)
 	case "3mf":
 		model, err := Parse3MF(data)
@@ -424,7 +450,7 @@ func (l *Loader) renderPDF(q Request) Result {
 func (l *Loader) turnSheet(q Request) Result {
 	page := max(1, min(q.Page, len(l.book.Names())))
 	sheet, err := l.book.Sheet(page - 1)
-	out := Result{Generation: q.Generation, Kind: "xlsx", Page: page, Pages: len(l.book.Names()), Sheet: sheet, Err: err}
+	out := Result{Generation: q.Generation, Kind: l.bookKind, Page: page, Pages: len(l.book.Names()), Sheet: sheet, Err: err}
 	out.Info = append(append([]Field(nil), l.file...), describe(l.book.fields)...)
 	return out
 }
@@ -487,6 +513,15 @@ func Detect(path string, data []byte, forced string) (string, error) {
 			return opcKind(archive), nil
 		}
 	}
+	// A Grist document is a SQLite database; no other database is opened.
+	// One named .grist is taken at its word, and says what is wrong with it
+	// when it is read.
+	if bytes.HasPrefix(data, []byte(sqliteMagic)) {
+		if isGrist(data) || strings.EqualFold(filepath.Ext(path), ".grist") {
+			return "grist", nil
+		}
+		return "", ErrNotGrist
+	}
 	if _, format, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
 		return format, nil
 	}
@@ -525,6 +560,8 @@ func Detect(path string, data []byte, forced string) (string, error) {
 		return "3mf", nil
 	case ".xlsx", ".xlsm":
 		return "xlsx", nil
+	case ".grist":
+		return "grist", nil
 	case ".csv", ".tsv":
 		return "csv", nil
 	case ".json", ".jsonl", ".ndjson":

@@ -215,6 +215,16 @@ func TestSheetsTurnLikePages(t *testing.T) {
 	if m.page != 1 {
 		t.Fatal("p did not turn back")
 	}
+	// The tables of a Grist document turn as sheets do, and are called tables.
+	m.Update(document.Result{Generation: m.generation, Kind: "grist", Page: 2, Pages: 3, Sheet: &document.Sheet{Name: "Sites", Rows: [][]string{{"Site name"}, {"Reed Marsh"}}, Columns: 1}})
+	if view := ansi.Strip(m.View().Content); !strings.Contains(view, "grist · table 2/3 · Sites") || !strings.Contains(view, "n/p tables") {
+		t.Fatalf("a Grist table:\n%s", view)
+	}
+	m.Update(press("n"))
+	if !m.loading || m.page != 3 {
+		t.Fatalf("n over a Grist table: loading=%v page=%d", m.loading, m.page)
+	}
+	m.Update(document.Result{Generation: m.generation, Kind: "xlsx", Page: 1, Pages: 3, Sheet: table(3, 3)})
 	// A sheet that says more rows were left unread says so.
 	partial := &document.Sheet{Name: "Big", Rows: [][]string{{"a"}}, Columns: 1, MoreRows: 5000}
 	m.Update(document.Result{Generation: m.generation, Kind: "xlsx", Page: 1, Pages: 3, Sheet: partial})

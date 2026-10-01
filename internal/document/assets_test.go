@@ -49,6 +49,10 @@ func TestEmbeddedGallery(t *testing.T) {
 				if r.Sheet == nil || r.Pages != 2 || r.Sheet.Name != "Sales" || len(r.Sheet.Rows) != 9 {
 					t.Fatalf("sheet=%+v pages=%d", r.Sheet, r.Pages)
 				}
+			case "grist":
+				if r.Sheet == nil || r.Pages != 4 || r.Sheet.Name != "Field sightings" || len(r.Sheet.Rows) != 5 {
+					t.Fatalf("sheet=%+v pages=%d", r.Sheet, r.Pages)
+				}
 			case "csv":
 				if r.Sheet == nil || len(r.Sheet.Rows) != 9 || r.Sheet.Columns != 5 {
 					t.Fatalf("sheet=%+v", r.Sheet)

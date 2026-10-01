@@ -272,7 +272,11 @@ func (m *Model) layoutMarkdown() tea.Cmd {
 }
 
 // paged reports whether n and p turn pages, or sheets, rather than files.
-func (m *Model) paged() bool { return m.kind == "pdf" || m.kind == "xlsx" }
+func (m *Model) paged() bool { return m.kind == "pdf" || m.booked() }
+
+// booked reports whether the file is one of several sheets: a workbook, or
+// the tables of a Grist document.
+func (m *Model) booked() bool { return m.kind == "xlsx" || m.kind == "grist" }
 
 func (m *Model) movePage(page int) tea.Cmd {
 	if !m.paged() {

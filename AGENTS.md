@@ -3,7 +3,8 @@
 ## What gloss is
 
 A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF
-meshes, Markdown, HTML, JSON, Jupyter notebooks, Word, Excel, and CSV files.
+meshes, Markdown, HTML, JSON, Jupyter notebooks, Word, Excel, Grist, and CSV
+files.
 Written in Go (module `github.com/NimbleMarkets/gloss`, Go 1.26.8+) on Bubble
 Tea, NTCharts, NTCharts SVG, NTCharts PDF, and NTCharts3d. The README is the
 user-facing reference; keep it and this file consistent with the code.
@@ -20,7 +21,7 @@ user-facing reference; keep it and this file consistent with the code.
 - `examples`: small original runnable fixtures; `examples/demo` is a separate
   Go module pinning the Bubble Tea WASM fork used by the NTCharts demos.
 - `scripts`: release packaging (`release.sh`, `build-site.sh`) and fixture
-  generation (`gen-assets`).
+  generation (`gen-assets`, `gen-grist.py`).
 
 ## Capabilities
 
@@ -50,6 +51,11 @@ current limits" section):
 - **Word** (.docx/.docm): converted to Markdown.
 - **Excel** (.xlsx/.xlsm): sheets as scrollable grids (`n`/`p` switch sheets);
   values, formula results, styled dates.
+- **Grist** (.grist): a SQLite database read in pure Go (no CGO, and in the
+  browser demo) through `github.com/neomantra/sqlittle`; user tables as
+  sheets (`n`/`p` switch tables) with labels as headers, in Grist's row and
+  column order. Stored values only: no formula evaluation, access rules, or
+  writing. Other SQLite databases are refused.
 - **CSV/TSV**: separator auto-detected; shown like a sheet. Table columns can
   be hidden interactively or via `--cols`/`--coln`.
 - **Fetching** (opt-in `--fetch`): `Enter` on a table cell holding an http(s)
@@ -95,7 +101,8 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
   demo site (Node 18+ for `web-check`).
 - `task release VERSION=vX.Y.Z` — packages macOS/Linux amd64/arm64 archives
   into `dist/` (pushing a `v*` tag publishes them via GitHub Actions).
-- `task gen-assets` — regenerates the original PNG/HEIC/PDF/STL fixtures.
+- `task gen-assets` — regenerates the original PNG/HEIC/PDF/STL fixtures, and
+  the Grist ones (needs `python3`).
 
 Version is stamped via `-ldflags "-X main.version=$VERSION"`. Dependencies are
 pinned in `go.mod`; builds use `-mod=readonly`.

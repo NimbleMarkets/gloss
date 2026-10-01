@@ -21,8 +21,8 @@ instead. Diagnostics go to stderr. Exit status 1 means at least one input
 failed; the rest were still done.
 
 It handles PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF, STL, 3MF,
-Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, and
-CSV. One binary, no external converters, no CGO. Inputs are limited to 128 MiB.
+Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, Grist
+documents, and CSV. One binary, no external converters, no CGO. Inputs are limited to 128 MiB.
 
 ## 1. Read a file: `--text`
 
@@ -44,7 +44,7 @@ gloss --text --json notes.txt batch.jsonl    # [{"path","kind","text"}, …]
 | Markdown | as it is |
 | plain text, source | as it is, unfenced |
 | JSON, JSONL | pretty-printed, records one after another |
-| Excel, CSV | CSV of the sheet (`--page` picks the sheet) |
+| Excel, Grist, CSV | CSV of the sheet or table (`--page` picks which) |
 | image, SVG, PDF, mesh | *no text*: an error saying to use `--output` |
 
 One text goes to stdout; for several inputs use `--output-dir` (paths are
@@ -85,9 +85,9 @@ cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
   page with `path`, `kind`, `page`, `pages`, `output`, `width`, `height`, and
   `error` where one failed. Prefer it over parsing stderr.
 - SVG and PDF are rasterized at the requested size.
-- `--type image|svg|pdf|stl|3mf|docx|xlsx|csv|json|ipynb|html|text|markdown`
+- `--type image|svg|pdf|stl|3mf|docx|xlsx|grist|csv|json|ipynb|html|text|markdown`
   forces the format for extensionless files or stdin.
-- Markdown, plain text, and tables (Excel, CSV) cannot be exported as PNG:
+- Markdown, plain text, and tables (Excel, Grist, CSV) cannot be exported as PNG:
   read their text directly, or use `--info`.
 
 ### Many files at once: `--glob`
@@ -104,7 +104,7 @@ gloss --glob 'report*' --glob pdf --info ~/Documents
 ```
 
 Kinds: `images`, `svg`, `pdf`, `docs`, `word`, `meshes`, `tables`, `excel`,
-`csv`, `markdown`, `html`, `text`, `json`, `notebooks`.
+`grist`, `csv`, `markdown`, `html`, `text`, `json`, `notebooks`.
 
 ### Meshes (STL, 3MF): several views beat one big view
 
@@ -193,5 +193,5 @@ anywhere. Say that when you send the link.
 - Don't parse or convert files yourself when gloss can show them: an exported
   PNG plus `--info --json` is usually cheaper and more accurate than a
   hand-rolled extractor.
-- Markdown, plain text, and tables (Excel/CSV) are for `--text`, not for a
+- Markdown, plain text, and tables (Excel/Grist/CSV) are for `--text`, not for a
   picture; gloss refuses to export them as PNG by design.

@@ -51,7 +51,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.SetOutput(out)
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
-	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, markdown (or md)")
+	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown (or md)")
 	page := f.StringP("page", "p", "1", "PDF page or workbook sheet, from 1; for an export or text into a folder, a range such as 2-5, or all")
 	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, CSV of a sheet, text and JSON as they are")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
@@ -107,8 +107,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if opts.Type == "md" {
 		opts.Type = "markdown"
 	}
-	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "csv", "json", "ipynb", "html", "text", "markdown"}, opts.Type) {
-		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, csv, json, ipynb, html, text, or markdown")
+	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "grist", "csv", "json", "ipynb", "html", "text", "markdown"}, opts.Type) {
+		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, or markdown")
 	}
 	pages, err := parsePages(*page)
 	if err != nil {

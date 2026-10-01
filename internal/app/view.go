@@ -278,8 +278,11 @@ func (m *Model) detail(w, h int) string {
 		detail = fmt.Sprintf("%s · %s · line %d/%d", format, mode, min(m.markdown.offset+1, len(m.markdown.lines)), len(m.markdown.lines))
 	case m.sheet != nil:
 		detail = fmt.Sprintf("%s · %s", m.kind, m.sheet.status(w, h))
-		if m.kind == "xlsx" {
+		switch m.kind {
+		case "xlsx":
 			detail = fmt.Sprintf("xlsx · sheet %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
+		case "grist":
+			detail = fmt.Sprintf("grist · table %d/%d · %s · %s", m.page, m.pages, safe(m.sheet.sheet.Name), m.sheet.status(w, h))
 		}
 	case m.kind == "3mf":
 		// Too large to draw, or a preview: the picture the file carries.
@@ -312,7 +315,10 @@ func (m *Model) hints() string {
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	case m.sheet != nil:
 		keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p sheets · c columns · i info"
-		if m.kind != "xlsx" {
+		switch {
+		case m.kind == "grist":
+			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p tables · c columns · i info"
+		case !m.booked():
 			keys = " q quit · m files · ↑/↓ ←/→ move · Space/b page · n/p files · c columns · i info"
 		}
 		if m.sheet.url() != "" && m.opts.Fetch != nil {
