@@ -2117,7 +2117,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## github.com/neomantra/sqlittle v0.0.0-20261001014930-54f8f646d38f
+## github.com/neomantra/sqlittle v0.0.0-20261001025832-4a4bc3e212fa
 
 ```
 MIT License

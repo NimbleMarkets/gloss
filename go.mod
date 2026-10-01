@@ -20,7 +20,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/gen2brain/h265 v0.2.3
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
-	github.com/neomantra/sqlittle v0.0.0-20261001014930-54f8f646d38f
+	github.com/neomantra/sqlittle v0.0.0-20261001025832-4a4bc3e212fa
 	github.com/spf13/pflag v1.0.10
 	github.com/yuin/goldmark v1.8.2
 	golang.org/x/image v0.46.0
