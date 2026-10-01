@@ -59,7 +59,9 @@ current limits" section):
 - **CSV/TSV**: separator auto-detected; shown like a sheet. Table columns can
   be hidden interactively or via `--cols`/`--coln`.
 - **Fetching** (opt-in `--fetch`): `Enter` on a table cell holding an http(s)
-  address downloads and opens it; gloss never fetches on its own.
+  address downloads and opens it; gloss never fetches on its own. Such cells
+  are marked 🔗 and drawn as terminal hyperlinks (OSC 8), so the terminal,
+  not gloss, opens them in a browser when clicked.
 
 Key viewer features: Kitty graphics with colored half-block glyph fallback;
 alternate screen by default, `-X` for main screen; file menu (`--menu`),

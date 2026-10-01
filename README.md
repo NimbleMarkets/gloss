@@ -530,8 +530,12 @@ on stderr. Export works without a TTY and cannot be combined with menu flags.
   letters, and one column always stays. `--cols Name,City` shows only the
   columns with those headers (or letters), and `--coln 2,4-6` those numbered
   so, in every table opened; a table with none of them is shown whole.
-- Web addresses in tables: a sheet has a cursor, and the status bar shows the
-  address a cell holds or, in Excel and Grist, links to. With `--fetch`, `Enter` on such
+- Web addresses in tables: a cell that holds an address or, in Excel and
+  Grist, links to one is marked 🔗, and is a link to the terminal as well:
+  click it as your terminal has links clicked (often with Cmd, Ctrl, or
+  Shift held, since gloss takes plain clicks) and the terminal opens it in
+  your browser. gloss itself starts no browser. A sheet has a cursor, and the
+  status bar shows the address under it. With `--fetch`, `Enter` on such
   a cell downloads what it names and opens it like a dropped file; a picture
   is shown as one, and `Esc` closes it and returns to the cell. Only http and
   https are fetched, of no more than 128 MiB, and only on `Enter`: gloss never

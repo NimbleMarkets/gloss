@@ -144,6 +144,21 @@ func TestSheetOpensTheAddressUnderTheCursor(t *testing.T) {
 	}}, "")
 	m.Update(document.Result{Generation: m.generation, Kind: "csv", Page: 1, Pages: 1, Sheet: sheet})
 	send(m, press("j"), press("l"))
+	// A cell with an address wears a mark; the others do not.
+	if lines := plain(m); !strings.Contains(lines[2], "fern") || !strings.Contains(lines[2], "🔗 https://example.com/") || strings.Contains(lines[1], "🔗") || strings.Contains(lines[3], "🔗") {
+		t.Fatalf("link marks:\n%s", strings.Join(lines[:4], "\n"))
+	}
+	// It is a link to the terminal too, which opens it when it is clicked;
+	// every link opened is closed, however narrow the window cuts the row.
+	for _, width := range []int{100, 24, 12} {
+		m.Update(tea.WindowSizeMsg{Width: width, Height: 30})
+		view := m.View().Content
+		opened, closed := strings.Count(view, ansi.SetHyperlink("https://example.com/fern.png")), strings.Count(view, ansi.ResetHyperlink())
+		if opened > 1 || opened != closed || (width == 100 && opened != 1) {
+			t.Fatalf("at %d wide: %d links opened, %d closed:\n%q", width, opened, closed, view)
+		}
+	}
+	m.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
 	if status := plain(m)[len(plain(m))-2]; !strings.Contains(status, "cell B2") || !strings.Contains(status, "→ https://example.com/fern.png") {
 		t.Fatalf("status: %s", status)
 	}

@@ -39,7 +39,7 @@ func newSheetView(s *document.Sheet) *sheetView {
 		v.widths[c] = max(minColumnWidth, len(document.ColumnName(c)))
 		for r := 0; r < min(len(s.Rows), 200); r++ {
 			if c < len(s.Rows[r]) {
-				v.widths[c] = max(v.widths[c], min(maxColumnWidth, ansi.StringWidth(s.Rows[r][c])))
+				v.widths[c] = max(v.widths[c], min(maxColumnWidth, ansi.StringWidth(linked(s, r, c, s.Rows[r][c]))))
 			}
 		}
 	}
@@ -212,17 +212,33 @@ func (v *sheetView) view(w, h int) string {
 		for p, c := range v.cols[v.col : v.col+n] {
 			cell := ""
 			if c < len(row) {
-				cell = safe(row[c])
+				cell = linked(v.sheet, r, c, safe(row[c]))
 			}
 			cell = fit(cell, v.widths[c])
 			if r == v.at[0] && v.col+p == v.at[1] {
 				cell = mark.Render(cell)
+			}
+			// The terminal opens the address when the cell is clicked as
+			// its links are; gloss itself opens nothing.
+			if url := safe(v.sheet.URL(r, c)); url != "" {
+				cell = ansi.SetHyperlink(url) + cell + ansi.ResetHyperlink()
 			}
 			line += " " + cell
 		}
 		lines = append(lines, ansi.Truncate(line, w, ""))
 	}
 	return strings.Join(lines, "\n")
+}
+
+// linkMark stands before a cell that holds or leads to a web address.
+const linkMark = "🔗 "
+
+// linked marks the text of a cell that has an address to open.
+func linked(s *document.Sheet, row, col int, text string) string {
+	if s.URL(row, col) != "" {
+		return linkMark + text
+	}
+	return text
 }
 
 // fit pads or cuts text to width cells; a number is set to the right.
