@@ -44,6 +44,12 @@ tasks:
   vet:
     desc: Run Go static checks
     cmds: [go vet -mod=readonly ./...]
+  staticcheck:
+    desc: Run staticcheck
+    cmds: [go run honnef.co/go/tools/cmd/staticcheck@latest ./...]
+  vulncheck:
+    desc: Check the modules linked for known vulnerabilities
+    cmds: [go run golang.org/x/vuln/cmd/govulncheck@latest ./...]
   ci:
     desc: Run the same checks as GitHub Actions
     cmds:
@@ -52,6 +58,8 @@ tasks:
       - task: go-verify
       - task: test-race
       - task: vet
+      - task: staticcheck
+      - task: vulncheck
       - task: build
       - task: notices-check
       - task: docs-check

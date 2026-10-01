@@ -30,10 +30,9 @@ func (m *Model) listing() bool { return m.screen == screenList || m.screen == sc
 
 func (m *Model) browsing() bool { return m.screen == screenBrowser }
 
-func (m *Model) pickingColumns() bool { return m.layer == layerColumns && m.sheet != nil }
-func (m *Model) pickingParts() bool   { return m.layer == layerParts && m.chart != nil }
-func (m *Model) pickingColor() bool   { return m.layer == layerColor && m.chart != nil }
-func (m *Model) showingInfo() bool    { return m.layer == layerInfo }
+func (m *Model) pickingParts() bool { return m.layer == layerParts && m.chart != nil }
+func (m *Model) pickingColor() bool { return m.layer == layerColor && m.chart != nil }
+func (m *Model) showingInfo() bool  { return m.layer == layerInfo }
 
 // closeLayer takes down whatever floats over the document, undoing a
 // color still being chosen.

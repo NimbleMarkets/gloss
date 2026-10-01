@@ -124,15 +124,31 @@ func loadMarkdownFrom(path string, data []byte, baseDir string, files fs.FS) (*M
 			}
 			cache[dest] = asset
 		}
-		asset.Alt = string(img.Text(md.Source))
+		asset.Alt = inlineText(img, md.Source)
 		md.Images = append(md.Images, asset)
 		return ast.WalkSkipChildren, nil
 	})
 	return md, nil
 }
 
-func localMarkdownPath(base, destination string) (string, error) {
-	return localMarkdownPathFrom(base, destination, nil)
+// inlineText is the text of a node's inline children, what the deprecated
+// ast.BaseNode.Text gathered.
+func inlineText(n ast.Node, source []byte) string {
+	var b strings.Builder
+	for c := n.FirstChild(); c != nil; c = c.NextSibling() {
+		switch t := c.(type) {
+		case *ast.Text:
+			b.Write(t.Value(source))
+			if t.SoftLineBreak() {
+				b.WriteByte('\n')
+			}
+		case *ast.String:
+			b.Write(t.Value)
+		default:
+			b.WriteString(inlineText(c, source))
+		}
+	}
+	return b.String()
 }
 
 func localMarkdownPathFrom(base, destination string, files fs.FS) (string, error) {
