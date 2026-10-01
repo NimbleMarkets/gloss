@@ -26,7 +26,7 @@ func (m *Model) infoBox(w, h int) string {
 		}
 	}
 	text := boxText
-	heading, label := text.Bold(true).Foreground(lipgloss.Color("231")), boxDim
+	heading, label := text.Bold(true).Foreground(lipgloss.Color(colorNimbleYellow)), boxDim
 	var lines []string
 	for _, f := range fields {
 		if f.Value == "" {
@@ -106,9 +106,9 @@ func (m *Model) terminalFields() []document.Field {
 
 // The corner boxes' colours: a shade, plain text on it, and dim text.
 var (
-	boxShade = lipgloss.Color("235")
-	boxText  = lipgloss.NewStyle().Background(boxShade).Foreground(lipgloss.Color("252"))
-	boxDim   = boxText.Foreground(lipgloss.Color("245"))
+	boxShade = lipgloss.Color(colorNimblePurpleDark)
+	boxText  = lipgloss.NewStyle().Background(boxShade).Foreground(lipgloss.Color(colorNimbleText))
+	boxDim   = boxText.Foreground(lipgloss.Color(colorNimbleDim))
 )
 
 // box frames styled lines as a shaded corner box, each padded to the widest.
@@ -121,7 +121,7 @@ func box(lines []string) string {
 	for i, line := range lines {
 		lines[i] = line + text.Render(strings.Repeat(" ", width-lipgloss.Width(line)))
 	}
-	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("244")).BorderBackground(shade).
+	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(frameColor).BorderBackground(shade).
 		Background(shade).Padding(0, 1).Render(strings.Join(lines, "\n"))
 }
 

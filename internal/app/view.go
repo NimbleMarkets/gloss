@@ -126,6 +126,7 @@ func (m *Model) emptyView(w int) string {
 	long := lipgloss.NewStyle().Width(lipgloss.Width(strings.Join(document.Formats, "\n"))).Render(strings.Join(document.Formats, "\n\n"))
 	short := lipgloss.NewStyle().Width(w).Align(lipgloss.Center).Render(document.FormatsShort)
 	name, gap := strings.Join(banner, "\n"), "\n\n\n"
+	art := bannerStyle.Render(name)
 	room := func(extra int) bool { return h >= len(banner)+2+lines+extra }
 	switch {
 	case w < lipgloss.Width(name) || h < len(banner):
@@ -136,13 +137,13 @@ func (m *Model) emptyView(w int) string {
 		}
 		return "GLOSS"
 	case room(3 + strings.Count(long, "\n") + 1):
-		return name + gap + body + gap + long
+		return art + gap + body + gap + long
 	case room(3 + 1):
-		return name + gap + body + gap + short
+		return art + gap + body + gap + short
 	case room(0):
-		return name + gap + body
+		return art + gap + body
 	}
-	return name
+	return art
 }
 
 // tiny stands in for the whole screen where the banner will not fit.
@@ -264,7 +265,7 @@ func (m *Model) documentStatus(w, h int) (bar, hint string) {
 			status += " · " + m.note
 		}
 	}
-	bar = lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236")).Width(w).Render(ansi.Truncate(status, w, "…"))
+	bar = statusStyle.Width(w).Render(ansi.Truncate(status, w, "…"))
 	return bar, ansi.Truncate(m.hints(), w, "")
 }
 
