@@ -1,5 +1,10 @@
 # `gloss` CHANGELOG
 
+## Unreleased
+
+  * `gloss --skill` prints the skill that teaches agents to use gloss, so an
+    installed binary can write out `SKILL.md` for the version it is
+
 ## `v0.1.0` (2026-10-01)
 
 The first release, to be tagged `v0.1.0`.  Happy Hacktober!

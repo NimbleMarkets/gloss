@@ -320,6 +320,17 @@ Documents are limited to 2 MiB of UTF-8 and 32 image references, with a combined
 1600 pixels. Markdown PNG export is not supported: send Markdown text directly
 to a model and export individual images when needed.
 
+## For agents
+
+[`skills/gloss/SKILL.md`](skills/gloss/SKILL.md) teaches an agent gloss's
+headless surface: export, `--text`, `--info`, `--pick`, and `--serve`. The
+binary carries it, so it always matches the flags it was built with:
+
+```sh
+gloss --skill                 # print the skill
+gloss --skill > SKILL.md      # install it where your agent looks for skills
+```
+
 ## Images for vision models
 
 Export PNGs without opening a terminal UI. The default maximum edge is **1536
