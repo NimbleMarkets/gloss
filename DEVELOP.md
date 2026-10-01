@@ -32,7 +32,7 @@ go build -ldflags '-X main.version=0.1.0' -o gloss ./cmd/gloss
 
 ```sh
 task test
-task ci                         # formatting, modules, race tests, vet, build, notices, docs
+task ci                         # formatting, modules, race tests, vet (also for Windows), build, notices, docs
 ```
 
 Tests cover CLI validation, malformed files, STL geometry, PDF rendering and
@@ -42,7 +42,8 @@ fixtures; `task gen-assets` regenerates the PNG, HEIC, PDF, the block-letter
 STL, and, with `python3`, the Grist document, which is written by hand to
 Grist's layout rather than saved from Grist.
 
-GitHub Actions runs `task ci` on Linux and macOS for pushes and pull requests.
+GitHub Actions runs `task ci` on Linux and macOS for pushes and pull requests. Windows is only
+cross-compiled and vetted (`task cross-windows`), not tested.
 
 ## Layout
 

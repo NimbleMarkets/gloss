@@ -44,6 +44,13 @@ tasks:
   vet:
     desc: Run Go static checks
     cmds: [go vet -mod=readonly ./...]
+  cross-windows:
+    desc: Compile and vet for Windows, which CI does not run on (the release ships it)
+    env:
+      GOOS: windows
+    cmds:
+      - go build -mod=readonly -o /dev/null ./...
+      - go vet -mod=readonly ./...
   staticcheck:
     desc: Run staticcheck
     cmds: [go run honnef.co/go/tools/cmd/staticcheck@latest ./...]
@@ -58,6 +65,7 @@ tasks:
       - task: go-verify
       - task: test-race
       - task: vet
+      - task: cross-windows
       - task: staticcheck
       - task: vulncheck
       - task: build
