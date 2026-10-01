@@ -7,7 +7,9 @@ meshes, Markdown, HTML, JSON, Jupyter notebooks, Word, Excel, Grist, and CSV
 files.
 Written in Go (module `github.com/NimbleMarkets/gloss`, Go 1.26.8+) on Bubble
 Tea, NTCharts, NTCharts SVG, NTCharts PDF, and NTCharts3d. The README is the
-user-facing reference; keep it and this file consistent with the code.
+short introduction; the user reference is the guide on the documentation site
+(`docs/hugo/content/guide`); DEVELOP.md is for working on gloss. Keep them and
+this file consistent with the code.
 
 ## Repository layout
 
@@ -21,16 +23,17 @@ user-facing reference; keep it and this file consistent with the code.
 - `examples`: small original runnable fixtures; `examples/demo` is a separate
   Go module pinning the Bubble Tea WASM fork used by the NTCharts demos.
 - `docs/hugo`: the documentation site (Hugo, hugo-book theme as a submodule),
-  published at `/docs/` beside the demo. Only `hugo.toml` and the home page are
-  written by hand; `content/command` and `content/guide` are generated and
-  ignored.
+  published at `/docs/` beside the demo. The guide pages (`content/guide`) are
+  written by hand, except *For LLMs* and *Development*, which are generated
+  from the skill and DEVELOP.md; `content/command` is generated from the
+  options. Generated pages are ignored.
 - `scripts`: site building (`build-site.sh`) and fixture
   generation (`gen-assets`, `gen-grist.py`).
 
 ## Capabilities
 
-Supported inputs (with per-format limits detailed in the README "Formats and
-current limits" section):
+Supported inputs (with per-format limits detailed in the guide's "Formats and
+limits" page, `docs/hugo/content/guide/formats.md`):
 
 - **Images**: PNG, JPEG, GIF, WebP, BMP, TIFF (first frame, up to 32 MP) and
   HEIC/HEIF via a pure-Go HEVC decoder — no CGO or external converters.
@@ -112,7 +115,7 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
   `test-race`, `vet`, `build`. Run this before considering work done.
 - `task docs` — the `gloss(1)` man page (`docs/man`), the command reference
   (`gloss --docs-man`/`--docs-markdown --docs-hugo`, hidden options) and the
-  guide pages (`internal/tools/docsite`, cut from README.md and
+  two guide pages (`internal/tools/docsite`, from DEVELOP.md and
   skills/gloss/SKILL.md). `docs:hugo:serve` / `docs:hugo:build` need `hugo`
   (extended); `docs-check` runs in `task ci` and needs no Hugo.
 - `task demo` / `task demo-check` — embedded gallery and its separate module.
@@ -142,10 +145,12 @@ pinned in `go.mod`; builds use `-mod=readonly`.
   in `cmd/gloss/domains.go` (the clusters the man page and reference are grouped
   by); a new option without one fails the tests. Each domain's examples may only
   use real options.
-- The guide pages on the site are generated from the README's `##` sections
-  (and the skill): edit the README, keep every section placed in
-  `internal/tools/docsite`, and do not hand-edit `docs/hugo/content/guide` or
-  `content/command`.
+- Keep the README short and direct; anything for developers goes in DEVELOP.md.
+  User-facing detail (keys, formats and limits, export, handing files over)
+  belongs in the guide, `docs/hugo/content/guide`: a new page needs a title and
+  weight and a link from the guide's `_index.md` (a test checks). Do not
+  hand-edit the generated pages: `content/command`, `guide/development.md`,
+  `guide/for-llms.md`.
 - Fixtures in `examples/` are original; do not add third-party sample files
   without checking licensing (see `THIRD_PARTY_NOTICES.md`).
 - `skills/gloss/SKILL.md` teaches external agents gloss's headless surface

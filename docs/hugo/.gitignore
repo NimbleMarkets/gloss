@@ -3,7 +3,8 @@
 /resources
 
 # Written by `task docs:md:build`: the command reference from gloss's options,
-# and the guide from the README and skill. Edit those, not these.
+# and two guide pages, from DEVELOP.md and the skill. Edit those, not these.
 /content/command/
-/content/guide/
+/content/guide/development.md
+/content/guide/for-llms.md
 /.hugo_build.lock

@@ -106,18 +106,19 @@ tasks:
       - docs/man/gloss.1
     cmds: [go run ./cmd/gloss --docs-man docs/man]
   docs:md:build:
-    desc: Generate the command reference and the guide pages for Hugo
+    desc: Generate the command reference, and the guide pages made from DEVELOP.md and the skill
     sources:
       - cmd/gloss/*.go
       - internal/document/*.go
       - internal/tools/docsite/*.go
-      - README.md
+      - DEVELOP.md
       - skills/gloss/SKILL.md
       - go.mod
       - go.sum
     generates:
       - docs/hugo/content/command/_index.md
-      - docs/hugo/content/guide/_index.md
+      - docs/hugo/content/guide/development.md
+      - docs/hugo/content/guide/for-llms.md
     cmds:
       - go run ./cmd/gloss --docs-markdown docs/hugo/content/command --docs-hugo
       - go run ./internal/tools/docsite -o docs/hugo/content/guide
@@ -133,7 +134,7 @@ tasks:
     cmds: ['hugo --minify {{.CLI_ARGS}}']
   docs:clean:
     desc: Remove what the docs tasks generate
-    cmds: [rm -rf docs/man docs/hugo/content/command docs/hugo/content/guide docs/hugo/public docs/hugo/resources]
+    cmds: [rm -rf docs/man docs/hugo/content/command docs/hugo/content/guide/development.md docs/hugo/content/guide/for-llms.md docs/hugo/public docs/hugo/resources]
   docs-check:
     desc: Check that the man page and the reference can be generated from the options
     cmds:
