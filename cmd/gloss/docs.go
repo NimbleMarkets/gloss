@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/spf13/pflag"
 )
 
@@ -253,7 +254,7 @@ func manPage(f *pflag.FlagSet) string {
 	for _, s := range exitStatus {
 		fmt.Fprintf(&b, ".TP\n\\fB%s\\fR\n%s\n", s[0], roffMarkup(s[1]))
 	}
-	b.WriteString(".SH SEE ALSO\nThe controls of the viewer are listed by \\fB?\\fR in it, and the guide is at https://nimblemarkets.github.io/gloss/docs/\n")
+	b.WriteString(".SH SEE ALSO\nThe controls of the viewer are listed by \\fB?\\fR in it, and the guide is at " + app.DocsURL + "\n")
 	b.WriteString(".SH AUTHOR\nNeomantra Corp. gloss is released under the MIT license.\n")
 	return b.String()
 }

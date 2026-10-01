@@ -3,6 +3,7 @@ package app
 import (
 	"image"
 	"image/color"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -147,5 +148,24 @@ func TestRTogglesMeshRotationAtOnce(t *testing.T) {
 	m.Update(press("r"))
 	if m.chart.Camera().AutoRotate {
 		t.Fatal("a second r did not stop rotation")
+	}
+}
+
+// The help ends on the address of the documentation, as a hyperlink.
+func TestHelpLinksToTheDocs(t *testing.T) {
+	m := New(Options{Files: []string{"a.png"}, Render: "glyph", Page: 1})
+	defer m.Close()
+	m.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	m.Update(press("?"))
+	view := m.View().Content
+	link := ansi.SetHyperlink(DocsURL) + DocsURL + ansi.ResetHyperlink()
+	if !strings.Contains(view, link) {
+		t.Fatalf("no hyperlink to %s in the help:\n%q", DocsURL, view)
+	}
+	// It is a line of the help itself, above the status bar, and the screen still fits.
+	lines := strings.Split(ansi.Strip(view), "\n")
+	at := slices.IndexFunc(lines, func(l string) bool { return strings.Contains(l, DocsURL) })
+	if at < 0 || at >= len(lines)-2 || len(lines) > 24 {
+		t.Fatalf("the docs are on line %d of %d:\n%s", at, len(lines), strings.Join(lines, "\n"))
 	}
 }

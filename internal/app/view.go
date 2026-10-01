@@ -48,7 +48,7 @@ func (m *Model) body(w, h int) (string, tea.MouseMode) {
 	plain := true // Cut to the viewport; graphics keep their escapes whole.
 	switch {
 	case m.help:
-		body = helpText
+		body = helpScreen()
 	case m.screen == screenBrowser:
 		body = m.opener.view()
 	case len(m.opts.Files) == 0:
@@ -105,8 +105,17 @@ const helpText = "gloss — a visual pager\n\n" +
 	"C / B          mesh color / background color\n" +
 	"Drop files on the terminal to add them\n" +
 	"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
-	"Markdown: arrows/wheel scroll, Space/b page, s source\n\n" +
-	"gloss --help lists the command-line options\n"
+	"Markdown: arrows/wheel scroll, Space/b page, s source\n\n"
+
+// DocsURL is the documentation site.
+const DocsURL = "https://nimblemarkets.github.io/gloss/docs/"
+
+// helpScreen is the help, ending on a line that points at the documentation:
+// the address is a hyperlink where the terminal makes them, as the addresses in
+// a table are, and plain text, which many terminals link anyway, where not.
+func helpScreen() string {
+	return helpText + "gloss --help lists options. Docs: " + ansi.SetHyperlink(DocsURL) + DocsURL + ansi.ResetHyperlink() + "\n"
+}
 
 // emptyView is the drop target shown before any file, and what it opens.
 func (m *Model) emptyView(w int) string {

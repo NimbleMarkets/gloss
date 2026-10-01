@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/spf13/pflag"
 )
 
@@ -198,5 +199,22 @@ func TestExamplesNameRealOptions(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestHelpPointsAtTheDocs(t *testing.T) {
+	var out bytes.Buffer
+	if _, done, err := parse([]string{"--help"}, &out); err != nil || !done {
+		t.Fatalf("done=%v err=%v", done, err)
+	}
+	if !strings.Contains(out.String(), "Documentation: "+app.DocsURL) {
+		t.Fatalf("--help does not name the docs:\n%s", out.String())
+	}
+	dir := t.TempDir()
+	if _, _, err := parse([]string{"--docs-man", dir}, &out); err != nil {
+		t.Fatal(err)
+	}
+	if man, err := os.ReadFile(filepath.Join(dir, "gloss.1")); err != nil || !strings.Contains(string(man), app.DocsURL) {
+		t.Fatalf("the man page does not name the docs: %v", err)
 	}
 }

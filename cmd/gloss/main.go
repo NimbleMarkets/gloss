@@ -105,6 +105,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		fmt.Fprint(out, "Usage: "+usageLines[0]+"\n       "+usageLines[1]+"\n\n"+usageAbout+"\n\n")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "\nKeys: q quit · ? help · [/] files · n/p pages · +/- zoom · arrows pan/orbit")
+		fmt.Fprintln(out, "Documentation: "+app.DocsURL)
 	}
 	if err := f.Parse(args); err != nil {
 		return opts, errors.Is(err, pflag.ErrHelp), err
