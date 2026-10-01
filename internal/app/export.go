@@ -52,7 +52,7 @@ func (m *Model) export() tea.Cmd {
 	}
 	q := m.exportRequest()
 	edge := q.MaxEdge
-	name, save := exportName(q.Path, m.kind, m.page), m.opts.Save
+	name, save := exportName(q.Path, m.kind, m.page, q.Stdin), m.opts.Save
 	if save == nil {
 		save = func(name string, data []byte) (string, error) { return saveFile(".", name, data) }
 	}
@@ -81,12 +81,12 @@ func (m *Model) export() tea.Cmd {
 // exportOnCPU reports whether a renderer other than the GPU was asked for.
 func (m *Model) exportOnCPU() bool { return m.opts.Render3D != "auto" && m.opts.Render3D != "" }
 
-func exportName(path, kind string, page int) string {
+func exportName(path, kind string, page int, stdin bool) string {
 	base := filepath.Base(path)
 	if ext := filepath.Ext(base); ext != base {
 		base = strings.TrimSuffix(base, ext)
 	}
-	if document.IsStdin(path) {
+	if stdin {
 		base = "stdin"
 	}
 	if kind == "pdf" {

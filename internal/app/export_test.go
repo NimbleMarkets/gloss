@@ -144,6 +144,12 @@ func TestExportKeyWaitsForADocument(t *testing.T) {
 	}
 }
 
+func TestExportNameOfStdin(t *testing.T) {
+	if got := exportName("/tmp/staged-123", "svg", 1, true); got != "stdin.png" {
+		t.Fatalf("exportName of stdin = %q", got)
+	}
+}
+
 func TestExportNames(t *testing.T) {
 	for _, tt := range []struct {
 		path, kind string
@@ -154,11 +160,10 @@ func TestExportNames(t *testing.T) {
 		{"photo.heic", "heic", 1, "photo.png"},
 		{"photo.png", "png", 1, "photo.png"},
 		{"dropped/my photo.png", "png", 1, "my photo.png"},
-		{"/tmp/gloss-stdin-123", "svg", 1, "stdin.png"},
 		{"archive.tar.stl", "stl", 1, "archive.tar.png"},
 		{".hidden", "svg", 1, ".hidden.png"},
 	} {
-		if got := exportName(tt.path, tt.kind, tt.page); got != tt.want {
+		if got := exportName(tt.path, tt.kind, tt.page, false); got != tt.want {
 			t.Fatalf("exportName(%q, %q, %d) = %q, want %q", tt.path, tt.kind, tt.page, got, tt.want)
 		}
 	}

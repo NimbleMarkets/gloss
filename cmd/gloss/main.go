@@ -331,11 +331,12 @@ func run(args []string) (err error) {
 				if err != nil {
 					return fmt.Errorf("stdin: %w", err)
 				}
-				f, err := os.CreateTemp("", document.StdinPattern)
+				f, err := os.CreateTemp("", "gloss-stdin-*")
 				if err != nil {
 					return err
 				}
 				stdinPath = f.Name()
+				opts.Stdin = stdinPath
 				_, writeErr := f.Write(data)
 				closeErr := f.Close()
 				if err := errors.Join(writeErr, closeErr); err != nil {

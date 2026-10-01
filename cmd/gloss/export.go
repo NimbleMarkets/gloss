@@ -16,7 +16,7 @@ import (
 )
 
 func exportRequest(opts app.Options, path string, generation int) document.Request {
-	return document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(generation), Parts: opts.Parts, Color: opts.Color}
+	return document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, MaxEdge: opts.MaxEdge, Generation: uint64(generation), Parts: opts.Parts, Color: opts.Color, Stdin: opts.IsStdin(path)}
 }
 
 // onCPU reports whether meshes are to be drawn without the GPU: --3d names
@@ -179,7 +179,7 @@ func deliver(opts options, i int, path string, r document.Result, ext string, da
 	target := opts.Output
 	if opts.OutputDir != "" {
 		base := strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
-		if document.IsStdin(path) {
+		if opts.IsStdin(path) {
 			base = "stdin"
 		}
 		suffix := ""

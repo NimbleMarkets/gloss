@@ -23,6 +23,7 @@ type Options struct {
 	Views                  []document.View // Views of a mesh asked for: the first is where the viewer starts.
 	FilesFS                fs.FS           // Optional embedded files for the browser demo.
 	Files                  []string
+	Stdin                  string // The file standard input was read into, if one of Files is it.
 	Type, Render, Render3D string
 	Page, DPI              int
 	Menu, Preview          bool
@@ -181,11 +182,14 @@ func (m *Model) quit() tea.Cmd {
 	return tea.Quit
 }
 
+// IsStdin says whether path is the file standard input was read into.
+func (o Options) IsStdin(path string) bool { return o.Stdin != "" && path == o.Stdin }
+
 // request is what the loader is asked for the current file and page.
 func (m *Model) request(reload bool) document.Request {
 	q := document.Request{Path: m.opts.Files[m.index], Type: m.opts.Type, Page: m.page, DPI: m.opts.DPI, Generation: m.generation, Reload: reload, Preview: m.isPreview,
-		Parts: m.opts.Parts, Shown: m.partsShown, Color: m.tint, PaintAll: m.tintAll}
-	if document.IsStdin(q.Path) {
+		Stdin: m.opts.IsStdin(m.opts.Files[m.index]), Parts: m.opts.Parts, Shown: m.partsShown, Color: m.tint, PaintAll: m.tintAll}
+	if m.opts.IsStdin(q.Path) {
 		q.BaseDir = m.opts.MarkdownBase
 	}
 	return q

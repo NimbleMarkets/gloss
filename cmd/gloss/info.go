@@ -34,13 +34,13 @@ func describe(opts options, stdout, stderr io.Writer) error {
 	files, failed := make([]described, 0, len(opts.Files)), 0
 	for i, path := range opts.Files {
 		d := described{Path: path}
-		if document.IsStdin(path) {
+		if opts.IsStdin(path) {
 			d.Path = "stdin"
 		}
 		if kind, err := document.Probe(path, opts.Type); err != nil {
 			d.Error = document.SkipReason(err)
 		} else {
-			r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, Generation: uint64(i + 1), Parts: opts.Parts})
+			r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, Generation: uint64(i + 1), Parts: opts.Parts, Stdin: opts.IsStdin(path)})
 			if d.Kind, d.fields = r.Kind, r.Info; d.Kind == "" {
 				d.Kind = kind
 			}

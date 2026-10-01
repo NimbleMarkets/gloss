@@ -259,7 +259,7 @@ func (m *Model) documentStatus(w, h int) (bar, hint string) {
 	name := "no files"
 	if !empty {
 		name = safe(filepath.Base(m.opts.Files[m.index]))
-		if document.IsStdin(m.opts.Files[m.index]) {
+		if m.opts.IsStdin(m.opts.Files[m.index]) {
 			name = "stdin"
 		}
 	}

@@ -141,6 +141,7 @@ type Request struct {
 	Shown      []bool      // The parts of a 3MF already chosen, over any filter; nil for all.
 	Color      *color.RGBA // Paint for the faces of a mesh that its file left plain.
 	PaintAll   bool        // Paint every face, not only the plain ones.
+	Stdin      bool        // The file is what stdin was read into: it is shown as "stdin", not by its temporary name.
 	BaseDir    string      // Relative Markdown assets; empty uses the source directory.
 }
 
@@ -241,7 +242,7 @@ func (l *Loader) Load(q Request) (out Result) {
 		return out
 	}
 	out.Kind, out.Page, out.Pages = kind, 1, 1
-	file := fileFields(l.Files, q.Path, len(data))
+	file := fileFields(l.Files, q.Path, len(data), q.Stdin)
 	var details func() []Field
 	// A file that cannot be shown is still described: its size or dimensions
 	// are often the reason.
@@ -608,13 +609,3 @@ func Detect(path string, data []byte, forced string) (string, error) {
 	}
 	return "", ErrUnsupported
 }
-
-// stdinPrefix names the file stdin is read into, so that it is known for
-// what it is wherever it is named.
-const stdinPrefix = "gloss-stdin-"
-
-// StdinPattern is the name pattern to create the file for stdin with.
-const StdinPattern = stdinPrefix + "*"
-
-// IsStdin says whether path is the file stdin was read into.
-func IsStdin(path string) bool { return strings.HasPrefix(filepath.Base(path), stdinPrefix) }

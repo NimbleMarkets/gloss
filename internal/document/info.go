@@ -76,7 +76,7 @@ func byteSize(n int) string {
 	return exact
 }
 
-func fileFields(files fs.FS, path string, size int) []Field {
+func fileFields(files fs.FS, path string, size int, stdin bool) []Field {
 	var info fs.FileInfo
 	if files == nil {
 		info, _ = os.Stat(path)
@@ -87,7 +87,7 @@ func fileFields(files fs.FS, path string, size int) []Field {
 	if info != nil && !info.ModTime().IsZero() {
 		modified = info.ModTime().Format("2006-01-02 15:04")
 	}
-	if IsStdin(path) {
+	if stdin {
 		path, modified = "stdin", ""
 	}
 	return Section("File", Field{"Path", path}, Field{"Size", byteSize(size)}, Field{"Modified", modified})

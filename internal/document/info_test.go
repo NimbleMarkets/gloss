@@ -339,7 +339,13 @@ func TestInfoForFilesWithoutADisk(t *testing.T) {
 	if got := field(r.Info, "Modified"); got != "" {
 		t.Errorf("Modified = %q for a file with no timestamp", got)
 	}
-	stdin := loadInfo(t, write(t, "gloss-stdin-123", files["shapes.svg"].Data))
+	sl := &Loader{}
+	defer sl.Close()
+	piped := sl.Load(Request{Path: write(t, "staged-123", files["shapes.svg"].Data), Page: 1, DPI: 72, Generation: 1, Stdin: true})
+	if piped.Err != nil {
+		t.Fatal(piped.Err)
+	}
+	stdin := piped.Info
 	expect(t, stdin, map[string]string{"Path": "stdin"})
 	if got := field(stdin, "Modified"); got != "" {
 		t.Errorf("Modified = %q for piped input", got)
