@@ -90,6 +90,12 @@ NTCharts3d software renderer, whose license is among those below.
 	} else {
 		return fmt.Errorf("internal/picky/LICENSE: %w", err)
 	}
+	// The site's fonts are served from web/fonts, with their license.
+	if text, err := os.ReadFile(filepath.Join("web", "fonts", "OFL.txt")); err == nil {
+		section(&b, "Open Sans", "the website's Condensed Bold and SemiCondensed faces, in web/fonts", text)
+	} else {
+		return fmt.Errorf("web/fonts/OFL.txt: %w", err)
+	}
 	var missing []string
 	for _, p := range paths {
 		m := modules[p]

@@ -3,7 +3,28 @@
   --paper:#EFF6F1;
   --ink:#3F3080;
   --muted:#655BA7;
-  --accent:#D84D31
+  --accent:#E24F36;
+  --teal:#4495AA;
+  --mint:#A7D7B1;
+  --yellow:#FBF4A5
+}
+@font-face {
+  font-family:"Nimble Head";
+  src:url(fonts/OpenSans-CondensedBold.ttf) format("truetype");
+  font-weight:700;
+  font-display:swap
+}
+@font-face {
+  font-family:"Nimble Body";
+  src:url(fonts/OpenSans-SemiCondensed.ttf) format("truetype");
+  font-weight:400;
+  font-display:swap
+}
+@font-face {
+  font-family:"Nimble Body";
+  src:url(fonts/OpenSans-SemiCondensedSemiBold.ttf) format("truetype");
+  font-weight:600 800;
+  font-display:swap
 }
 * {
   box-sizing:border-box
@@ -12,7 +33,7 @@ body {
   margin:0;
   background:var(--paper);
   color:var(--ink);
-  font:16px/1.6 system-ui,sans-serif
+  font:17px/1.6 "Nimble Body",system-ui,sans-serif
 }
 a {
   color:inherit;
@@ -28,10 +49,11 @@ header {
   justify-content:space-between;
   align-items:center;
   height:56px;
-  border-bottom:1px solid #CFE3D6
+  border-bottom:3px solid var(--teal)
 }
 nav {
   display:flex;
+  align-items:center;
   gap:28px;
   font-size:14px
 }
@@ -44,9 +66,8 @@ nav .github {
   gap:6px
 }
 .wordmark {
-  font-size:24px;
-  font-weight:800;
-  letter-spacing:-1.5px
+  font:700 28px "Nimble Head",system-ui,sans-serif;
+  letter-spacing:0
 }
 .wordmark span {
   color:var(--accent);
@@ -66,9 +87,11 @@ nav .github {
   font-weight:700
 }
 h1 {
-  font-size:clamp(28px,3.4vw,40px);
+  font-family:"Nimble Head",system-ui,sans-serif;
+  font-weight:700;
+  font-size:clamp(32px,3.8vw,46px);
   line-height:1.1;
-  letter-spacing:-1.5px;
+  letter-spacing:0;
   margin:4px 0 6px
 }
 h1 code {
@@ -130,7 +153,7 @@ button[aria-pressed=true] {
   color:#3F3080
 }
 button:focus-visible,a:focus-visible {
-  outline:3px solid #D84D31;
+  outline:3px solid var(--accent);
   outline-offset:3px
 }
 iframe {
@@ -190,7 +213,7 @@ footer {
     margin-top:10px
   }
   h1 {
-    letter-spacing:-2px
+    letter-spacing:0
   }
   .toolbar {
     align-items:flex-start
@@ -219,7 +242,6 @@ footer {
   flex-shrink:0
 }
 .lede em {
-  font-family: Georgia, serif;
   font-size: 20px;
   color: var(--ink);
 }
@@ -271,3 +293,28 @@ footer {
 .button{display:inline-block;padding:.45rem 1rem;border-radius:8px;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;white-space:nowrap}
 .button:hover{filter:brightness(1.1)}
 .launch .button{margin-top:.75rem;padding:.6rem 1.2rem}
+
+footer .credit {
+  text-align:right
+}
+.policy {
+  max-width:720px;
+  padding-top:24px;
+  padding-bottom:40px
+}
+.policy h2 {
+  font-family:"Nimble Head",system-ui,sans-serif;
+  font-size:22px;
+  margin:28px 0 4px
+}
+.policy .updated {
+  color:var(--muted);
+  font-size:13px;
+  margin-top:0
+}
+@media(max-width:760px) {
+  footer .credit {
+    text-align:left;
+    margin-top:12px
+  }
+}

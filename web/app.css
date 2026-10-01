@@ -17,5 +17,5 @@ main{position:relative;flex:1;min-height:0}
 #status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;font:15px/1.6 system-ui,sans-serif;white-space:pre-wrap;background:#1e1e1e}
 #status[hidden]{display:none}
 #status button{margin-top:1rem;padding:10px}
-#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #D84D31;border-radius:8px;font:600 17px/1.6 system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}
+#drop{position:absolute;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font:600 17px/1.6 system-ui,sans-serif;text-align:center;background:#1e1e1ee6;pointer-events:none}
 #drop[hidden]{display:none}
