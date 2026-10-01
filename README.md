@@ -56,8 +56,20 @@ gloss --output page.png --page 3 report.pdf   # a PNG, with no terminal
 gloss --text report.docx                      # Markdown on stdout
 gloss --info --json model.3mf                 # what a file says about itself
 gloss --serve --pick                          # ask the user for a file; print its path
-gloss --skill --install                       # teach your agents all of this
 ```
+
+gloss also carries a skill that teaches an agent all of this, in the order it
+needs it: read a file's text, see a page or model as a PNG sized for its vision
+budget, learn a file's details as JSON, and ask you for a file. Install it for
+the agents on your machine, from the binary or from the repository:
+
+```sh
+gloss --skill --install                       # from the binary, so it matches its flags
+npx skills add NimbleMarkets/gloss            # or from the repository, for every agent it finds
+```
+
+Read it on the site, [For LLMs](https://nimblemarkets.github.io/gloss/docs/guide/for-llms/),
+or as [`SKILL.md`](skills/gloss/SKILL.md).
 
 ## Documentation
 
