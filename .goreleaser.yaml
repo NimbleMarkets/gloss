@@ -104,8 +104,6 @@ homebrew_casks:
   - name: gloss
     ids:
       - default
-    url:
-      verified: github.com/NimbleMarkets/gloss
     repository:
       owner: NimbleMarkets
       name: homebrew-tap
