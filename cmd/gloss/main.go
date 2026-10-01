@@ -19,6 +19,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/NimbleMarkets/gloss/internal/document"
+	"github.com/NimbleMarkets/gloss/skills"
 	charts "github.com/NimbleMarkets/ntcharts3d"
 	"github.com/charmbracelet/x/term"
 	"github.com/spf13/pflag"
@@ -81,6 +82,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.IntVarP(&opts.MaxEdge, "max-edge", "s", 1536, "maximum exported image edge in pixels (1–4096)")
 	f.StringVar(&opts.VisionProfile, "vision-profile", "", "export sizing: openai-high, claude-standard, claude-high")
 	showVersion := f.BoolP("version", "V", false, "print version")
+	showSkill := f.Bool("skill", false, "print the skill that teaches agents to use gloss (SKILL.md), and exit")
 	showHelp := f.BoolP("help", "h", false, "show help")
 	f.Usage = func() {
 		fmt.Fprint(out, "Usage: gloss [options] [file | folder]...\n       command | gloss [options] -\n\nA visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word, Excel and CSV.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\n\n")
@@ -96,6 +98,10 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	}
 	if *showVersion {
 		fmt.Fprintln(out, "gloss "+version)
+		return opts, true, nil
+	}
+	if *showSkill {
+		fmt.Fprint(out, skills.Gloss)
 		return opts, true, nil
 	}
 	if !slices.Contains([]string{"auto", "kitty", "glyph"}, opts.Render) {

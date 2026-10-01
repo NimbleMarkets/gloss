@@ -23,6 +23,14 @@ func TestCLI(t *testing.T) {
 			t.Fatalf("failed %s", flag)
 		}
 	}
+	// --skill prints the skill whole, frontmatter and all, as it would be installed.
+	var skill bytes.Buffer
+	if _, done, err := parse([]string{"--skill"}, &skill); err != nil || !done {
+		t.Fatalf("--skill: done=%v err=%v", done, err)
+	}
+	if installed, err := os.ReadFile("../../skills/gloss/SKILL.md"); err != nil || !bytes.Equal(skill.Bytes(), installed) || !bytes.HasPrefix(skill.Bytes(), []byte("---\nname: gloss\n")) {
+		t.Fatalf("--skill printed something other than SKILL.md: %v\n%.200s", err, skill.String())
+	}
 	opts, done, err := parse([]string{"--render", "glyph", "--page", "2", "--", "-odd.pdf", "other.svg"}, &bytes.Buffer{})
 	if err != nil || done || opts.Page != 2 || len(opts.Files) != 2 || opts.Files[0] != "-odd.pdf" {
 		t.Fatalf("parse = %+v, %v", opts, err)
@@ -222,7 +230,7 @@ func TestSkillMatchesTheFlags(t *testing.T) {
 	}
 	var help bytes.Buffer
 	parse([]string{"--help"}, &help)
-	for _, flag := range []string{"--output", "--output-dir", "--max-edge", "--vision-profile", "--page", "--dpi", "--type", "--view", "--camera", "--projection", "--parts", "--partn", "--color", "--info", "--json", "--text", "--pick", "--serve", "--prompt", "--timeout", "--glob"} {
+	for _, flag := range []string{"--output", "--output-dir", "--max-edge", "--vision-profile", "--page", "--dpi", "--type", "--view", "--camera", "--projection", "--parts", "--partn", "--color", "--info", "--json", "--text", "--pick", "--serve", "--prompt", "--timeout", "--glob", "--skill"} {
 		if !bytes.Contains(skill, []byte(flag)) {
 			t.Errorf("the skill does not mention %s", flag)
 		}

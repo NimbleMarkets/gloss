@@ -20,6 +20,9 @@ line, so `paths=$(gloss …)` is the whole protocol. `--json` gives a manifest
 instead. Diagnostics go to stderr. Exit status 1 means at least one input
 failed; the rest were still done.
 
+`gloss --skill` prints this file, so the installed binary can always say what
+it itself does: `gloss --skill > SKILL.md`.
+
 It handles PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF, STL, 3MF,
 Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, Grist
 documents, and CSV. One binary, no external converters, no CGO. Inputs are limited to 128 MiB.
