@@ -11,9 +11,9 @@ headless surface, in the order an agent needs it: `--text`, a sized PNG export,
 binary carries it, so it always matches the flags it was built with:
 
 ```sh
-gloss --skill --install                          # install it for the agents found on this machine
-gloss --skill --install=~/.claude/skills         # or into the skills folder named
-gloss --skill                                    # print it, to place it by hand
+gloss skill install                              # install it for the agents found on this machine
+gloss skill install ~/.claude/skills             # or into the skills folder named
+gloss skill                                      # print it, to place it by hand
 ```
 
 Or, with Node, the [skills CLI](https://github.com/vercel-labs/skills) installs

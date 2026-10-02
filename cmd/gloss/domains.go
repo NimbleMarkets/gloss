@@ -7,10 +7,11 @@ import (
 	"github.com/spf13/pflag"
 )
 
-// A domain is a cluster of options that belong together. gloss has no
-// subcommands: one command, many options, and these are how the options are
-// grouped for the reference (the man page and the website). Every option that
-// is not hidden belongs to exactly one domain; checkDomains enforces it.
+// A domain is a cluster of options that belong together. gloss has one default
+// verb, view, with many options, and a few small verbs (see verbs.go); the
+// domains are how the options are grouped for the reference (the man page and
+// the website). Every option that is not hidden belongs to exactly one domain,
+// and a domain of a verb has none; checkDomains enforces it.
 type domain struct {
 	ID       string   // The page it has: view -> view.md.
 	Title    string   // What it is called.
@@ -26,9 +27,9 @@ type example struct {
 
 // usageLines and usageAbout are the first words of --help, and of the
 // reference.
-var usageLines = []string{"gloss [options] [file | folder]...", "command | gloss [options] -"}
+var usageLines = []string{"gloss [view] [options] [file | folder]...", "command | gloss [options] -", "gloss skill [show | install [folder]]", "gloss help [command]"}
 
-const usageAbout = "A visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word, Excel and CSV.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options."
+const usageAbout = "A visual pager for images, SVG, PDF, STL, 3MF, Markdown, Word, Excel and CSV.\nWith no file, gloss opens empty: drop files on it, or press o to browse.\nA folder opens the file browser there.\nOptions may appear before or after filenames. Use -- to end options.\nA file named like a command (view, skill, help) is opened with the command spelled out: gloss view skill."
 
 var domains = []domain{
 	{
@@ -94,18 +95,17 @@ var domains = []domain{
 		},
 	},
 	{
-		ID: "agents", Title: "Teaching agents",
-		Summary: "gloss carries a skill that teaches an agent its headless surface, so it always matches the flags this binary has.",
-		Flags:   []string{"skill", "install"},
+		ID: "agents", Title: "Teaching agents: gloss skill",
+		Summary: "`gloss skill` has no options of its own. gloss carries a skill that teaches an agent its headless surface, so it always matches the flags this binary has. `gloss skill` prints it, as `gloss skill show` does; `gloss skill install` writes it where the agents on this machine look, or into the skills folder named.",
 		Examples: []example{
-			{"Install it for the agents found on this machine", "gloss --skill --install"},
-			{"Or into the skills folder named", "gloss --skill --install=~/.claude/skills"},
-			{"Print it, to place by hand", "gloss --skill"},
+			{"Install it for the agents found on this machine", "gloss skill install"},
+			{"Or into the skills folder named", "gloss skill install ~/.claude/skills"},
+			{"Print it, to place by hand", "gloss skill"},
 		},
 	},
 	{
 		ID: "general", Title: "General",
-		Summary: "Help and version.",
+		Summary: "Help and version. `gloss help` is the usage, and `gloss help skill` that of a command.",
 		Flags:   []string{"help", "version"},
 	},
 }

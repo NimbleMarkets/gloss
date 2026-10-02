@@ -35,7 +35,6 @@ func completers() map[string]completer {
 		"vision-profile": {Words: document.VisionProfileNames()},
 		"output":         {File: true},
 		"output-dir":     {Dir: true},
-		"install":        {Dir: true},
 	}
 }
 
@@ -46,7 +45,7 @@ type completionOption struct {
 	Short, Long string
 	Desc        string
 	TakesValue  bool // Not a switch.
-	Optional    bool // The value only follows an equals sign: --install=FOLDER.
+	Optional    bool // The value only follows an equals sign: --opt=VALUE.
 	Completer   completer
 }
 
@@ -93,6 +92,9 @@ func (o completionOption) names() []string {
 
 // ---- bash ----
 
+// verbWords are the commands, as a list of words.
+var verbWords = func() string { return strings.ReplaceAll(verbNames(), ", ", " ") }()
+
 func bashCompletion(f *pflag.FlagSet) string {
 	opts := completionOptions(f)
 	var all []string
@@ -112,6 +114,20 @@ func bashCompletion(f *pflag.FlagSet) string {
         prev="${COMP_WORDS[COMP_CWORD-1]}"; opt="$prev"
     fi
     COMPREPLY=()
+    if [[ ${COMP_WORDS[1]} == skill && ${COMP_CWORD} -ge 2 ]]; then
+        # gloss skill [show | install [FOLDER]]
+        if [[ ${COMP_CWORD} -eq 2 ]]; then
+            COMPREPLY=( $(compgen -W "show install" -- "$cur") )
+        elif [[ ${COMP_CWORD} -eq 3 && ${COMP_WORDS[2]} == install ]]; then
+            compopt -o filenames 2>/dev/null
+            COMPREPLY=( $(compgen -d -- "$cur") )
+        fi
+        return 0
+    fi
+    if [[ ${COMP_WORDS[1]} == help && ${COMP_CWORD} -ge 2 ]]; then
+        [[ ${COMP_CWORD} -eq 2 ]] && COMPREPLY=( $(compgen -W "` + verbWords + `" -- "$cur") )
+        return 0
+    fi
     case "$opt" in
 `)
 	for _, o := range opts {
@@ -147,7 +163,8 @@ func bashCompletion(f *pflag.FlagSet) string {
 	slices.Sort(plain)
 	fmt.Fprintf(&b, "    case \"$opt\" in %s) return 0 ;; esac\n", strings.Join(plain, "|"))
 	fmt.Fprintf(&b, "    if [[ $cur == -* ]]; then\n        COMPREPLY=( $(compgen -W %q -- \"$cur\") )\n        [[ ${COMPREPLY[*]} == --*= ]] && compopt -o nospace 2>/dev/null\n        return 0\n    fi\n", strings.Join(all, " "))
-	b.WriteString("    compopt -o filenames 2>/dev/null\n    COMPREPLY=( $(compgen -f -- \"$cur\") )\n}\ncomplete -F _gloss gloss\n")
+	// The first word may be a command, or else a file.
+	fmt.Fprintf(&b, "    compopt -o filenames 2>/dev/null\n    COMPREPLY=( $(compgen -f -- \"$cur\") )\n    if [[ ${COMP_CWORD} -eq 1 ]]; then\n        COMPREPLY+=( $(compgen -W %q -- \"$cur\") )\n    fi\n}\ncomplete -F _gloss gloss\n", verbWords)
 	return b.String()
 }
 
@@ -164,6 +181,11 @@ func zshDesc(s string) string {
 func zshCompletion(f *pflag.FlagSet) string {
 	var b strings.Builder
 	b.WriteString("#compdef gloss\n# zsh completion for gloss. Written by gloss --docs-completions: do not edit.\n\n")
+	b.WriteString("_gloss_first() {\n    local -a commands=(")
+	for _, v := range verbs {
+		b.WriteString(zshQuote(v.Name+":"+strings.ReplaceAll(v.Summary, ":", `\:`)) + " ")
+	}
+	b.WriteString(")\n    _alternative 'commands:command:(($commands))' 'files:file or folder:_files'\n}\n\n")
 	b.WriteString("_arguments -s -S \\\n")
 	for _, o := range completionOptions(f) {
 		desc := zshDesc(o.Desc)
@@ -204,7 +226,7 @@ func zshCompletion(f *pflag.FlagSet) string {
 		}
 		b.WriteString("  " + zshQuote(spec) + " \\\n")
 	}
-	b.WriteString("  '*:file or folder:_files'\n")
+	b.WriteString("  '1:command or file:_gloss_first' \\\n  '*:file or folder:_files'\n")
 	return b.String()
 }
 
@@ -227,6 +249,12 @@ function __gloss_list
 end
 
 `)
+	for _, v := range verbs {
+		b.WriteString("complete -c gloss -n __fish_use_subcommand -a " + v.Name + " -d " + fishQuote(v.Summary) + "\n")
+	}
+	b.WriteString("complete -c gloss -n '__fish_seen_subcommand_from skill; and not __fish_seen_subcommand_from show install' -f -a 'show install'\n")
+	b.WriteString("complete -c gloss -n '__fish_seen_subcommand_from skill; and __fish_seen_subcommand_from install' -x -a '(__fish_complete_directories)'\n")
+	b.WriteString("complete -c gloss -n '__fish_seen_subcommand_from help' -f -a '" + verbWords + "'\n\n")
 	for _, o := range completionOptions(f) {
 		line := "complete -c gloss"
 		if o.Short != "" {

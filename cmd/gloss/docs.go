@@ -68,7 +68,7 @@ func writeDocs(f *pflag.FlagSet, req docsRequest, out *bytes.Buffer) error {
 // optionLine is an option as the reference spells it: -o, --output string.
 type optionLine struct {
 	Short, Long, Arg, Default, Usage string
-	OptionalArg                      bool // --install[=FOLDER]
+	OptionalArg                      bool // An argument that only follows an equals sign: --opt[=VALUE].
 }
 
 func optionOf(fl *pflag.Flag) optionLine {
@@ -129,12 +129,20 @@ func markdownPages(f *pflag.FlagSet, hugo bool) map[string]string {
 	}
 	b.WriteString("```\n\n")
 	b.WriteString(strings.ReplaceAll(usageAbout, "\n", " ") + "\n\n")
-	b.WriteString("gloss has no subcommands. Its options are grouped by what they are for:\n\n")
+	b.WriteString("gloss has one default command, `view`, which `gloss FILE` runs, and a few small ones. A command is the first argument and is named exactly; a file called `skill` is opened as `gloss view skill`.\n\n")
+	b.WriteString("| Command | What it does |\n| --- | --- |\n")
+	for _, v := range verbs {
+		fmt.Fprintf(&b, "| `%s` | %s |\n", v.Name, v.Summary)
+	}
+	b.WriteString("\nThe options of `view` are grouped by what they are for:\n\n")
 	b.WriteString("| Domain | Options |\n| --- | --- |\n")
 	for _, d := range domains {
 		var names []string
 		for _, name := range d.Flags {
 			names = append(names, "`--"+name+"`")
+		}
+		if len(names) == 0 {
+			names = []string{"none"}
 		}
 		fmt.Fprintf(&b, "| [%s](%s/) | %s |\n", d.Title, d.ID, strings.Join(names, " "))
 	}
@@ -149,7 +157,9 @@ func markdownPages(f *pflag.FlagSet, hugo bool) map[string]string {
 		var p strings.Builder
 		p.WriteString(front(d.Title, 20+i))
 		fmt.Fprintf(&p, "# %s\n\n%s\n\n", d.Title, d.Summary)
-		p.WriteString("| Option | Argument | Default | Description |\n| --- | --- | --- | --- |\n")
+		if len(d.Flags) > 0 {
+			p.WriteString("| Option | Argument | Default | Description |\n| --- | --- | --- | --- |\n")
+		}
 		for _, o := range flagsOf(f, d) {
 			names := "`--" + o.Long + "`"
 			if o.Short != "" {
@@ -248,7 +258,15 @@ func manPage(f *pflag.FlagSet) string {
 	}
 	b.WriteString(".SH DESCRIPTION\n")
 	b.WriteString(roff(strings.ReplaceAll(usageAbout, "\n", " ")) + "\n")
-	b.WriteString(".PP\nIt has no subcommands. Its options are grouped by what they are for.\n")
+	b.WriteString(".PP\nIts default command is \\fBview\\fR, which \\fBgloss FILE\\fR runs; the others are")
+	for i, v := range verbs[1:] {
+		sep := ", "
+		if i == 0 {
+			sep = " "
+		}
+		b.WriteString(sep + `\fB` + v.Name + `\fR (` + roff(v.Summary) + `)`)
+	}
+	b.WriteString(". A command is the first argument, named exactly; a file called skill is opened as gloss view skill. The options of view are grouped by what they are for.\n")
 	b.WriteString(".SH OPTIONS\n")
 	for _, d := range domains {
 		fmt.Fprintf(&b, ".SS %s\n%s\n", roff(d.Title), roffMarkup(d.Summary))

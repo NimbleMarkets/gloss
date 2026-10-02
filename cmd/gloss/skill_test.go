@@ -11,17 +11,20 @@ import (
 )
 
 func TestSkillInstall(t *testing.T) {
-	// --install needs --skill.
+	// The old --install needs the old --skill.
 	if _, _, err := parse([]string{"--install"}, &bytes.Buffer{}); err == nil {
 		t.Fatal("--install alone was accepted")
 	}
 	// A named skills folder gets gloss/SKILL.md, whole; the path is the answer.
 	dir := t.TempDir()
 	root := filepath.Join(dir, "skills")
-	opts, done, err := parse([]string{"--skill", "--install=" + root}, &bytes.Buffer{})
-	if err != nil || done || opts.SkillInstall != root {
-		t.Fatalf("parse = %+v, done=%v, %v", opts, done, err)
+	for _, args := range [][]string{{"skill", "install", root}, {"--skill", "--install=" + root}} {
+		opts, done, err := parse(args, &bytes.Buffer{})
+		if err != nil || done || opts.SkillInstall != root {
+			t.Fatalf("parse %v = %+v, done=%v, %v", args, opts, done, err)
+		}
 	}
+	opts := options{SkillInstall: root}
 	var stdout, stderr bytes.Buffer
 	if err := installSkill(opts.SkillInstall, &stdout, &stderr); err != nil {
 		t.Fatal(err)
@@ -94,5 +97,28 @@ func TestExpandHome(t *testing.T) {
 	}
 	if expandHome("~/skills") != filepath.Join(home, "skills") || expandHome("~") != home || expandHome("/tmp/x") != "/tmp/x" {
 		t.Fatalf("expandHome: ~=%q ~/skills=%q", expandHome("~"), expandHome("~/skills"))
+	}
+}
+
+func TestSkillVerb(t *testing.T) {
+	// Bare install looks for the agents here.
+	opts, done, err := parse([]string{"skill", "install"}, &bytes.Buffer{})
+	if err != nil || done || opts.SkillInstall != "auto" {
+		t.Fatalf("skill install = %+v, done=%v, %v", opts, done, err)
+	}
+	for _, args := range [][]string{{"skill", "uninstall"}, {"skill", "show", "x"}, {"skill", "install", "a", "b"}, {"skill", "--bogus"}} {
+		if _, _, err := parse(args, &bytes.Buffer{}); err == nil {
+			t.Errorf("accepted %v", args)
+		}
+	}
+	var out bytes.Buffer
+	if _, done, err := parse([]string{"skill", "--help"}, &out); err != nil || !done || !strings.Contains(out.String(), "gloss skill install [FOLDER]") {
+		t.Fatalf("skill --help: done=%v err=%v\n%s", done, err, out.String())
+	}
+	// The old options are not in the help, so they cannot be learned from it.
+	var help bytes.Buffer
+	parse([]string{"--help"}, &help)
+	if strings.Contains(help.String(), "--skill") || strings.Contains(help.String(), "--install") {
+		t.Fatalf("--help lists the options the skill verb replaced:\n%s", help.String())
 	}
 }

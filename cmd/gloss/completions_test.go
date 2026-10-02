@@ -122,6 +122,9 @@ COMP_WORDS=("$@"); COMP_CWORD=$(( $# - 1 )); COMPREPLY=(); _gloss; echo "${COMPR
 		{[]string{"gloss", "--view", "front,to"}, "front,top"},
 		{[]string{"gloss", "--vision-profile", "cl"}, "claude-high claude-standard"},
 		{[]string{"gloss", "--dpi", ""}, ""}, // a number is the user's own
+		{[]string{"gloss", "skill", ""}, "show install"},
+		{[]string{"gloss", "skill", "in"}, "install"},
+		{[]string{"gloss", "help", ""}, "view skill help"},
 	} {
 		out, err := exec.Command(bash, append([]string{"-c", script, "bash", filepath.Join(dir, "gloss.bash")}, tt.words...)...).CombinedOutput()
 		if err != nil {

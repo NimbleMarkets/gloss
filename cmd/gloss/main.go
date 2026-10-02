@@ -49,11 +49,12 @@ type options struct {
 	Detached      string    // Set on the server a detached start runs: its token.
 	VisionProfile string    // A convenience alias for a max edge; --max-edge is the stable flag.
 	EdgeReason    string    // Why the alias chose its edge, for the manifest.
-	SkillInstall  string    // Where --skill --install writes, "auto" to find the agents here.
+	SkillInstall  string    // Where gloss skill install writes, "auto" to find the agents here.
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
 	var opts options
+	name, args := splitVerb(args)
 	f := pflag.NewFlagSet("gloss", pflag.ContinueOnError)
 	f.SetOutput(out)
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
@@ -92,9 +93,13 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVar(&opts.Detached, "detached", "", "")
 	_ = f.MarkHidden("detached")
 	showVersion := f.BoolP("version", "V", false, "print version")
-	showSkill := f.Bool("skill", false, "print the skill that teaches agents to use gloss (SKILL.md), and exit")
-	skillInstall := f.String("install", "", "with --skill, install the skill for the agents found on this machine, or into the skills folder named (--install=FOLDER)")
+	// The skill verb replaced these two options; they work, unlisted, for scripts
+	// that have them.
+	showSkill := f.Bool("skill", false, "")
+	skillInstall := f.String("install", "", "")
 	f.Lookup("install").NoOptDefVal = "auto"
+	_ = f.MarkHidden("skill")
+	_ = f.MarkHidden("install")
 	showHelp := f.BoolP("help", "h", false, "show help")
 	// The reference is written from these options; see docs.go.
 	docsMan := f.String("docs-man", "", "")
@@ -105,10 +110,25 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		_ = f.MarkHidden(name)
 	}
 	f.Usage = func() {
-		fmt.Fprint(out, "Usage: "+usageLines[0]+"\n       "+usageLines[1]+"\n\n"+usageAbout+"\n\n")
+		fmt.Fprint(out, "Usage: "+usageLines[0]+"\n")
+		for _, line := range usageLines[1:] {
+			fmt.Fprint(out, "       "+line+"\n")
+		}
+		fmt.Fprint(out, "\n"+usageAbout+"\n\nCommands:\n")
+		for _, v := range verbs {
+			fmt.Fprintf(out, "  %-6s  %s\n", v.Name, v.Summary)
+		}
+		fmt.Fprint(out, "\nOptions of view:\n")
 		f.PrintDefaults()
 		fmt.Fprintln(out, "\nKeys: q quit · ? help · [/] files · n/p pages · +/- zoom · arrows pan/orbit")
 		fmt.Fprintln(out, "Documentation: "+app.DocsURL)
+	}
+	switch name {
+	case "skill":
+		return parseSkill(args, opts, out)
+	case "help":
+		done, err := parseHelp(args, f.Usage, out)
+		return opts, done, err
 	}
 	if err := f.Parse(args); err != nil {
 		return opts, errors.Is(err, pflag.ErrHelp), err
@@ -136,7 +156,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		return opts, true, nil
 	}
 	if f.Changed("install") {
-		return opts, false, fmt.Errorf("--install goes with --skill: gloss --skill --install")
+		return opts, false, fmt.Errorf("--install goes with --skill: gloss skill install")
 	}
 	if !slices.Contains([]string{"auto", "kitty", "glyph"}, opts.Render) {
 		return opts, false, fmt.Errorf("--render must be auto, kitty, or glyph")

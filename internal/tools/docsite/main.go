@@ -100,7 +100,7 @@ func forLLMs(skill string) string {
 		}
 	}
 	var b strings.Builder
-	b.WriteString("This is the skill gloss carries for agents. The binary prints it with `gloss --skill`, and `gloss --skill --install` puts it where the agents on a machine look, so it always matches the flags that binary has.\n\n")
+	b.WriteString("This is the skill gloss carries for agents. The binary prints it with `gloss skill`, and `gloss skill install` puts it where the agents on a machine look, so it always matches the flags that binary has.\n\n")
 	if description != "" {
 		b.WriteString("> " + description + "\n\n")
 	}

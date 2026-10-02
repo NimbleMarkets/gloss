@@ -54,7 +54,7 @@ func TestRunWritesDevelopmentAndForLLMs(t *testing.T) {
 		t.Fatalf("a relative link was left in development.md:\n%.600s", dev)
 	}
 	llms, _ := os.ReadFile(filepath.Join(out, "for-llms.md"))
-	if strings.Contains(string(llms), "name: gloss") || !strings.Contains(string(llms), "gloss --skill") {
+	if strings.Contains(string(llms), "name: gloss") || !strings.Contains(string(llms), "gloss skill") {
 		t.Fatalf("for-llms.md:\n%.400s", llms)
 	}
 	// Long pages keep the table of contents; the theme can only turn it off.

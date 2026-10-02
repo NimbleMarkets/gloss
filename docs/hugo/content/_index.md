@@ -25,7 +25,7 @@ gloss --info --json model.3mf             # what a file says about itself
 
 - **[Guide](guide/)**: installing, the keys, asking the user for a file, the formats gloss opens and their limits, and how to use it from an agent.
 - **[Command reference](command/)**: every option, grouped by what it is for. gloss has no subcommands; it is one command with clusters of options.
-- **[For LLMs](guide/for-llms/)**: the skill gloss carries to teach an agent its headless surface (`gloss --skill`).
+- **[For LLMs](guide/for-llms/)**: the skill gloss carries to teach an agent its headless surface (`gloss skill`).
 
 The man page, `gloss(1)`, ships in the release archives and the Debian package.
 

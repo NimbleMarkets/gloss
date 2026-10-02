@@ -59,12 +59,13 @@ separate browser-demo module:
 - `examples`: small runnable fixtures.
 - `scripts`: site building and fixture generation.
 - `docs/hugo`: the documentation site, published at `/docs/` beside the demo.
-- `skills/gloss`: the agent skill the binary carries (`gloss --skill`).
+- `skills/gloss`: the agent skill the binary carries (`gloss skill`).
 
 ## Documentation
 
 The documentation is written from the code where it can be, so it cannot say
-what gloss does not do. gloss has no subcommands; its options are grouped into
+what gloss does not do. gloss has one default command, `view` (what `gloss FILE`
+runs), and two small ones, `skill` and `help`; `view`'s options are grouped into
 *domains* (opening and viewing, documents, meshes, exporting, text and details,
 handing files over, agents), and `cmd/gloss/domains.go` is where an option is
 given its domain. A test fails for an option that has none.

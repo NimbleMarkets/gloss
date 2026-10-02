@@ -38,9 +38,10 @@ Pick/resume also use 2 for decline and 124 for timeout, as described below.
 `--status` exits 0 whenever it reports a state (the state is in the JSON, not
 the exit code) and 1 when there is no such session.
 
-`gloss --skill` prints this file, so the installed binary can always say what
-it itself does; `gloss --skill --install` writes it where the agents on the
-machine look for skills.
+`gloss skill` prints this file, so the installed binary can always say what
+it itself does; `gloss skill install` writes it where the agents on the
+machine look for skills. A file named `skill`, `view` or `help` is opened as
+`gloss view skill`.
 
 It handles PNG, JPEG, GIF, WebP, BMP, TIFF, HEIC, SVG, PDF, STL, 3MF,
 Markdown, HTML, plain text, JSON/JSONL, Jupyter notebooks, Word, Excel, Grist

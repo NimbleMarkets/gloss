@@ -151,10 +151,15 @@ pinned in `go.mod`; builds use `-mod=readonly`.
 - Never overwrite an existing output file; number the name instead.
 - Interactive output requires a terminal; export (`--output`) and `--info`
   paths must keep working without a TTY and write only the payload to stdout.
-- gloss has no subcommands. Every visible option belongs to exactly one *domain*
-  in `cmd/gloss/domains.go` (the clusters the man page and reference are grouped
-  by); a new option without one fails the tests. Each domain's examples may only
-  use real options.
+- gloss has one default command, `view` (`gloss FILE` runs it), and a few small
+  ones (`skill`, `help`) in `cmd/gloss/verbs.go`. A command is recognized only as
+  the first argument, by its exact name; anything else is an implicit `view`, so
+  a file named like a command is opened as `gloss view skill`. Do not add a
+  command for a file's job: those are options of `view`. Every visible option
+  belongs to exactly one *domain* in `cmd/gloss/domains.go` (the clusters the
+  man page and reference are grouped by; a command's domain has none); a new
+  option without one fails the tests. Each domain's examples may only use real
+  options. The old `--skill` and `--install` still work, hidden, for scripts.
 - Keep the README short and direct; anything for developers goes in DEVELOP.md.
   User-facing detail (keys, formats and limits, export, handing files over)
   belongs in the guide, `docs/hugo/content/guide`: a new page needs a title and

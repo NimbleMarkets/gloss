@@ -1,5 +1,5 @@
 // Package skills carries the skill that teaches agents to use gloss, so that
-// the binary can print it: gloss --skill.
+// the binary can print it: gloss skill.
 package skills
 
 import _ "embed"

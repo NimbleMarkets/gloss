@@ -1,5 +1,16 @@
 # `gloss` CHANGELOG
 
+## Unreleased
+
+  * Commands
+    * `gloss skill` prints the agent skill and `gloss skill install [FOLDER]`
+      installs it; they replace `--skill` and `--install`, which still work
+      but are no longer listed
+    * `gloss view` is the default command, spelled out: `gloss view FILE` is
+      `gloss FILE`, and is how to open a file named `skill`, `view` or `help`
+    * `gloss help [command]` shows the usage of gloss or of one command; the
+      shell completions offer the commands
+
 ## `v0.2.0` (2026-10-02)
 
   * Agent protocol

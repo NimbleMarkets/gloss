@@ -30,7 +30,7 @@ teaches the agent the headless interface (`--text`, `--output`, `--info`,
 `--pick`, `--serve`):
 
 ```sh
-gloss --skill --install
+gloss skill install
 ```
 
 See [For agents](../agents/) for what the skill does and other ways to install it.

@@ -50,7 +50,7 @@ func installSkill(where string, stdout, stderr io.Writer) error {
 			}
 		}
 		if len(homes) == 0 {
-			return errors.New("found no agent's skills folder; name one: gloss --skill --install=$HOME/.claude/skills")
+			return errors.New("found no agent's skills folder; name one: gloss skill install $HOME/.claude/skills")
 		}
 	} else {
 		homes = []skillHome{{root: expandHome(where)}}

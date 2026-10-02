@@ -175,9 +175,6 @@ func TestMarkdownReference(t *testing.T) {
 		if !strings.Contains(all.String(), "| `-r`, `--render` | `string` | `\"auto\"` |") {
 			t.Errorf("--render row is wrong:\n%s", all.String())
 		}
-		if !strings.Contains(all.String(), "`[=string]`") {
-			t.Errorf("--install's optional argument is not shown")
-		}
 	}
 }
 

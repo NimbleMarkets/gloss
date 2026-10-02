@@ -64,7 +64,7 @@ budget, learn a file's details as JSON, and ask you for a file. Install it for
 the agents on your machine, from the binary or from the repository:
 
 ```sh
-gloss --skill --install                       # from the binary, so it matches its flags
+gloss skill install                           # from the binary, so it matches its flags
 npx skills add NimbleMarkets/gloss            # or from the repository, for every agent it finds
 ```
 
