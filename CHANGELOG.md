@@ -1,6 +1,6 @@
 # `gloss` CHANGELOG
 
-## Unreleased
+## `v0.2.0` (2026-10-02)
 
   * Agent protocol
     * `--text` takes the text layer of a PDF: one page with `--page`, a range,
@@ -17,11 +17,47 @@
       `resume_token`, `resume`) and exit 0, with the server detached and no
       browser opened; `--timeout` defaults to 10 minutes. The new
       `gloss --resume TOKEN` prints the paths and exits 0, 2, or 124
+    * `gloss --status TOKEN` reports a detached session's state immediately
+      as JSON, without changing the session, state file, or dropped files.
+      It exits 0 when a state is reported and 1 when no such pick exists
+    * In the browser, `--prompt` is a persistent heading with a native
+      **Choose files** button. Choosing or dropping files opens them for
+      review; `Enter` in the viewer confirms the answer
 
   * `gloss --skill` prints the skill that teaches agents to use gloss, so an
     installed binary can write out `SKILL.md` for the version it is;
     `gloss --skill --install` puts it where the agents on the machine look for
     skills, and `npx skills add NimbleMarkets/gloss` does the same with Node
+
+  * **The viewer**
+    * `B` opens a background color picker for meshes; the choice survives
+      reloads and appears in previews. PNG exports still flatten onto white
+    * The color picker supports mouse clicks and slider dragging. `Enter`
+      chooses the swatch you moved to, and `Esc` undoes changes
+    * `C` can recolor a whole model, including a 3MF with its own colors;
+      `r` restores the file's colors, and `s` limits painting to plain faces
+    * `r` starts a mesh turning immediately
+
+  * **Shells and documentation**
+    * Bash, zsh, and fish completions ship in the release archives, Debian
+      packages, and Homebrew cask, alongside the generated man page
+    * A documentation site provides a user guide and generated command
+      reference; `--help` links to it. Developer instructions live in
+      DEVELOP.md, and the README is a short introduction
+
+  * **Bounds and reliability**
+    * Tighter allocation and expansion limits for JSON, CSV, Excel, Word,
+      HTML, Markdown, PDF, SVG, 3MF, and ZIP inputs; parsing and rendering
+      deadlines keep malformed files from blocking the caller indefinitely
+    * Page ranges are capped at 10,000 entries, part and column index lists
+      at 65,536 entries, and GIF frames with no area are refused
+    * Browser uploads have a session budget; Windows device and stream names
+      are refused, and detached servers that fail to start are cleaned up
+    * Opt-in fetching refuses redirects from HTTPS to HTTP
+    * The browser site serves pinned, hash-checked PDFium assets itself,
+      applies a Content-Security-Policy, and does not save documents opened
+      through `?src=` in the file library
+    * More loader fuzz tests, weekly fuzzing, and Windows compilation checks
 
 ## `v0.1.0` (2026-10-01)
 
