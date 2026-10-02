@@ -409,7 +409,15 @@ func decodeRaster(data []byte) (image.Image, error) {
 		return heic.Decode(bytes.NewReader(data), heic.Options{AutoRotate: true, FrameSizeLimit: MaxPixels, Threads: 2})
 	}
 	img, _, err := image.Decode(bytes.NewReader(data))
-	return img, err
+	if err != nil {
+		return nil, err
+	}
+	// A GIF's first frame can be a rectangle of no area, or lie outside the
+	// size its header gave.
+	if b := img.Bounds(); b.Dx() <= 0 || b.Dy() <= 0 || b.Dx() > MaxPixels/b.Dy() {
+		return nil, fmt.Errorf("image has no usable pixels (%v)", b)
+	}
+	return img, nil
 }
 
 // renderSVG draws an SVG, giving up on one that never finishes.

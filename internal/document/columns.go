@@ -32,6 +32,11 @@ func parseNames(names string) []string {
 	return out
 }
 
+// maxIndexes bounds what one list of numbers and ranges may name, so that a
+// range like 1-3000000000 is refused rather than expanded. It is well above the
+// columns of a sheet (16,384 in Excel) or the parts of a model.
+const maxIndexes = 1 << 16
+
 // parseIndexes reads numbers and ranges counted from 1, such as 1,3-5.
 func parseIndexes(flag, what, indexes string) ([]int, error) {
 	if strings.TrimSpace(indexes) == "" {
@@ -47,6 +52,9 @@ func parseIndexes(flag, what, indexes string) ([]int, error) {
 		}
 		if err != nil || from < 1 || to < from {
 			return nil, fmt.Errorf("%s: %q is not a %s number or range like 3-5", flag, part, what)
+		}
+		if to-from >= maxIndexes-len(out) {
+			return nil, fmt.Errorf("%s: %q names more than %d numbers", flag, part, maxIndexes)
 		}
 		for i := from; i <= to; i++ {
 			out = append(out, i)

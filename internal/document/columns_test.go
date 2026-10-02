@@ -30,9 +30,16 @@ func TestColumnFilter(t *testing.T) {
 			t.Errorf("%q %q: empty %v", tt.names, tt.indexes, f.Empty())
 		}
 	}
-	for _, bad := range []string{"0", "a", "3-1", "1,", "-2"} {
+	// A range is not expanded past what a sheet or a model could have.
+	for _, bad := range []string{"0", "a", "3-1", "1,", "-2", "17-3333333370", "1-65537", "1-40000,1-40000"} {
 		if _, err := ParseColumns("", bad); err == nil {
 			t.Errorf("%q accepted", bad)
 		}
+	}
+}
+
+func TestParseIndexesLimit(t *testing.T) {
+	if got, err := ParseColumns("", "1-65536"); err != nil || len(got.Indexes) != maxIndexes {
+		t.Errorf("a range of exactly %d: %d, %v", maxIndexes, len(got.Indexes), err)
 	}
 }

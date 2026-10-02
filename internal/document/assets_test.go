@@ -1,7 +1,10 @@
 package document
 
 import (
+	"bytes"
 	"image"
+	"image/color"
+	"image/gif"
 	"os"
 	"path/filepath"
 	"testing"
@@ -122,5 +125,20 @@ func TestHEICDetectionAndExport(t *testing.T) {
 				t.Fatalf("HEIC color at (%d,%d): got %v", sample.x, sample.y, []uint32{r >> 8, g >> 8, b >> 8})
 			}
 		}
+	}
+}
+
+// A GIF whose first frame is a rectangle of no area decodes without error;
+// it is not an image to show.
+func TestDecodeRasterRefusesEmptyFrame(t *testing.T) {
+	var b bytes.Buffer
+	if err := gif.EncodeAll(&b, &gif.GIF{
+		Image: []*image.Paletted{image.NewPaletted(image.Rect(8, 4, 20, 4), color.Palette{color.Black})},
+		Delay: []int{0}, Config: image.Config{ColorModel: color.Palette{color.Black}, Width: 24, Height: 24},
+	}); err != nil {
+		t.Skip(err)
+	}
+	if img, err := decodeRaster(b.Bytes()); err == nil {
+		t.Errorf("decoded %v", img.Bounds())
 	}
 }
