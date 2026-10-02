@@ -5,3 +5,4 @@ coverage.out
 /.task/
 /web/dist/
 /docs/man/
+/docs/completions/

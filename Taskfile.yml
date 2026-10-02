@@ -122,9 +122,10 @@ tasks:
     deps: [build-wasm-site]
     cmds: [python3 -m http.server 8000 --directory web/dist --bind 127.0.0.1]
   docs:
-    desc: Generate the man page and the documentation pages (see docs:hugo:serve)
+    desc: Generate the man page, completions, and the documentation pages (see docs:hugo:serve)
     cmds:
       - task: docs:man:build
+      - task: docs:completions:build
       - task: docs:md:build
   docs:man:build:
     desc: Generate the gloss(1) man page into docs/man
@@ -136,6 +137,18 @@ tasks:
     generates:
       - docs/man/gloss.1
     cmds: [go run ./cmd/gloss --docs-man docs/man]
+  docs:completions:build:
+    desc: Generate the bash, zsh, and fish completions into docs/completions
+    sources:
+      - cmd/gloss/*.go
+      - internal/document/*.go
+      - go.mod
+      - go.sum
+    generates:
+      - docs/completions/gloss.bash
+      - docs/completions/_gloss
+      - docs/completions/gloss.fish
+    cmds: [go run ./cmd/gloss --docs-completions docs/completions]
   docs:md:build:
     desc: Generate the command reference, and the guide pages made from DEVELOP.md and the skill
     sources:
@@ -167,9 +180,9 @@ tasks:
     desc: Remove what the docs tasks generate
     cmds: [rm -rf docs/man docs/hugo/content/command docs/hugo/content/guide/development.md docs/hugo/content/guide/for-llms.md docs/hugo/public docs/hugo/resources]
   docs-check:
-    desc: Check that the man page and the reference can be generated from the options
+    desc: Check that the man page, completions, and reference can be generated from the options
     cmds:
-      - 'dir="$(mktemp -d)" && go run ./cmd/gloss --docs-man "$dir/man" --docs-markdown "$dir/md" --docs-hugo && go run ./internal/tools/docsite -o "$dir/guide"; status=$?; rm -rf "$dir"; exit $status'
+      - 'dir="$(mktemp -d)" && go run ./cmd/gloss --docs-man "$dir/man" --docs-completions "$dir/completions" --docs-markdown "$dir/md" --docs-hugo && go run ./internal/tools/docsite -o "$dir/guide"; status=$?; rm -rf "$dir"; exit $status'
   gen-assets:
     desc: Regenerate the original PNG, HEIC, PDF, and Grist fixtures
     cmds:

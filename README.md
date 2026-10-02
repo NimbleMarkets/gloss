@@ -76,8 +76,8 @@ or as [`SKILL.md`](skills/gloss/SKILL.md).
 The [documentation](https://nimblemarkets.github.io/gloss/docs/) has the rest: the
 controls, the formats gloss opens and their limits, exporting for vision models,
 handing files over, and every option, grouped by what it is for. `gloss --help`
-lists the options, and `man gloss` works after a Homebrew or `.deb` install; the
-release archives carry the page too.
+lists the options, and `man gloss` and tab completion for bash, zsh, and fish work
+after a Homebrew or `.deb` install; the release archives carry both too.
 
 To work on gloss, see [DEVELOP.md](DEVELOP.md).
 

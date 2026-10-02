@@ -9,11 +9,13 @@ version: 2
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
 
-# The man page is written by the binary from its own options (task docs).
+# The man page and the shell completions are written by the binary from its
+# own options (task docs).
 before:
   hooks:
     - go run -ldflags "-X main.version=v{{ .Version }}" ./cmd/gloss --docs-man docs/man
     - sh -c 'gzip -9 -n -c docs/man/gloss.1 > docs/man/gloss.1.gz'
+    - go run -ldflags "-X main.version=v{{ .Version }}" ./cmd/gloss --docs-completions docs/completions
 
 builds:
   - id: gloss
@@ -47,6 +49,8 @@ archives:
       - THIRD_PARTY_NOTICES.md
       - src: docs/man/gloss.1
         dst: man/gloss.1
+      - src: docs/completions/*
+        dst: completions
 
 nfpms:
   - id: packages
@@ -74,6 +78,12 @@ nfpms:
         dst: /usr/share/doc/gloss/THIRD_PARTY_NOTICES.md
       - src: docs/man/gloss.1.gz
         dst: /usr/share/man/man1/gloss.1.gz
+      - src: docs/completions/gloss.bash
+        dst: /usr/share/bash-completion/completions/gloss
+      - src: docs/completions/_gloss
+        dst: /usr/share/zsh/vendor-completions/_gloss
+      - src: docs/completions/gloss.fish
+        dst: /usr/share/fish/vendor_completions.d/gloss.fish
 
 checksum:
   name_template: checksums.txt
@@ -130,3 +140,7 @@ homebrew_casks:
       - gloss
     manpages:
       - man/gloss.1
+    completions:
+      bash: completions/gloss.bash
+      zsh: completions/_gloss
+      fish: completions/gloss.fish

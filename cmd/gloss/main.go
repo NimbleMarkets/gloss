@@ -100,7 +100,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	docsMan := f.String("docs-man", "", "")
 	docsMarkdown := f.String("docs-markdown", "", "")
 	docsHugo := f.Bool("docs-hugo", false, "")
-	for _, name := range []string{"docs-man", "docs-markdown", "docs-hugo"} {
+	docsCompletions := f.String("docs-completions", "", "")
+	for _, name := range []string{"docs-man", "docs-markdown", "docs-hugo", "docs-completions"} {
 		_ = f.MarkHidden(name)
 	}
 	f.Usage = func() {
@@ -120,9 +121,9 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		fmt.Fprintln(out, "gloss "+version)
 		return opts, true, nil
 	}
-	if *docsMan != "" || *docsMarkdown != "" {
+	if *docsMan != "" || *docsMarkdown != "" || *docsCompletions != "" {
 		var wrote bytes.Buffer
-		err := writeDocs(f, docsRequest{ManDir: *docsMan, MarkdownDir: *docsMarkdown, Hugo: *docsHugo}, &wrote)
+		err := writeDocs(f, docsRequest{ManDir: *docsMan, MarkdownDir: *docsMarkdown, CompletionsDir: *docsCompletions, Hugo: *docsHugo}, &wrote)
 		out.Write(wrote.Bytes())
 		return opts, err == nil, err
 	}

@@ -13,13 +13,14 @@ import (
 
 // The reference is written from the options themselves, so it cannot say
 // anything --help does not: a man page for the Debian package and the archives,
-// and Markdown for the website (with Hugo front matter, if asked). The hidden
-// options --docs-man and --docs-markdown run it; see `task docs:build`.
+// Markdown for the website (with Hugo front matter, if asked), and completion
+// scripts for bash, zsh, and fish (see completions.go). The hidden
+// options --docs-man, --docs-markdown and --docs-completions run it; see `task docs:build`.
 
 // docsRequest is what the hidden options asked for.
 type docsRequest struct {
-	ManDir, MarkdownDir string
-	Hugo                bool
+	ManDir, MarkdownDir, CompletionsDir string
+	Hugo                                bool
 }
 
 // writeDocs writes what was asked of the options f, in the order man pages
@@ -37,6 +38,17 @@ func writeDocs(f *pflag.FlagSet, req docsRequest, out *bytes.Buffer) error {
 			return err
 		}
 		fmt.Fprintf(out, "wrote %s\n", path)
+	}
+	if req.CompletionsDir != "" {
+		if err := os.MkdirAll(req.CompletionsDir, 0o755); err != nil {
+			return err
+		}
+		for name, body := range map[string]string{"gloss.bash": bashCompletion(f), "_gloss": zshCompletion(f), "gloss.fish": fishCompletion(f)} {
+			if err := os.WriteFile(filepath.Join(req.CompletionsDir, name), []byte(body), 0o644); err != nil {
+				return err
+			}
+		}
+		fmt.Fprintf(out, "wrote completions to %s\n", req.CompletionsDir)
 	}
 	if req.MarkdownDir != "" {
 		pages := markdownPages(f, req.Hugo)
