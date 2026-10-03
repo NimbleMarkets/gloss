@@ -80,9 +80,11 @@ NTCharts3d software renderer, whose license is among those below.
 	if err != nil {
 		return err
 	}
-	if text, err := os.ReadFile(filepath.Join(strings.TrimSpace(string(goroot)), "LICENSE")); err == nil {
-		section(&b, "The Go runtime and standard library", "https://go.dev", text)
+	text, err := goLicense(strings.TrimSpace(string(goroot)))
+	if err != nil {
+		return err
 	}
+	section(&b, "The Go runtime and standard library", "https://go.dev", text)
 	section(&b, "PDFium", "compiled to WebAssembly by github.com/klippa-app/go-pdfium and embedded in the native binary; the browser app serves @embedpdf/pdfium, which builds it, from the site itself (web/dist/vendor/embedpdf-pdfium, pinned and checked against its published hash)", []byte(pdfiumLicense))
 	// The site's fonts are served from web/fonts, with their license.
 	if text, err := os.ReadFile(filepath.Join("web", "fonts", "OFL.txt")); err == nil {
@@ -118,6 +120,24 @@ NTCharts3d software renderer, whose license is among those below.
 	}
 	_, err = os.Stdout.Write(b.Bytes())
 	return err
+}
+
+// Homebrew keeps Go in libexec and its license in the enclosing keg.
+func goLicense(root string) ([]byte, error) {
+	root = filepath.Clean(root)
+	name := filepath.Join(root, "LICENSE")
+	text, err := os.ReadFile(name)
+	if os.IsNotExist(err) && filepath.Base(root) == "libexec" {
+		parent := filepath.Join(filepath.Dir(root), "LICENSE")
+		text, err = os.ReadFile(parent)
+		if err != nil {
+			return nil, fmt.Errorf("runtime license for Go (checked %s and %s): %w", name, parent, err)
+		}
+	}
+	if err != nil {
+		return nil, fmt.Errorf("runtime license for Go %s: %w", name, err)
+	}
+	return text, nil
 }
 
 func section(b *bytes.Buffer, title, note string, text []byte) {
