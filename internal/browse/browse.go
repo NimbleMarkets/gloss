@@ -243,8 +243,9 @@ func (m Model) Layout() Layout { return m.layout }
 func (m *Model) SetLayout(l Layout) tea.Cmd {
 	m.layout = l % layoutCount
 	m.side = false
-	m.reveal()
-	return m.needs()
+	cmd := m.needs()
+	m.rebuild() // The layouts list different rows: the parent is a row of the list alone.
+	return cmd
 }
 
 // Current is the entry under the cursor: nil when nothing is listed, or the

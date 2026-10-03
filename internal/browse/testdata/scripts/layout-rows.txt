@@ -1,0 +1,18 @@
+-- fs --
+home/evan/a.png 1
+home/evan/b.md 1
+home/evan/dir/x
+-- script --
+start /home/evan
+size 90 9
+note the list has a parent row; the columns do not; each time the layout changes, folders already read, the rows follow
+state rows 4
+press ctrl+l
+state layout columns
+state rows 3
+press ctrl+l
+press ctrl+l
+state layout list
+state rows 4
+press ctrl+l
+state rows 3
