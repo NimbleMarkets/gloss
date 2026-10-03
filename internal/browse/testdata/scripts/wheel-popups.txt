@@ -1,0 +1,40 @@
+-- fs --
+home/evan/Documents/x
+home/evan/Downloads/y
+home/evan/a.png 1
+home/evan/b.md 1
+home/evan/c.csv 1
+home/evan/d.txt 1
+home/evan/e.png 1
+home/evan/f.md 1
+home/evan/g.csv 1
+-- script --
+option filters kinds
+option layout places
+start /home/evan
+size 100 14
+note the wheel over the folder moves its cursor, three rows to a notch
+snapshot start
+wheel 60 6 down
+state current b.md
+note over the sidebar, unfocused, it does nothing to the folder
+wheel 3 6 down
+state current b.md
+note with the menu open the wheel over it moves its cursor, and anywhere else does nothing
+press ctrl+f
+wheel 80 5 down
+snapshot menu-moved
+state current b.md
+wheel 10 6 down
+state current b.md
+wheel 80 5 up
+press esc
+state current b.md
+note with the sidebar focused the wheel moves its cursor, not the folder's
+press ctrl+g
+wheel 60 6 down
+snapshot sidebar-moved
+state current b.md
+press esc
+wheel 60 6 up
+state current Documents

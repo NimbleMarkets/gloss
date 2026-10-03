@@ -36,12 +36,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.click(msg)
 	case tea.MouseWheelMsg:
-		if msg.Button == tea.MouseWheelUp {
-			m.move(-3)
-		} else if msg.Button == tea.MouseWheelDown {
-			m.move(3)
-		}
-		return m, m.needs()
+		return m.wheel(msg)
 	}
 	return m, nil
 }

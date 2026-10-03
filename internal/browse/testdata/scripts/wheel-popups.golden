@@ -1,0 +1,56 @@
+# the wheel over the folder moves its cursor, three rows to a notch
+
+=== start (100x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ evan/                   │> Documents/              │  x
+▸ Home              │                          │  Downloads/              │
+  Documents         │                          │  a.png                   │
+  Downloads         │                          │  b.md                    │
+  Root              │                          │  c.csv                   │
+                    │                          │  d.txt                   │
+                    │                          │  e.png                   │
+                    │                          │  f.md                    │
+                    │                          │  g.csv                   │
+                    │                          │                          │
+                    │                          │                          │
+ 1/9 · places                                                                               types ▾
+
+# over the sidebar, unfocused, it does nothing to the folder
+
+# with the menu open the wheel over it moves its cursor, and anywhere else does nothing
+
+=== menu-moved (100x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ evan/                   │  Documents/      ╭─ File types ──────────────────╮
+▸ Home              │                          │  Downloads/      │  [x] All types                │
+  Documents         │                          │  a.png           │> [ ] ▫ Pictures               │
+  Downloads         │                          │> b.md            │  [ ] ▪ Documents              │…
+  Root              │                          │  c.csv           │  [ ] ▤ Data                   │
+                    │                          │  d.txt           ╰ space toggles · esc closes ───╯
+                    │                          │  e.png                   │
+                    │                          │  f.md                    │
+                    │                          │  g.csv                   │
+                    │                          │                          │
+                    │                          │                          │
+ 4/9 · places                                                                               types ▾
+
+# with the sidebar focused the wheel moves its cursor, not the folder's
+
+=== sidebar-moved (100x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ evan/                   │  Documents/              │  b.md
+▸ Home              │                          │  Downloads/              │
+> Documents         │                          │  a.png                   │  Size      1 B
+  Downloads         │                          │> b.md                    │  Modified  2026-01-02 1…
+  Root              │                          │  c.csv                   │  Folder    /home/evan
+                    │                          │  d.txt                   │
+                    │                          │  e.png                   │
+                    │                          │  f.md                    │
+                    │                          │  g.csv                   │
+                    │                          │                          │
+                    │                          │                          │
+ 4/9 · places                                                                               types ▾
+

@@ -90,3 +90,34 @@ func (m Model) clickRow(i int) (Model, tea.Cmd) {
 	m.moveTo(i)
 	return m, m.needs()
 }
+
+// wheel takes a turn of the wheel by what is under it: the menu of kinds moves
+// its own cursor, one row to a notch, if the wheel is over it, and the folder
+// is left alone while the menu is open; the sidebar does the same while it has
+// the cursor; and otherwise the wheel scrolls the folder, three rows to a
+// notch, but not from over the sidebar, which has nothing to scroll.
+func (m Model) wheel(msg tea.MouseWheelMsg) (Model, tea.Cmd) {
+	by := 0
+	switch msg.Button {
+	case tea.MouseWheelUp:
+		by = -1
+	case tea.MouseWheelDown:
+		by = 1
+	default:
+		return m, nil
+	}
+	switch {
+	case m.menu:
+		if x, y, w, h := m.menuRect(); msg.X >= x && msg.X < x+w && msg.Y >= y && msg.Y < y+h {
+			m.menuAt = min(max(m.menuAt+by, 0), len(m.filters))
+		}
+		return m, nil
+	case m.side:
+		m.sideStep(by)
+		return m, nil
+	case msg.X < m.sideWidth():
+		return m, nil
+	}
+	m.move(3 * by)
+	return m, m.needs()
+}
