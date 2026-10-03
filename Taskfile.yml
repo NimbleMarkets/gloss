@@ -66,6 +66,74 @@ tasks:
           go test ./internal/document -run '^$' -fuzz "^${t}\$" -fuzztime {{.FUZZTIME}} || failed=1
         done
         exit $failed
+  browse:test:
+    desc: Run the file browser's tests and its scripts (internal/browse)
+    cmds: ['go test -mod=readonly ./internal/browse/...']
+  browse:screens:
+    desc: Rewrite the golden screens of the browser's scripts, then read the diff
+    cmds: ['go test -mod=readonly ./internal/browse/... -update-screens']
+  browse:bench:
+    desc: Time typing and drawing in a folder of 100,000 files
+    cmds: ["go test -mod=readonly -run '^$' -bench . ./internal/browse"]
+  browse:play:
+    desc: Try the file browser over an in-memory tree (-- -from ~/Downloads, -script FILE, -option layout=columns)
+    interactive: true
+    cmds: ['go run ./internal/browse/cmd/play {{.CLI_ARGS}}']
+  browse:record:
+    desc: Play with the browser and keep what you do as a test script (NAME=mything)
+    interactive: true
+    requires:
+      vars: [NAME]
+    preconditions:
+      - sh: test ! -e internal/browse/testdata/scripts/{{.NAME}}.txt
+        msg: "internal/browse/testdata/scripts/{{.NAME}}.txt exists: pick another NAME"
+    cmds:
+      - go run ./internal/browse/cmd/play -record internal/browse/testdata/scripts/{{.NAME}}.txt {{.CLI_ARGS}}
+      - go test -mod=readonly ./internal/browse -run 'TestScripts/{{.NAME}}$' -update-screens
+      - echo "Written internal/browse/testdata/scripts/{{.NAME}}.txt and its .golden; read both, add checks, then task browse:test"
+  browse:replay:
+    desc: Step through a browser script in the terminal, its checks shown (SCRIPT=columns)
+    interactive: true
+    requires:
+      vars: [SCRIPT]
+    cmds: ['go run ./internal/browse/cmd/play -replay -script internal/browse/testdata/scripts/{{.SCRIPT}}.txt {{.CLI_ARGS}}']
+  browse:tape:
+    desc: Write a browser script as a VHS tape in dist/browse (SCRIPT=columns)
+    requires:
+      vars: [SCRIPT]
+    vars:
+      CMD: '{{.CMD | default "gloss examples"}}'
+      KEYS: '{{.KEYS | default "alt+up=Ctrl+Up,alt+left=Ctrl+O"}}'
+      PAUSE: '{{.PAUSE | default "500ms"}}'
+    cmds:
+      - mkdir -p dist/browse
+      - >-
+        go run ./internal/browse/browsetest/tape
+        -cmd "{{.CMD}}" -keys "{{.KEYS}}" -pause "{{.PAUSE}}"
+        -o "dist/browse/{{.SCRIPT}}.gif"
+        internal/browse/testdata/scripts/{{.SCRIPT}}.txt > dist/browse/{{.SCRIPT}}.tape
+  browse:gif:
+    desc: Record a browser script as a GIF in dist/browse (SCRIPT=columns; needs vhs)
+    requires:
+      vars: [SCRIPT]
+    preconditions:
+      - sh: command -v vhs
+        msg: "vhs is not installed (brew install vhs): it records the GIF"
+    cmds:
+      - task: browse:tape
+        vars: {SCRIPT: '{{.SCRIPT}}', CMD: '{{.CMD}}', KEYS: '{{.KEYS}}', PAUSE: '{{.PAUSE}}'}
+      # The tape types gloss, so the one just built is first on the path; it
+      # runs from here, where examples/ is.
+      - go build -mod=readonly -o dist/browse/bin/gloss ./cmd/gloss
+      - PATH="$PWD/dist/browse/bin:$PATH" vhs dist/browse/{{.SCRIPT}}.tape
+  browse:gifs:
+    desc: Record the browser's showcase scripts as GIFs in dist/browse (needs vhs)
+    vars:
+      SCRIPTS: '{{.SCRIPTS | default "columns places filter complete2"}}'
+    cmds:
+      - for: {var: SCRIPTS, split: ' '}
+        task: browse:gif
+        vars: {SCRIPT: '{{.ITEM}}'}
   staticcheck:
     desc: Run staticcheck
     cmds: [go run honnef.co/go/tools/cmd/staticcheck@latest ./...]
