@@ -5,6 +5,7 @@ import (
 	"github.com/NimbleMarkets/gloss/internal/browse/browsecfg"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/NimbleMarkets/gloss/internal/browse"
 	"github.com/NimbleMarkets/gloss/internal/browse/browsetest"
@@ -55,4 +56,20 @@ func TestNoSizeOrNameMakesAnUnsoundScreen(t *testing.T) {
 		}
 	}
 	_ = browse.LayoutList
+}
+
+// Reading the folders again (as toggling what is shown does) leaves the cursor
+// on the same name once they are read, not on the first row.
+func TestReloadKeepsTheCursorOnItsName(t *testing.T) {
+	f := browsetest.NewFS("home/evan/a", "home/evan/b", "home/evan/c", "home/evan/d")
+	f.Latency(20 * time.Millisecond)
+	d := browsetest.New(t, browsecfg.Config().New(f, "/home/evan", nil), 60, 9)
+	d.Press("down", "down")
+	if cur := browsecfg.Config().Probe(d.M)["current"]; cur != "c" {
+		t.Fatalf("setup: the cursor is on %q", cur)
+	}
+	d.Run(d.M.Reload())
+	if cur := browsecfg.Config().Probe(d.M)["current"]; cur != "c" {
+		t.Errorf("after Reload the cursor is on %q, want c\n%s", cur, d.Screen())
+	}
 }

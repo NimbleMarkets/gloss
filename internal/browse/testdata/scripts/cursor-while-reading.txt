@@ -1,0 +1,16 @@
+-- fs --
+home/evan/a/x
+home/evan/b/y
+home/evan/c/z
+-- script --
+latency 40ms
+start /home/evan/b
+size 60 9
+note the parent is not read yet when ← goes there: the cursor still ends on the folder left, b
+press left
+state dir /home/evan
+state current b
+note and going in again finds the cursor where it was in b
+press right
+state dir /home/evan/b
+state current y

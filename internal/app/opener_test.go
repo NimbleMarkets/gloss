@@ -830,3 +830,20 @@ func TestGoToCompletesFoldersAloneButStillListsFiles(t *testing.T) {
 		t.Fatalf("after the go-to, Tab gave %q, want tripsheet.txt", got)
 	}
 }
+
+func TestTogglingWhatIsShownKeepsTheCursorOnItsFile(t *testing.T) {
+	m := browsing(t, folder(t))
+	current := func() string { return m.opener.picker.Current().Name() }
+	// Down to beta.svg by arrows, then toggle: the folder is read again.
+	for current() != "beta.svg" {
+		send(m, tea.KeyPressMsg{Code: tea.KeyDown})
+	}
+	send(m, toggleHidden)
+	if got := current(); got != "beta.svg" {
+		t.Fatalf("after hiding the greyed the cursor is on %q, not beta.svg", got)
+	}
+	send(m, tea.KeyPressMsg{Code: 'x', Mod: tea.ModCtrl})
+	if got := current(); got != "beta.svg" {
+		t.Fatalf("after setting text aside the cursor is on %q, not beta.svg", got)
+	}
+}

@@ -155,6 +155,13 @@ func (m *Model) rebuild() {
 		m.reveal()
 		return
 	}
+	if l := m.lists[dir]; m.sel != "" && (l == nil || !l.loaded) {
+		// The folder is still being read, which is why the name is not there:
+		// keep it, to be found when the rows arrive. Until then, the first.
+		m.cursor = max(slices.IndexFunc(m.rows, func(r row) bool { return !r.parent }), 0)
+		m.reveal()
+		return
+	}
 	// Not where it was: the first real row. With only the parent listed,
 	// as while a folder is being read, nothing is remembered, so that the
 	// rows arriving are chosen from afresh.

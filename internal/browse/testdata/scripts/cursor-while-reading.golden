@@ -1,0 +1,4 @@
+# the parent is not read yet when ← goes there: the cursor still ends on the folder left, b
+
+# and going in again finds the cursor where it was in b
+
