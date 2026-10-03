@@ -33,6 +33,8 @@ type FS struct {
 	latency time.Duration
 	fails   map[string]error
 	reads   []string
+	opens   []string
+	stats   []string
 }
 
 type node struct {
@@ -42,6 +44,7 @@ type node struct {
 	size int64
 	mod  time.Time
 	mode fs.FileMode
+	link string // For a symbolic link, where it leads: a name in this filesystem.
 }
 
 // NewFS builds a filesystem from lines, each a path with optional fields:
@@ -52,6 +55,7 @@ type node struct {
 //	home/evan/docs/                 a folder, however empty
 //	home/evan/hello.txt = hi there  a file with that text
 //	"home/evan/two words.txt" 12    a name with spaces is Go-quoted
+//	home/evan/here -> /home/evan/docs   a symbolic link, to a folder or a file
 //
 // Folders along a path are made as needed. A leading slash is ignored.
 func NewFS(lines ...string) *FS {
@@ -88,6 +92,13 @@ func (f *FS) Add(line string) {
 		t := rest[i+3:]
 		rest, text = rest[:i], &t
 	}
+	target, isLink := "", false
+	if t, ok := strings.CutPrefix(strings.TrimSpace(rest), "-> "); ok {
+		target, isLink, rest = strings.Trim(path.Clean("/"+strings.TrimSpace(t)), "/"), true, ""
+		if target == "" {
+			target = "."
+		}
+	}
 	size, mod := int64(-1), Epoch
 	for _, extra := range strings.Fields(rest) {
 		if date, ok := strings.CutPrefix(extra, "@"); ok {
@@ -115,6 +126,11 @@ func (f *FS) Add(line string) {
 		}
 	}
 	n := &node{name: path.Base(name), dir: dir, mod: mod, mode: 0o644}
+	if isLink {
+		n.link, n.mode, n.size = target, fs.ModeSymlink|0o777, int64(len(target))
+		f.nodes[name] = n
+		return
+	}
 	if dir {
 		n.mode = fs.ModeDir | 0o755
 	} else if text != nil {
@@ -167,11 +183,25 @@ func (f *FS) ReadCount(dir string) int {
 	return n
 }
 
-// ResetReads forgets the reads counted so far.
+// ResetReads forgets the reads, opens, and stats counted so far.
 func (f *FS) ResetReads() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.reads = nil
+	f.reads, f.opens, f.stats = nil, nil, nil
+}
+
+// Opens lists what was opened (not folders read) so far, in order.
+func (f *FS) Opens() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.opens)
+}
+
+// Stats lists what was described without being opened so far, in order.
+func (f *FS) Stats() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return slices.Clone(f.stats)
 }
 
 func (f *FS) lookup(name string) (*node, error) {
@@ -187,14 +217,33 @@ func (f *FS) lookup(name string) (*node, error) {
 	return n, nil
 }
 
-// Open opens a file or a folder.
+// resolve follows a link, and links to links, to what it leads to.
+func (f *FS) resolve(name string) (string, *node, error) {
+	for range 8 {
+		n, err := f.lookup(name)
+		if err != nil {
+			return "", nil, err
+		}
+		if n.link == "" {
+			return name, n, nil
+		}
+		name = n.link
+	}
+	return "", nil, fs.ErrInvalid // Too many links.
+}
+
+// Open opens a file or a folder, a link being followed. Opens are counted, for
+// tests that a link to something that blocks on opening is never opened.
 func (f *FS) Open(name string) (fs.File, error) {
-	n, err := f.lookup(name)
+	f.mu.Lock()
+	f.opens = append(f.opens, name)
+	f.mu.Unlock()
+	real, n, err := f.resolve(name)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
 	if n.dir {
-		return &dirFile{fs: f, name: name, node: n}, nil
+		return &dirFile{fs: f, name: real, node: n}, nil
 	}
 	return &openFile{node: n, r: bytes.NewReader(n.data)}, nil
 }
@@ -211,7 +260,7 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 	if fail != nil {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fail}
 	}
-	n, err := f.lookup(name)
+	real, n, err := f.resolve(name)
 	if err != nil {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: err}
 	}
@@ -222,7 +271,7 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 	defer f.mu.Unlock()
 	var entries []fs.DirEntry
 	for p, c := range f.nodes {
-		if p != "." && path.Dir(p) == name {
+		if p != "." && path.Dir(p) == real {
 			entries = append(entries, fs.FileInfoToDirEntry(info{c}))
 		}
 	}
@@ -230,13 +279,19 @@ func (f *FS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return entries, nil
 }
 
-// Stat describes a file or a folder.
+// Stat describes a file or a folder, a link being followed, as os.Stat does:
+// without opening it. Stats are counted.
 func (f *FS) Stat(name string) (fs.FileInfo, error) {
-	n, err := f.lookup(name)
+	f.mu.Lock()
+	f.stats = append(f.stats, name)
+	f.mu.Unlock()
+	_, n, err := f.resolve(name)
 	if err != nil {
 		return nil, &fs.PathError{Op: "stat", Path: name, Err: err}
 	}
-	return info{n}, nil
+	c := *n
+	c.name = path.Base(name)
+	return info{&c}, nil
 }
 
 type info struct{ n *node }

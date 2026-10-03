@@ -68,6 +68,13 @@ func (d *Driver[M]) Send(msg tea.Msg) {
 	d.run(cmd)
 }
 
+// Run executes a command the test got by calling the component directly (its
+// Reload, say), and settles what follows.
+func (d *Driver[M]) Run(cmd tea.Cmd) {
+	d.T.Helper()
+	d.run(cmd)
+}
+
 // Press sends keys by name: "enter", "esc", "tab", "shift+tab", "ctrl+n",
 // "alt+up", "backspace", "pgdown", or a single character such as "a" or
 // "G". Each is settled before the next.

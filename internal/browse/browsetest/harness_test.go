@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -247,5 +248,47 @@ func TestScreenProblems(t *testing.T) {
 	}
 	if !(browsetest.Screen{Raw: "x\x1b[31my\x1b[m"}).RawContains("\x1b[31m") || (browsetest.Screen{Raw: "xy"}).RawContains("\x1b") {
 		t.Error("RawContains looks at the view as drawn")
+	}
+}
+
+func TestFSLinks(t *testing.T) {
+	f := browsetest.NewFS("a/docs/readme.md 5", "a/here -> /a/docs", "a/readme -> a/docs/readme.md", "a/gone -> /nowhere", "a/loop -> /a/loop")
+	entries, _ := f.ReadDir("a")
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name())
+		if strings.HasPrefix(e.Name(), "docs") != (e.Type()&fs.ModeSymlink == 0) {
+			t.Errorf("%s: type %v", e.Name(), e.Type())
+		}
+		if e.IsDir() != (e.Name() == "docs") {
+			t.Errorf("%s: a listing does not say that a link leads to a folder", e.Name())
+		}
+	}
+	if !reflect.DeepEqual(names, []string{"docs", "gone", "here", "loop", "readme"}) {
+		t.Errorf("names %v", names)
+	}
+	via, err := f.ReadDir("a/here")
+	if err != nil || len(via) != 1 || via[0].Name() != "readme.md" {
+		t.Errorf("reading a link to a folder: %v %v", via, err)
+	}
+	if info, err := fs.Stat(f, "a/here"); err != nil || !info.IsDir() || info.Name() != "here" {
+		t.Errorf("Stat of a link to a folder: %v %v", info, err)
+	}
+	if info, err := fs.Stat(f, "a/readme"); err != nil || info.IsDir() || info.Size() != 5 {
+		t.Errorf("Stat of a link to a file: %v %v", info, err)
+	}
+	for _, bad := range []string{"a/gone", "a/loop"} {
+		if _, err := fs.Stat(f, bad); err == nil {
+			t.Errorf("Stat(%s) should fail", bad)
+		}
+	}
+	f.ResetReads()
+	_, _ = fs.Stat(f, "a/here")
+	_, _ = f.Open("a/readme")
+	if got := f.Stats(); !reflect.DeepEqual(got, []string{"a/here"}) {
+		t.Errorf("stats %v", got)
+	}
+	if got := f.Opens(); !reflect.DeepEqual(got, []string{"a/readme"}) {
+		t.Errorf("opens %v", got)
 	}
 }
