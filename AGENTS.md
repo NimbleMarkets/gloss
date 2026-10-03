@@ -124,7 +124,11 @@ Agent-facing / scriptable surface:
 
 Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 
-- `task build` / `task run -- <args>` / `task install`
+- `task build` / `task run -- <args>` / `task install`. `build` is skipped when
+  nothing the binary is made of has changed (its `sources` in `Taskfile.yml`:
+  the Go of its packages, embedded files, `go.mod`/`go.sum`; and the version
+  asked for); a test (`internal/tools/taskcheck`) fails if a file the binary
+  uses is missing from them, as when a package outside `internal/` is added.
 - `task test` — `go test ./...`; `task test-race`, `task vet`
 - `task browse:test` / `browse:screens` / `browse:bench` / `browse:gif SCRIPT=name` —
   the file browser's tests, golden screens, benchmark, and a VHS recording of a

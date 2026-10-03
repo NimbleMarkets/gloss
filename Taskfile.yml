@@ -10,9 +10,37 @@ tasks:
     desc: List available tasks
     cmds: [task --list]
   build:
-    desc: Build ./gloss
+    desc: Build ./gloss (skipped when nothing it is built from has changed)
     env:
       GLOSS_VERSION: '{{.VERSION}}'
+    # What the binary is made of: the Go of its packages (the harness, tools,
+    # and tests of the browser are not part of it), the files it embeds
+    # (skills/gloss/SKILL.md and the web page's scripts), and the modules. A new
+    # package under internal/ is picked up; one elsewhere must be added here.
+    sources:
+      - go.mod
+      - go.sum
+      - cmd/**/*.go
+      - internal/**/*.go
+      - skills/*.go
+      - skills/gloss/SKILL.md
+      - web/embed.go
+      - web/serve.html
+      - web/serve.mjs
+      - web/drop.mjs
+      - web/upload.mjs
+      - web/pickers.mjs
+      - exclude: '**/*_test.go'
+      - exclude: internal/tools/**
+      - exclude: internal/browse/browsetest/**
+      - exclude: internal/browse/browsecfg/**
+      - exclude: internal/browse/cmd/**
+    generates:
+      - gloss
+    # The version is stamped in by -ldflags, which no source file records: it
+    # is up to date only if the binary says the version asked for.
+    status:
+      - test "$(./gloss --version 2>/dev/null)" = "gloss {{.VERSION}}"
     cmds:
       - go build -mod=readonly -trimpath -ldflags "-X main.version=$GLOSS_VERSION" -o gloss ./cmd/gloss
   run:
