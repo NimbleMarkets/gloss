@@ -54,24 +54,39 @@ var typeFilters = []struct {
 	{"Tables (CSV, Excel, Grist)", []string{"📊"}},
 }
 
-// browseFilters are those kinds as the chooser takes them.
+// browseFilters are those kinds as the chooser takes them. A file is looked
+// into only for the kind that text by content is part of.
 func browseFilters() []browse.Filter {
 	out := make([]browse.Filter, len(typeFilters))
 	for i, f := range typeFilters {
-		out[i] = browse.Filter{Name: f.name, Mark: f.marks[0], Match: func(e fs.DirEntry) bool { return slices.Contains(f.marks, mark(e)) }}
+		byContent := slices.Contains(f.marks, "📃")
+		out[i] = browse.Filter{Name: f.name, Mark: f.marks[0], Match: func(e fs.DirEntry) bool {
+			if m, ok := extMark(e); ok {
+				return slices.Contains(f.marks, m)
+			}
+			return byContent && slices.Contains(f.marks, mark(e))
+		}}
 	}
 	return out
 }
 
-// mark is what stands before a name in the listing, in place of its mode.
-func mark(e fs.DirEntry) string {
+// extMark is the mark an extension gives, and whether it gave one: a folder has
+// its own, and what gloss cannot show, or cannot tell by name, has none.
+func extMark(e fs.DirEntry) (string, bool) {
 	if e.IsDir() {
-		return "📁"
+		return "📁", true
 	}
-	if m, ok := kindMarks[strings.ToLower(filepath.Ext(e.Name()))]; ok {
+	m, ok := kindMarks[strings.ToLower(filepath.Ext(e.Name()))]
+	return m, ok
+}
+
+// mark is what stands before a name in the listing, in place of its mode. A file
+// whose name says nothing is looked into, here, as it is drawn, and once.
+func mark(e fs.DirEntry) string {
+	if m, ok := extMark(e); ok {
 		return m
 	}
-	if s, ok := e.(sniffed); ok && s.text {
+	if s, ok := e.(*sniffed); ok && s.isText() {
 		return "📃" // Text by its content, whatever its name.
 	}
 	return "  "
@@ -177,21 +192,32 @@ type readLog struct {
 	text    bool // Files that read as text may be chosen, whatever their name.
 }
 
-// A file as listed, with what a look at its start said of it.
+// A file as listed, to be looked into if its name does not say what it is:
+// whether it reads as text is found out when asked, as the row is drawn or the
+// file chosen, and then kept. A folder is listed without opening what is in it,
+// which the folders beside and under the one browsed would otherwise cost.
 type sniffed struct {
 	fs.DirEntry
+	look func() bool
+	once sync.Once
 	text bool
 }
 
-// ReadDir lists a folder, each file that no extension accounts for looked
-// at to see whether it is text, and the files that cannot be chosen left
-// out when that is asked for.
+// isText looks at the file's start the first time it is asked.
+func (s *sniffed) isText() bool {
+	s.once.Do(func() { s.text = s.look() })
+	return s.text
+}
+
+// ReadDir lists a folder, links to folders made folders, and the files that
+// cannot be chosen left out when that is asked for, which means looking into
+// each file that no extension accounts for.
 func (l *readLog) ReadDir(name string) ([]fs.DirEntry, error) {
 	l.mu.Lock()
 	hide, allowed := l.hide && l.allowed != nil, l.allowed
 	l.mu.Unlock()
 	entries, err := l.ReadDirFS.ReadDir(name)
-	entries = browse.FollowLinks(l.ReadDirFS, name, entries) // Before any are left out.
+	entries = browse.FollowLinks(l, name, entries) // Before any are left out.
 	if allowed == nil {
 		return entries, err
 	}
@@ -199,7 +225,8 @@ func (l *readLog) ReadDir(name string) ([]fs.DirEntry, error) {
 		if e.IsDir() || slices.Contains(allowed, strings.ToLower(filepath.Ext(e.Name()))) {
 			continue
 		}
-		entries[i] = sniffed{e, l.readsAsText(path.Join(name, e.Name()))}
+		file := path.Join(name, e.Name())
+		entries[i] = &sniffed{DirEntry: e, look: func() bool { return l.readsAsText(file, e) }}
 	}
 	if !hide {
 		return entries, err
@@ -207,8 +234,27 @@ func (l *readLog) ReadDir(name string) ([]fs.DirEntry, error) {
 	return slices.DeleteFunc(entries, func(e fs.DirEntry) bool { return !e.IsDir() && !l.selectable(e) }), err
 }
 
-// readsAsText looks at the start of a file.
-func (l *readLog) readsAsText(name string) bool {
+// Stat describes a file without opening it, as os.Stat does, if the
+// filesystem can: opening is what a link to a pipe must not suffer.
+func (l *readLog) Stat(name string) (fs.FileInfo, error) {
+	if s, ok := l.ReadDirFS.(fs.StatFS); ok {
+		return s.Stat(name)
+	}
+	return fs.Stat(l.ReadDirFS, name)
+}
+
+// readsAsText looks at the start of a file, if it is a file: a pipe or a
+// device is not opened, for that may wait for ever or have an effect, and a link
+// is followed only to a file.
+func (l *readLog) readsAsText(name string, e fs.DirEntry) bool {
+	if !e.Type().IsRegular() {
+		if e.Type()&fs.ModeSymlink == 0 {
+			return false
+		}
+		if info, err := l.Stat(name); err != nil || !info.Mode().IsRegular() {
+			return false
+		}
+	}
 	f, err := l.Open(name)
 	if err != nil {
 		return false
@@ -222,10 +268,11 @@ func (l *readLog) readsAsText(name string) bool {
 // selectable says whether a listed file may be chosen: one of gloss's
 // kinds by extension, or text while text files are offered.
 func (l *readLog) selectable(e fs.DirEntry) bool {
-	if s, ok := e.(sniffed); ok {
+	if s, ok := e.(*sniffed); ok {
 		l.mu.Lock()
-		defer l.mu.Unlock()
-		return s.text && l.text
+		text := l.text
+		l.mu.Unlock()
+		return text && s.isText() // Looking into the file is done without the lock.
 	}
 	return true
 }
@@ -275,7 +322,7 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 	}
 	reads := &readLog{ReadDirFS: os.DirFS(string(filepath.Separator)).(fs.ReadDirFS), hide: m.hideUnsupported, text: !m.noTextFiles}
 	options := []browse.Option{browse.WithMarker(mark), browse.WithSort(ordering(m.sortBy)), browse.WithLayout(browse.Layout(m.browseLayout)), browse.WithPrompt(filterPrompt),
-		browse.WithFilters(browseFilters()), browse.WithActiveFilters(m.browseTypes...)}
+		browse.WithFilters(browseFilters()), browse.WithActiveFilters(m.browseTypes...), browse.WithLinksFollowed()}
 	if m.opts.Type == "" {
 		// Judged by name where the name says; the rest by a look inside.
 		reads.allowed = document.Extensions
