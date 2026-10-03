@@ -21,7 +21,7 @@ import (
 // only http and https, follows redirects only to the same, reads no more
 // than a file may be, and keeps only what gloss can show. Nothing is fetched
 // unless the user asked: gloss does not reach the network on its own.
-func Fetch(ctx context.Context, address, dir string) (string, error) {
+func Fetch(ctx context.Context, address, dir string, filters ...AcceptFilter) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(address))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return "", fmt.Errorf("only http and https addresses are fetched")
@@ -52,6 +52,12 @@ func Fetch(ctx context.Context, address, dir string) (string, error) {
 	if _, err := Probe(kept, ""); err != nil {
 		os.Remove(kept)
 		return "", fmt.Errorf("%s: %s", svg.SanitizeForTerminal(name), SkipReason(err))
+	}
+	for _, accept := range filters {
+		if err := accept.CheckFile(nil, kept); err != nil {
+			os.Remove(kept)
+			return "", err
+		}
 	}
 	return kept, nil
 }

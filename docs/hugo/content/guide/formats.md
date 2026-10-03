@@ -115,11 +115,11 @@ bookToC: false
   status bar shows the address under it. With `--fetch`, `Enter` on such
   a cell downloads what it names and opens it like a dropped file; a picture
   is shown as one, and `Esc` closes it and returns to the cell. Only http and
-  https are fetched, of no more than 128 MiB, and only on `Enter`: gloss never
+  https are fetched, of no more than 128 MiB, and only on `Enter` or a URL drop/paste: gloss never
   fetches on its own. Fetched files are removed when closed or when gloss
   exits, unless they were picked.
 - Input files and stdin are limited to 128 MiB. One active document and, when
   enabled, one independent preview are kept open.
   Images, SVGs, and PDF pages zoom by cropping the existing raster, up to 64×;
   use a higher PDF DPI for more detail. There is no file watching, and no
-  fetching unless `--fetch` is given; even then only `Enter` on a cell fetches.
+  fetching unless `--fetch` is given; even then only `Enter` on a cell or an explicit URL drop/paste fetches.

@@ -40,8 +40,19 @@ async function tellLibrary() {
 function sizeText(bytes) {
   return bytes >= 2 ** 20 ? `${(bytes / 2 ** 20).toFixed(1)} MiB` : `${Math.max(1, Math.round(bytes / 1024))} KiB`;
 }
-async function open(names, contents, { keep = true } = {}) {
+async function open(names, contents, { keep = true, required = false } = {}) {
   if (typeof window.gloss_drop !== 'function') return notice('gloss is still loading.');
+  const accepted = [], data = [];
+  for (let i = 0; i < names.length; i++) {
+    const error = window.gloss_validate(names[i], contents[i]);
+    if (error) {
+      if (required) throw new Error(`${names[i]}: ${error}`);
+      notice(`${names[i]}: ${error}`); continue;
+    }
+    accepted.push(names[i]); data.push(contents[i]);
+  }
+  names = accepted; contents = data;
+  if (!names.length) return;
   window.gloss_drop(names, contents);
   focus();
   if (keep && library) {
@@ -49,7 +60,22 @@ async function open(names, contents, { keep = true } = {}) {
     await tellLibrary();
   }
 }
-installDrop(window, hint, open, notice);
+let fetching = false;
+async function openURL(address) {
+  if (fetching) throw new Error('A document is already being fetched.');
+  if (typeof window.gloss_validate !== 'function') throw new Error('gloss is still loading.');
+  fetching = true;
+  try {
+    const [name, data] = await fetchDocument(address);
+    await open([name], [data], { keep: false, required: true });
+  } finally { fetching = false; }
+}
+installDrop(window, hint, open, notice, openURL);
+// The landing page forwards an explicit URL drop from beside its iframe.
+window.addEventListener('message', event => {
+  if (event.origin !== location.origin || event.source !== window.parent || event.data?.type !== 'gloss-url-drop' || typeof event.data.url !== 'string') return;
+  openURL(event.data.url).catch(error => notice(error.message));
+});
 window.gloss_save = (name, bytes) => saveFile(name, bytes);
 window.addEventListener('gloss-exit', () => message(config.mode === 'app' ? 'You quit gloss. Restart to open your files again.' : 'You quit gloss. Restart to explore again.'));
 
@@ -107,7 +133,7 @@ try {
         const [name, data] = await fetchDocument(config.src);
         // Shown, and not kept: a link must not be able to fill the visitor's library,
         // pushing out the files they chose to keep.
-        await open([name], [data], { keep: false });
+        await open([name], [data], { keep: false, required: true });
         if (where) { where.textContent = `Opened ${name} from ${new URL(config.src).host}: fetched by your browser at this link's request, and not kept. Nothing else was fetched, and nothing was uploaded.`; where.hidden = false; }
       } catch (error) {
         if (where) { where.textContent = `${error.message} (${config.src})`; where.hidden = false; }

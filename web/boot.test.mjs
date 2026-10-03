@@ -38,3 +38,7 @@ test('forgetting starts the page again without the document a link asked for', (
   assert.equal(emptied('https://example.test/app.html?src=https://files.test/report.pdf'), 'https://example.test/app.html');
   assert.equal(emptied('https://example.test/term.html?mode=app&src=https%3A%2F%2Ffiles.test%2Fx.pdf'), 'https://example.test/term.html?mode=app');
 });
+
+test('a page link can require a session content filter', () => {
+  assert.deepEqual(bootConfig('{"mode":"app"}', 'https://gloss.test/app.html?accept=image%2F*').argv, ['gloss-demo', '--app', '--accept', 'image/*']);
+});

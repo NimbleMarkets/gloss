@@ -60,6 +60,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVarP(&opts.Render, "render", "r", "auto", "terminal graphics: auto, kitty, glyph")
 	f.StringVar(&opts.Render3D, "3d", "auto", "mesh renderer for STL and 3MF: auto, software, wireframe")
 	f.StringVarP(&opts.Type, "type", "t", "", "force input type: image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown (or md)")
+	accept := f.String("accept", "", "require these content formats for this session, comma-separated: image/*, pdf, svg, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown")
 	page := f.StringP("page", "p", "1", "PDF page or workbook sheet, from 1; for an export or text into a folder, a range such as 2-5, or all")
 	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, text of a PDF page, CSV of a sheet, text and JSON as they are")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
@@ -76,7 +77,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	cols := f.String("cols", "", "show only these columns of a table, by header or letter: name,name")
 	coln := f.String("coln", "", "show only these columns of a table, counted from 1: 2,4-6")
 	f.StringArrayVar(&opts.Globs, "glob", nil, "search the folders named, or the current one, for files: a glob, an extension, or a kind such as images (repeatable)")
-	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening web addresses found in tables, with Enter; gloss never fetches on its own")
+	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening a dropped URL or a table address with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
 	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
@@ -172,6 +173,9 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	}
 	pages, err := parsePages(*page)
 	if err != nil {
+		return opts, false, err
+	}
+	if opts.Accept, err = document.ParseAccept(*accept); err != nil {
 		return opts, false, err
 	}
 	opts.Pages = pages
@@ -376,6 +380,14 @@ func run(args []string) (err error) {
 	if opts.Info {
 		return describe(opts, os.Stdout, os.Stderr)
 	}
+	for _, path := range opts.Files {
+		if info, e := os.Stat(path); e == nil && info.IsDir() {
+			continue
+		}
+		if err := opts.Accept.CheckFile(nil, path); err != nil {
+			return fmt.Errorf("%q: %w", path, err)
+		}
+	}
 	opts.Browse, opts.Files, err = inputs(opts.Files, opts.Type, exporting, os.Stderr)
 	if err != nil {
 		return err
@@ -396,7 +408,7 @@ func run(args []string) (err error) {
 		opts.Fetch = func(address string) (string, error) {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
-			return document.Fetch(ctx, address, dir)
+			return document.Fetch(ctx, address, dir, opts.Accept)
 		}
 		defer func() { discardFetched(dir, picked) }()
 	}

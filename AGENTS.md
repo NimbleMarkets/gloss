@@ -73,7 +73,10 @@ limits" page, `docs/hugo/content/guide/formats.md`):
 - **CSV/TSV**: separator auto-detected; shown like a sheet. Table columns can
   be hidden interactively or via `--cols`/`--coln`.
 - **Fetching** (opt-in `--fetch`): `Enter` on a table cell holding an http(s)
-  address downloads and opens it; gloss never fetches on its own. Such cells
+  address, or dropping/pasting one URL, downloads and opens it; gloss never
+  fetches on its own. `--accept 'image/*,pdf'` requires content formats for a
+  session; mismatches are rejected, regardless of `--type`. Public pages fetch
+  URL drops directly in the browser with CORS, never through a site proxy. Such cells
   are marked 🔗 and drawn as terminal hyperlinks (OSC 8), so the terminal,
   not gloss, opens them in a browser when clicked.
 

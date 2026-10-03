@@ -43,6 +43,7 @@ func appOptions() (app.Options, bool) {
 func main() {
 	sample := pflag.String("sample", "", "initial embedded sample filename")
 	appMode := pflag.Bool("app", false, "start empty, for the visitor's own files, with no samples")
+	accept := pflag.String("accept", "", "required content formats")
 	pflag.Parse()
 	settings, ok := options(*sample)
 	if *appMode {
@@ -52,6 +53,12 @@ func main() {
 		fmt.Fprintln(os.Stderr, "unknown sample:", *sample)
 		return
 	}
+	filter, err := document.ParseAccept(*accept)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return
+	}
+	settings.Accept = filter
 	dropped := &document.Overlay{Base: examples.Files}
 	settings.FilesFS = dropped
 	m := app.New(settings)
@@ -60,8 +67,8 @@ func main() {
 		opts = append(opts, tea.WithoutSignalHandler())
 	}
 	p := booba.NewProgram(m, opts...)
-	acceptDrops(p.Send, dropped)
-	_, err := p.Run()
+	acceptDrops(p.Send, dropped, filter)
+	_, err = p.Run()
 	_ = m.Close()
 	for _, line := range m.Skipped() {
 		fmt.Fprintln(os.Stderr, line)

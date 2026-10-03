@@ -25,6 +25,7 @@ type Options struct {
 	Files                  []string
 	Stdin                  string // The file standard input was read into, if one of Files is it.
 	Type, Render, Render3D string
+	Accept                 document.AcceptFilter
 	Page, DPI              int
 	Menu, Preview          bool
 	Browse                 string // Folder to open the file browser in at the start.
@@ -128,8 +129,9 @@ type Model struct {
 	suspended                bool
 	note                     string // Outcome of the last drop, shown until the next key.
 	fields                   []document.Field
-	quitting                 bool         // The view being drawn is the one left behind.
-	added                    []string     // What the user has handed over, by full path.
+	quitting                 bool     // The view being drawn is the one left behind.
+	added                    []string // What the user has handed over, by full path.
+	fetching                 bool
 	fetched                  []fetchedDoc // Files fetched from the web this session.
 	picked                   []string
 	skipped                  []string // Reported on stderr once the terminal is restored.
@@ -367,6 +369,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Terminals deliver dropped files as a bracketed paste of their paths.
 		if m.isPreview || m.opts.FilesFS != nil {
 			return m, nil
+		}
+		if address := document.DropURL(v.Content); address != "" {
+			return m, m.open(address)
 		}
 		return m, m.probeDrop(document.ParseDrop(v.Content))
 	case DropMsg:

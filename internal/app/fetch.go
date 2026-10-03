@@ -37,6 +37,11 @@ func (m *Model) open(address string) tea.Cmd {
 		m.note = "run with --fetch to open addresses"
 		return nil
 	}
+	if m.fetching {
+		m.note = "a document is already being fetched"
+		return nil
+	}
+	m.fetching = true
 	fetch := m.opts.Fetch
 	m.note = "fetching " + safe(address)
 	return func() tea.Msg {
@@ -46,6 +51,13 @@ func (m *Model) open(address string) tea.Cmd {
 }
 
 func (m *Model) fetchedFile(r fetchResult) tea.Cmd {
+	m.fetching = false
+	if r.err == nil {
+		r.err = m.opts.Accept.CheckFile(m.opts.FilesFS, r.path)
+		if r.err != nil && m.opts.FilesFS == nil {
+			os.Remove(r.path)
+		}
+	}
 	if r.err != nil {
 		m.note = "fetch failed: " + safe(r.err.Error())
 		return nil
@@ -79,5 +91,5 @@ func (m *Model) closeFetched() (tea.Cmd, bool) {
 	os.Remove(f.path)
 	m.savedSheet = f.sheet
 	m.note = "closed " + safe(filepath.Base(f.path))
-	return m.show(min(f.from, len(m.opts.Files)-1)), true
+	return m.show(max(0, min(f.from, len(m.opts.Files)-1))), true
 }

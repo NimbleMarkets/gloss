@@ -30,6 +30,7 @@ tasks:
       - web/drop.mjs
       - web/upload.mjs
       - web/pickers.mjs
+      - web/remote.mjs
       - exclude: '**/*_test.go'
       - exclude: internal/tools/**
       - exclude: internal/browse/browsetest/**

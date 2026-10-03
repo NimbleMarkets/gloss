@@ -7,6 +7,7 @@ export async function upload(names, contents, send = fetch) {
   names.forEach((name, i) => form.append('file', new Blob([contents[i]]), name));
   const response = await send('drop', { method: 'POST', body: form });
   if (!response.ok) {
+    if (response.status === 415) throw new Error(await response.text());
     const reasons = { 400: 'Nothing in the drop could be used.', 403: 'The drop was refused.', 413: `The drop is over ${maxLabel}.` };
     throw new Error(reasons[response.status] ?? `The drop failed (HTTP ${response.status}).`);
   }

@@ -28,7 +28,7 @@
     <p>Everything the pages run, including the PDF renderer, is served from this site; they load no scripts, fonts, or images from anyone else, and a Content-Security-Policy in each page keeps it so. The only request to another server is one you ask for, below.</p>
 
     <h2>Documents fetched by address</h2>
-    <p>If you follow a link that asks the app to open a document from a web address, your browser requests that address directly from its server, which sees the request as it would any other. The document is shown and not kept in your library. gloss fetches nothing on its own.</p>
+    <p>If you drop a web URL or follow a link that asks the app to open a document from a web address, your browser requests that address directly from its server, which sees the request as it would any other. Requests omit credentials and referrers and must satisfy the remote server’s CORS policy. No site proxy is used. The document is shown and not kept in your library. gloss fetches nothing on its own.</p>
 
     <h2>Third-party links</h2>
     <p>This site links to other sites, such as GitHub. We are not responsible for their privacy practices.</p>

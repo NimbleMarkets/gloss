@@ -39,7 +39,7 @@ paths, or choosing them with `o`. The viewer shows what you gave and says what
 named on the command line and none handed over, `Enter` sends the one on screen.
 Standard output carries only the answer, as full paths. In a terminal the viewer
 draws on the terminal itself, so the answer can be piped. With `--fetch`, a file
-fetched from an address in a table can be picked too; it is then kept for you.
+fetched from an address in a table or a dropped URL can be picked too; it is then kept for you.
 
 | Exit status | Meaning |
 | --- | --- |
@@ -47,6 +47,23 @@ fetched from an address in a table can be picked too; it is then kept for you.
 | 1 | An error |
 | 2 | Nothing was chosen |
 | 124 | `--timeout` ran out |
+
+## Required formats
+
+Use `--accept 'image/*'` for images (including SVG), or a comma-separated list
+of gloss format names such as `--accept 'image/*,pdf'`. It applies to initial
+files, file choices, drops, and downloads. Content is checked independently of
+`--type`; renaming HTML to `.png` cannot satisfy an image requirement. A mismatch
+reports what arrived and what was required; it is rejected and cannot be picked.
+Rejected downloads are deleted. Text formats without a distinctive signature
+use their filename hint; document loaders still validate the format itself.
+
+`--fetch` enables dropping one http(s) URL at a time. Browser URL drops fetch
+directly from the remote server with CORS, without cookies or a referrer, with
+a one-minute deadline and the same file size limit. They never use a site proxy
+or bypass CORS. In the public app and landing-page demo, URL drops are enabled;
+`app.html?accept=image%2F*` restricts an app session to images. Fetched documents
+are not saved in the public app's persistent library.
 
 ## Without a terminal
 

@@ -210,8 +210,11 @@ task web-check                     # browser helper tests; Node 18+
 
 `examples/demo` pins the same Bubble Tea WASM fork used by the NTCharts demos;
 this replacement does not affect the native CLI. Samples are compiled into the
-app with `go:embed` and read through the same document loaders. No user files
-are fetched or uploaded. Browser PDF rendering uses the NTCharts PDFium bridge,
+app with `go:embed` and read through the same document loaders. User files are never uploaded to the public site. URL drops and app `?src=`
+links fetch directly in the browser with CORS, credentials omitted, no referrer,
+a one-minute deadline, and a streamed byte limit. `--accept` (or `?accept=`
+in the public app) validates content using the Go document code before adding it.
+There is no public fetch proxy. Browser PDF rendering uses the NTCharts PDFium bridge,
 which loads PDFium from the `@embedpdf/pdfium` npm package. The generated shim
 points at a CDN, so `scripts/build-site.sh` instead downloads that exact version
 from the npm registry, checks it against a pinned SHA-512, serves it from
@@ -219,7 +222,7 @@ from the npm registry, checks it against a pinned SHA-512, serves it from
 if a CDN address is left). To move to another version, change the version and
 hash together in that script. Every page then runs only code from its own
 origin, which its Content-Security-Policy (a `<meta>` tag in each page) enforces;
-the only request to another host is a `?src=` address a visitor asks for. Other
+requests to other hosts are limited to document addresses a visitor asks to open. Other
 runtime assets are served alongside the site. Meshes are drawn with WebGPU where the browser
 has it, and by the software renderer where it does not.
 

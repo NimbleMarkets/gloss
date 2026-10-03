@@ -18,6 +18,7 @@ export function bootConfig(json, href) {
   } else if (query.get('sample')) {
     argv.push('--sample', query.get('sample'));
   }
+  if (query.has('accept')) argv.push('--accept', query.get('accept'));
   return { mode, argv, src };
 }
 

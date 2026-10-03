@@ -44,7 +44,7 @@ cat drawing.svg | gloss                # read from a pipe
 | `e` | Export what you see as a PNG |
 
 Pictures use Kitty graphics where the terminal has them, and colored half-blocks
-where it does not. Drag files onto the terminal to add them.
+where it does not. Drag files or a web URL onto the terminal to open them.
 
 ## From a script or an agent
 

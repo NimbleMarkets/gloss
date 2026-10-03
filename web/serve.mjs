@@ -1,6 +1,7 @@
 import { BoobaTerminal, resolveBoobaURLs } from './static/booba/booba.js';
 import { parseRendererFromURL } from './static/ghostty-web/ghostty-web.js';
 import { installDrop } from './drop.mjs';
+import { fetchDocument } from './remote.mjs';
 import { upload } from './upload.mjs';
 import { pickFiles, inputPicker } from './pickers.mjs';
 
@@ -32,7 +33,15 @@ async function chosen(names, contents, skipped = []) {
   }
   terminal?.focus();
 }
-installDrop(window, hint, chosen, notice);
+let fetching = false;
+installDrop(window, hint, chosen, notice, document.body.dataset.fetch === 'true' ? async address => {
+  if (fetching) throw new Error('A document is already being fetched.');
+  fetching = true;
+  try {
+    const [name, data] = await fetchDocument(address);
+    await chosen([name], [data]);
+  } finally { fetching = false; }
+} : null);
 choose.addEventListener('click', async () => {
   try {
     await chosen(...await pickFiles(window, inputPicker(document)));

@@ -278,7 +278,8 @@ anywhere. Say that when you send the link.
 - Input files and stdin are limited to 128 MiB; images to 32 MP; PDFs to
   10,000 pages. `--info` reports these failures cleanly.
 - gloss never fetches the network on its own. `--fetch` is an interactive
-  option (Enter on a cell's address); the headless modes never need it.
+  option (Enter on a cell's address, or drop/paste one http(s) URL); the headless modes never need it.
+- `--accept 'image/*'` restricts a session to images including SVG; use comma-separated gloss formats such as `image/*,pdf` for alternatives. Content mismatches are errors, independent of `--type`, and rejected downloads are removed. The restriction also applies to local choices and drops. Public app links accept `?accept=image%2F*`; their URL drops fetch directly in the browser with CORS and never through a proxy.
 - Use gloss's extraction and rendering when they answer the task. Prefer
   `--text` for document content; add PNGs when appearance matters. Specialized
   analysis or editing may still need other tools.

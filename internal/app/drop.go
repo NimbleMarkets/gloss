@@ -28,7 +28,7 @@ func (m *Model) probeDrop(paths []string) tea.Cmd {
 	if len(paths) == 0 {
 		return nil
 	}
-	files, forced := m.opts.FilesFS, m.opts.Type
+	files, forced, accept := m.opts.FilesFS, m.opts.Type, m.opts.Accept
 	return func() tea.Msg {
 		var r dropResult
 		var folders []string
@@ -38,6 +38,10 @@ func (m *Model) probeDrop(paths []string) tea.Cmd {
 					folders = append(folders, path)
 					continue
 				}
+				r.skipped = append(r.skipped, document.Skipped(path, err))
+				continue
+			}
+			if err := accept.CheckFile(files, path); err != nil {
 				r.skipped = append(r.skipped, document.Skipped(path, err))
 				continue
 			}
@@ -96,7 +100,7 @@ func (m *Model) addDropped(r dropResult) tea.Cmd {
 		notes = append(notes, fmt.Sprintf("added %d", added))
 	}
 	if len(r.skipped) > 0 {
-		notes = append(notes, fmt.Sprintf("skipped %d", len(r.skipped)))
+		notes = append(notes, fmt.Sprintf("skipped %d: %s", len(r.skipped), r.skipped[0]))
 	}
 	m.note = strings.Join(notes, " · ")
 	if first < 0 {

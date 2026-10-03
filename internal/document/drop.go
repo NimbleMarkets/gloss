@@ -163,3 +163,19 @@ func ProbeFS(files fs.FS, path, forced string) (string, error) {
 	}
 	return Detect(path, data, forced)
 }
+
+// DropURL recognizes one explicitly pasted web address, never prose or a list.
+func DropURL(text string) string {
+	if len(text) > maxDropBytes {
+		return ""
+	}
+	text = strings.TrimSpace(text)
+	if strings.ContainsAny(text, " \t\r\n") {
+		return ""
+	}
+	u, err := url.Parse(text)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return ""
+	}
+	return text
+}

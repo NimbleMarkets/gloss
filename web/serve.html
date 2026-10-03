@@ -16,14 +16,15 @@ main{position:relative;flex:1;min-height:0}#terminal{height:100%;padding:4px}
 #status{position:absolute;inset:0;display:grid;place-content:center;padding:2rem;white-space:pre-wrap;background:#1e1e1e}#status[hidden]{display:none}
 #drop{position:fixed;inset:8px;display:grid;place-content:center;padding:2rem;border:2px dashed #E24F36;border-radius:8px;font-weight:600;font-size:17px;text-align:center;background:#1e1e1ee6;pointer-events:none}#drop[hidden]{display:none}
 </style></head>
-<body>
+<body data-fetch="{{.Fetch}}">
 <header aria-labelledby="request">
   <p class="label">{{if .Pick}}File request{{else}}gloss viewer{{end}}</p>
   <h1 id="request">{{if .Prompt}}{{.Prompt}}{{else if .Pick}}Choose files to send{{else}}View your files{{end}}</h1>
   <div class="actions"><button id="choose-files" type="button" disabled>Choose files</button>
     <p>{{if .Pick}}Choose or drop files, review them below, then press Enter in the viewer to send. Press q to cancel.{{else}}Choose or drop files to view them. Press q in the viewer to finish.{{end}}</p>
   </div>
+  {{if .Accept}}<p>Required formats: {{.Accept}}</p>{{end}}
   <p id="message" role="status" aria-live="polite"></p>
 </header>
 <main><div id="terminal" aria-label="Interactive terminal"></div><div id="status" role="status">Connecting to gloss…</div></main>
-<div id="drop" role="status" hidden>Drop files to open</div><script type="module" src="serve.mjs"></script></body></html>
+<div id="drop" role="status" hidden>Drop files{{if .Fetch}} or one URL{{end}} to open</div><script type="module" src="serve.mjs"></script></body></html>

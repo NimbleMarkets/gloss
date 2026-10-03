@@ -150,3 +150,19 @@ func TestFetch(t *testing.T) {
 	}
 	fmt.Fprint(os.Stderr)
 }
+
+func TestFetchRequiredContentAndCleanup(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png") // Neither this nor the filename can bypass the filter.
+		w.Write([]byte("<!doctype html><html>Sign in</html>"))
+	}))
+	defer server.Close()
+	dir := t.TempDir()
+	if _, err := Fetch(context.Background(), server.URL+"/photo.png", dir, AcceptFilter("image/*")); err == nil || !strings.Contains(err.Error(), "received html") {
+		t.Fatalf("error: %v", err)
+	}
+	files, err := os.ReadDir(dir)
+	if err != nil || len(files) != 0 {
+		t.Fatalf("rejected download left files: %v %v", files, err)
+	}
+}

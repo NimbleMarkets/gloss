@@ -491,3 +491,44 @@ func TestPromptFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestServeFilterRejectsAndRemovesWholeDrop(t *testing.T) {
+	s := serving(t, app.Options{Accept: "image/*"})
+	code, paths := drop(t, s.URL+"drop", nil, upload{"ok.png", picture(t)}, upload{"lie.png", []byte("<!doctype html><html>Sign in</html>")})
+	if code != http.StatusUnsupportedMediaType || len(paths) != 0 {
+		t.Fatalf("status=%d paths=%v", code, paths)
+	}
+	s.mu.Lock()
+	dir := s.dir
+	s.mu.Unlock()
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 0 || s.stored.Load() != 0 {
+		t.Fatalf("rejected files retained: %v %v, bytes=%d", entries, err, s.stored.Load())
+	}
+}
+
+func TestServedURLDropsAreOptIn(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		s := &server{token: "test-token", fetch: enabled, accept: "image/*"}
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/test-token/", nil))
+		if !strings.Contains(w.Body.String(), fmt.Sprintf(`data-fetch="%t"`, enabled)) || !strings.Contains(w.Body.String(), "Required formats: image/*") {
+			t.Fatal(w.Body.String())
+		}
+		w = httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/test-token/remote.mjs", nil))
+		if w.Code != http.StatusOK {
+			t.Fatal(w.Code)
+		}
+	}
+}
+
+func TestAcceptFlag(t *testing.T) {
+	opts, _, err := parse([]string{"--accept", "image/*,pdf", "--fetch", "--pick"}, &bytes.Buffer{})
+	if err != nil || opts.Accept != "image/*,pdf" {
+		t.Fatalf("filter=%q err=%v", opts.Accept, err)
+	}
+	if _, _, err := parse([]string{"--accept", "nonsense"}, &bytes.Buffer{}); err == nil {
+		t.Fatal("unknown filter accepted")
+	}
+}

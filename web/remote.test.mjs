@@ -23,3 +23,29 @@ test('failures are said plainly: not found, too large, refused', async () => {
   await assert.rejects(fetchDocument('https://files.test/x', async () => { throw new TypeError('Failed to fetch'); }), /could not be fetched/);
   await assert.rejects(fetchDocument('https://files.test/x', async () => new Response('')), /empty/);
 });
+
+test('remote requests omit credentials and referrers, use CORS and have a deadline', async () => {
+  await fetchDocument('https://files.test/a.png', async (url, options) => {
+    assert.equal(options.mode, 'cors');
+    assert.equal(options.credentials, 'omit');
+    assert.equal(options.referrerPolicy, 'no-referrer');
+    assert.ok(options.signal instanceof AbortSignal);
+    return new Response('abc');
+  });
+  for (const url of ['file:///etc/passwd', 'javascript:alert(1)', 'https://user:pass@files.test/a', '/relative']) {
+    await assert.rejects(fetchDocument(url, () => { throw new Error('must not request'); }), /http|credentials/);
+  }
+});
+
+test('a streaming response without a size header is cancelled at the limit', async () => {
+  let cancelled = false;
+  let chunks = 0;
+  const chunk = new Uint8Array(2 ** 20);
+  const response = new Response(new ReadableStream({
+    pull(controller) { chunks++; controller.enqueue(chunk); },
+    cancel() { cancelled = true; },
+  }));
+  await assert.rejects(fetchDocument('https://files.test/a', async () => response), /128 MiB/);
+  assert.equal(cancelled, true);
+  assert.ok(chunks <= 130);
+});

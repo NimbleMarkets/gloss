@@ -17,17 +17,40 @@ export function nameFor(address, contentType) {
 // and bytes. The address's server must allow it (CORS); the size limit is
 // gloss's own.
 export async function fetchDocument(address, send = fetch) {
+  let url;
+  try { url = new URL(address); } catch { throw new Error('Drop an http or https URL.'); }
+  if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('Only http and https URLs without credentials are allowed.');
   let response;
   try {
-    response = await send(address, { mode: 'cors', credentials: 'omit', redirect: 'follow' });
+    response = await send(address, { mode: 'cors', credentials: 'omit', redirect: 'follow', referrerPolicy: 'no-referrer', signal: AbortSignal.timeout(60000) });
   } catch {
     throw new Error('The document could not be fetched: the address may be wrong, or its server may not allow pages to read it.');
   }
   if (!response.ok) throw new Error(`The document could not be fetched: HTTP ${response.status}.`);
   const length = Number(response.headers.get('content-length'));
-  if (length > maxBytes) throw new Error(`The document is over ${maxLabel}.`);
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (bytes.length > maxBytes) throw new Error(`The document is over ${maxLabel}.`);
+  if (length > maxBytes) {
+    await response.body?.cancel();
+    throw new Error(`The document is over ${maxLabel}.`);
+  }
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('The document is empty.');
+  const chunks = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.length;
+      if (size > maxBytes) {
+        await reader.cancel();
+        throw new Error(`The document is over ${maxLabel}.`);
+      }
+      chunks.push(value);
+    }
+  } finally { reader.releaseLock(); }
+  const bytes = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.length; }
   if (bytes.length === 0) throw new Error('The document is empty.');
-  return [nameFor(address, response.headers.get('content-type')), bytes];
+  return [nameFor(response.url || address, response.headers.get('content-type')), bytes];
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/NimbleMarkets/gloss/internal/document"
 )
 
-func acceptDrops(func(tea.Msg), *document.Overlay) {}
+func acceptDrops(func(tea.Msg), *document.Overlay, document.AcceptFilter) {}
 
 // Nil keeps the pager's default: exports are written to the working directory.
 var saveExport func(name string, png []byte) (string, error)

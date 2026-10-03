@@ -62,12 +62,15 @@ whichever style was last used.
 
 Drag files from a file manager onto the terminal to add them to the list.
 Terminals deliver a drop as a bracketed paste of paths or `file://` URIs; text
-that does not read as paths is ignored. Dropped files follow the same format and
+that does not read as paths is ignored, except that `--fetch` also enables a
+single pasted or dropped http(s) URL. Dropped files follow the same format and
 size rules as arguments, and any that are skipped are reported on exit. A
 folder dropped on its own opens the file browser there, as a folder named on
 the command line does; one dropped beside files is skipped.
 `gloss` alone opens the viewer with no file, as a drop target. In the
-browser demo, dropped files stay in the tab's memory until it reloads.
+browser demo, URL drops are enabled and fetch directly in your browser (the
+remote server must allow CORS). `--accept image/*` requires images, including
+SVG; a mismatch reports the received and required format. In the demo, dropped files stay in the tab's memory until it reloads.
 
 Press `o` to browse for a file instead, starting in the folder of the one you
 are viewing. Type to filter the list, or type a path such as `~/Pictures/` to

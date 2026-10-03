@@ -37,7 +37,9 @@ func describe(opts options, stdout, stderr io.Writer) error {
 		if opts.IsStdin(path) {
 			d.Path = "stdin"
 		}
-		if kind, err := document.Probe(path, opts.Type); err != nil {
+		if err := opts.Accept.CheckFile(nil, path); err != nil {
+			d.Error = document.SkipReason(err)
+		} else if kind, err := document.Probe(path, opts.Type); err != nil {
 			d.Error = document.SkipReason(err)
 		} else {
 			r := loader.Load(document.Request{Path: path, Type: opts.Type, Page: opts.Page, DPI: opts.DPI, Generation: uint64(i + 1), Parts: opts.Parts, Stdin: opts.IsStdin(path)})

@@ -15,7 +15,24 @@ import (
 // acceptDrops registers window.gloss_drop(names, contents) beside Booba's
 // bubbletea_resize. The browser has no disk, so the page hands over the bytes
 // and the pager is told where they were kept.
-func acceptDrops(send func(tea.Msg), files *document.Overlay) {
+func acceptDrops(send func(tea.Msg), files *document.Overlay, accept document.AcceptFilter) {
+	js.Global().Set("gloss_validate", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) != 2 {
+			return "missing document"
+		}
+		if args[1].Length() > document.MaxFileBytes {
+			return document.ErrTooLarge.Error()
+		}
+		data := make([]byte, args[1].Length())
+		js.CopyBytesToGo(data, args[1])
+		if _, err := document.Detect(args[0].String(), data, ""); err != nil {
+			return err.Error()
+		}
+		if err := accept.Check(args[0].String(), data); err != nil {
+			return err.Error()
+		}
+		return ""
+	}))
 	js.Global().Set("gloss_drop", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) < 2 {
 			return 0
@@ -30,6 +47,10 @@ func acceptDrops(send func(tea.Msg), files *document.Overlay) {
 			}
 			data := make([]byte, content.Length())
 			js.CopyBytesToGo(data, content)
+			if err := accept.Check(name, data); err != nil {
+				fmt.Fprintln(os.Stderr, document.Skipped(name, err))
+				continue
+			}
 			path, err := files.Add(name, data)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, document.Skipped(name, err))

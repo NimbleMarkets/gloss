@@ -373,9 +373,12 @@ func (m *Model) browse(msg tea.Msg) tea.Cmd {
 		return cmd
 	}
 	o.picker.ClearChosen()
-	path, forced := filepath.FromSlash(chosen), m.opts.Type
+	path, forced, accept := filepath.FromSlash(chosen), m.opts.Type, m.opts.Accept
 	return tea.Batch(cmd, func() tea.Msg {
 		_, err := document.Probe(path, forced)
+		if err == nil {
+			err = accept.CheckFile(nil, path)
+		}
 		return openResult{path: path, err: err}
 	})
 }

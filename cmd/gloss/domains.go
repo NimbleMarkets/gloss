@@ -85,7 +85,7 @@ var domains = []domain{
 	{
 		ID: "handoff", Title: "Handing files over, and showing them",
 		Summary: "Asking the user for a file, or showing them one, when the caller has no terminal of its own: an agent, for instance. `--pick` prints the paths the user sends; `--serve` shows them a page. Without a terminal on standard input both detach, print one line of JSON, and are answered later with `--resume`, which waits for the answer. `--status` asks at once, as JSON, how the pick stands, and changes nothing.",
-		Flags:   []string{"pick", "serve", "no-open", "prompt", "prompt-loc", "timeout", "resume", "status"},
+		Flags:   []string{"accept", "pick", "serve", "no-open", "prompt", "prompt-loc", "timeout", "resume", "status"},
 		Examples: []example{
 			{"Ask in the terminal", "gloss --pick --prompt \"Which report?\""},
 			{"Ask in a browser, and print what is sent", "gloss --serve --pick"},

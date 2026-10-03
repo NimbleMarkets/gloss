@@ -353,3 +353,31 @@ func TestDroppedFolderOpensTheBrowserThere(t *testing.T) {
 		t.Fatalf("files=%q skipped=%q", m.opts.Files, m.Skipped())
 	}
 }
+
+func TestDroppedURLRequiresFetch(t *testing.T) {
+	path := writePNG(t, filepath.Join(t.TempDir(), "remote.png"))
+	calls := 0
+	m := New(Options{Files: []string{samples + "shapes.svg"}, Render: "glyph", Page: 1})
+	defer m.Close()
+	paste := tea.PasteMsg{Content: "https://example.test/remote.png"}
+	if deliver(m, paste) || !strings.Contains(m.note, "--fetch") {
+		t.Fatal("URL fetched without permission")
+	}
+	m.opts.Fetch = func(address string) (string, error) { calls++; return path, nil }
+	if !deliver(m, paste) || calls != 1 || len(m.opts.Files) != 2 {
+		t.Fatalf("calls=%d files=%v", calls, m.opts.Files)
+	}
+}
+
+func TestDropRequiresSessionFormat(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "fake.png")
+	if err := os.WriteFile(path, []byte("<!doctype html><html>login</html>"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := New(Options{Accept: "image/*", Type: "image", Render: "glyph", Page: 1})
+	defer m.Close()
+	deliver(m, DropMsg{Paths: []string{path}})
+	if len(m.opts.Files) != 0 || len(m.Skipped()) != 1 || !strings.Contains(m.Skipped()[0], "received html") {
+		t.Fatalf("files=%v skipped=%v", m.opts.Files, m.Skipped())
+	}
+}

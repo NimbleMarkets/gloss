@@ -58,6 +58,8 @@ type server struct {
 	backend string
 	prompt  string
 	pick    bool
+	fetch   bool
+	accept  document.AcceptFilter
 
 	token, secret string
 	cancel        context.CancelFunc
@@ -84,7 +86,7 @@ func random() (string, error) {
 
 func serve(ctx context.Context, opts app.Options) (*server, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	s := &server{cancel: cancel, prompt: opts.Prompt, pick: opts.Pick, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{})}
+	s := &server{fetch: opts.Fetch != nil, accept: opts.Accept, cancel: cancel, prompt: opts.Prompt, pick: opts.Pick, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{})}
 	// The browser carries the full request as accessible page text, outside
 	// the terminal's size and line limits.
 	opts.Prompt = ""
@@ -235,8 +237,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		servePage.Execute(w, struct {
 			Prompt string
 			Pick   bool
-		}{s.prompt, s.pick})
-	case rest == "serve.mjs" || rest == "drop.mjs" || rest == "upload.mjs" || rest == "pickers.mjs":
+			Fetch  bool
+			Accept document.AcceptFilter
+		}{s.prompt, s.pick, s.fetch, s.accept})
+	case rest == "serve.mjs" || rest == "drop.mjs" || rest == "upload.mjs" || rest == "pickers.mjs" || rest == "remote.mjs":
 		data, err := fs.ReadFile(web.Page, rest)
 		if err != nil {
 			http.NotFound(w, r)
@@ -326,6 +330,10 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		s.stored.Add(size)
 		taken += size
 		paths = append(paths, kept)
+		if err := s.accept.CheckFile(nil, kept); err != nil {
+			fail(http.StatusUnsupportedMediaType, err.Error())
+			return
+		}
 	}
 	if len(paths) == 0 {
 		fail(http.StatusBadRequest, "nothing in the drop could be used")

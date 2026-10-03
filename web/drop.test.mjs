@@ -102,3 +102,38 @@ test('the gallery page refuses stray drops beside the terminal', async () => {
     assert.equal(event.prevented, 1, name);
   }
 });
+
+test('URL drops are explicit, single-address actions and prefer real files', async () => {
+  const target = { listeners: {}, addEventListener(name, fn) { this.listeners[name] = fn; } };
+  const urls = [], reports = [], files = [];
+  installDrop(target, { hidden: true }, names => files.push(...names), text => reports.push(text), async url => {
+    urls.push(url);
+    if (url.endsWith('/fail')) throw new Error('received html; required image/*');
+  });
+  const urlDrop = text => ({ ...drag([], ['text/uri-list']), dataTransfer: { types: ['text/uri-list'], getData: () => text } });
+  await target.listeners.drop(urlDrop('# link\nhttps://example.test/a.png\n'));
+  assert.deepEqual(urls, ['https://example.test/a.png']);
+  await target.listeners.drop(urlDrop('https://a.test\nhttps://b.test'));
+  assert.equal(urls.length, 1);
+  await target.listeners.drop(urlDrop('https://example.test/fail'));
+  assert.match(reports.at(-1), /received html/);
+  const both = drag([file('local.png', [1])], ['Files', 'text/uri-list']);
+  both.dataTransfer.getData = () => 'https://example.test/ignored';
+  await target.listeners.drop(both);
+  assert.deepEqual(files, ['local.png']);
+  assert.equal(urls.length, 2);
+});
+
+test('the landing page forwards a URL drop only to its own demo', async () => {
+  const listeners = {}, sent = [];
+  const frame = { contentWindow: { postMessage: (...args) => sent.push(args) }, addEventListener() {} };
+  const document = { querySelector: () => frame, querySelectorAll: () => [] };
+  const location = { origin: 'https://gloss.test' };
+  vm.runInNewContext(await readFile(new URL('./site.js', import.meta.url), 'utf8'), { document, window: { addEventListener: (name, fn) => { listeners[name] = fn; } }, location });
+  const event = drag([], ['text/uri-list']);
+  event.dataTransfer.getData = () => 'https://files.test/a.png';
+  listeners.drop(event);
+  assert.equal(event.prevented, 1);
+  assert.equal(sent[0][0].url, 'https://files.test/a.png');
+  assert.equal(sent[0][1], location.origin);
+});
