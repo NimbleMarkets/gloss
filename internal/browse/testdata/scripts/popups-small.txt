@@ -1,0 +1,34 @@
+-- fs --
+home/evan/a.png 1
+home/evan/b.md 1
+home/evan/c.csv 1
+home/evan/dir/x.png 1
+-- script --
+option filters kinds
+option layout places
+start /home/evan
+size 90 12
+note a popup is open only while it can be drawn: the menu needs 8 rows
+resize 90 6
+press ctrl+f
+state menu false
+note and Space then types nothing invisible
+press down space
+state types ""
+resize 90 12
+press ctrl+f
+state menu true
+snapshot menu-open
+note the terminal shortens: the menu goes, with its keys
+resize 90 6
+state menu false
+press down space
+state types ""
+note the sidebar needs 60 columns: narrowing the terminal takes it from the cursor
+resize 90 12
+press ctrl+g
+state sidebar true
+resize 50 12
+state sidebar false
+press down enter
+state dir /home/evan

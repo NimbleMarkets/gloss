@@ -1,0 +1,22 @@
+# the menu is clipped to the room there is, and says there is more
+
+=== top (60x8)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..   ╭─ File types ──────────────────╮
+>      1B 2026-01-02 a.png│> [x] All types                │
+       1B 2026-01-02 b.md │  [ ] ▫ Pictures               │
+                          │  [ ] ▪ Documents              │
+                          ╰ space toggles · esc closes ─▼─╯
+ 2/3 · list                                         types ▾
+
+=== bottom (60x8)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..   ╭─ File types ────────────────▲─╮
+>      1B 2026-01-02 a.png│  [ ] ▫ Pictures               │
+       1B 2026-01-02 b.md │  [ ] ▪ Documents              │
+                          │> [ ] ▤ Data                   │
+                          ╰ space toggles · esc closes ───╯
+ 2/3 · list                                         types ▾
+

@@ -3,12 +3,12 @@
 === open (90x12)
  ~
   Filter: type to filter, or a path: / ~ ../
-▸ evan/                       │> docs/                     ╭─ File types ───────────────╮
-                              │  notes.md                  │> [x] All types             │
-                              │  photo.png                 │  [ ] ▫ Pictures            │
-                              │  sales.csv                 │  [ ] ▪ Documents           │
-                              │                            │  [ ] ▤ Data                │
-                              │                            ╰ space toggles · esc closes ╯
+▸ evan/                       │> docs/                  ╭─ File types ──────────────────╮
+                              │  notes.md               │> [x] All types                │
+                              │  photo.png              │  [ ] ▫ Pictures               │
+                              │  sales.csv              │  [ ] ▪ Documents              │
+                              │                         │  [ ] ▤ Data                   │
+                              │                         ╰ space toggles · esc closes ───╯
                               │                             │
                               │                             │
                               │                             │
@@ -19,12 +19,12 @@
 === documents (90x12)
  ~
   Filter: type to filter, or a path: / ~ ../
-▸ evan/                       │> docs/                     ╭─ File types ───────────────╮
-                              │  notes.md                  │  [ ] All types             │
-                              │                            │  [ ] ▫ Pictures            │
-                              │                            │> [x] ▪ Documents           │
-                              │                            │  [ ] ▤ Data                │
-                              │                            ╰ space toggles · esc closes ╯
+▸ evan/                       │> docs/                  ╭─ File types ──────────────────╮
+                              │  notes.md               │  [ ] All types                │
+                              │                         │  [ ] ▫ Pictures               │
+                              │                         │> [x] ▪ Documents              │
+                              │                         │  [ ] ▤ Data                   │
+                              │                         ╰ space toggles · esc closes ───╯
                               │                             │
                               │                             │
                               │                             │

@@ -29,7 +29,7 @@ func (m Model) View() string {
 	if m.footer && m.height >= 5 {
 		lines = append(lines, m.footerView())
 	}
-	if m.menu && m.height >= 5 {
+	if m.menu && m.canShowMenu() {
 		x, y, _, _ := m.menuRect()
 		overlay(lines, m.menuView(), x, y)
 	}

@@ -1,0 +1,22 @@
+# a popup is open only while it can be drawn: the menu needs 8 rows
+
+# and Space then types nothing invisible
+
+=== menu-open (90x12)
+ ~
+  Filter:
+ Places           │▸ home/                │▸ evan/      ╭─ File types ──────────────────╮
+▸ Home            │                       │             │> [x] All types                │
+  Root            │                       │             │  [ ] ▫ Pictures               │
+                  │                       │             │  [ ] ▪ Documents              │
+                  │                       │             │  [ ] ▤ Data                   │
+                  │                       │             ╰ space toggles · esc closes ───╯
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+ 0 rows · places                                                                  types ▾
+
+# the terminal shortens: the menu goes, with its keys
+
+# the sidebar needs 60 columns: narrowing the terminal takes it from the cursor
+

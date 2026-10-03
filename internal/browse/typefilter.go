@@ -98,9 +98,19 @@ func (m Model) byType(entries []fs.DirEntry) []fs.DirEntry {
 	return out
 }
 
-// openMenu opens the menu, the cursor on the first kind chosen.
+// The menu is drawn in the room under the filter, and needs a title and three
+// kinds there, so a terminal this size.
+const menuMinHeight, menuMinWidth = 8, 20
+
+// canShowMenu says whether there is room to draw the menu. When there is not,
+// it is not opened, for its keys would act on what nobody could see.
+func (m Model) canShowMenu() bool {
+	return len(m.filters) > 0 && m.height >= menuMinHeight && m.width >= menuMinWidth
+}
+
+// openMenu opens the menu, the cursor on the first kind chosen, if it can be seen.
 func (m *Model) openMenu() {
-	if len(m.filters) == 0 {
+	if !m.canShowMenu() {
 		return
 	}
 	m.menu, m.side = true, false
@@ -148,7 +158,7 @@ func (m Model) menuKey(msg tea.KeyPressMsg) (Model, tea.Cmd, bool) {
 
 // menuRect is where the menu is drawn: below the filter, at the right.
 func (m Model) menuRect() (x, y, w, h int) {
-	w = ansi.StringWidth(" space toggles · esc closes ") + 2
+	w = ansi.StringWidth(" space toggles · esc closes ") + 5 // Room for the hint, and a mark of more.
 	for _, f := range m.filters {
 		w = max(w, 4+4+ansi.StringWidth(f.Mark)+1+ansi.StringWidth(f.Name)+2)
 	}
@@ -168,8 +178,19 @@ func (m Model) menuView() []string {
 		start = m.menuAt - rows + 1
 	}
 	edge := m.styles.Separator
+	above, below := start > 0, start+rows <= len(m.filters)
+	// A line of the border, a mark in it where there is more than is drawn.
+	fill := func(n int, mark string, more bool) string {
+		switch {
+		case n <= 0:
+			return ""
+		case !more || n < 2:
+			return strings.Repeat("─", n)
+		}
+		return strings.Repeat("─", n-2) + mark + "─"
+	}
 	title := " File types "
-	top := edge.Render("╭─") + m.styles.CrumbCurrent.Render(title) + edge.Render(strings.Repeat("─", max(inner-1-ansi.StringWidth(title), 0))+"╮")
+	top := edge.Render("╭─") + m.styles.CrumbCurrent.Render(title) + edge.Render(fill(inner-1-ansi.StringWidth(title), "▲", above)+"╮")
 	lines := []string{top}
 	for i := start; i < start+rows && i <= len(m.filters); i++ {
 		checked, label := false, "All types"
@@ -196,8 +217,8 @@ func (m Model) menuView() []string {
 		cell += strings.Repeat(" ", max(inner-ansi.StringWidth(cell), 0))
 		lines = append(lines, edge.Render("│")+cell+edge.Render("│"))
 	}
-	hint := " space toggles · esc closes "
-	foot := edge.Render("╰") + m.styles.Footer.Render(ansi.Truncate(hint, max(inner, 0), "")) + edge.Render(strings.Repeat("─", max(inner-ansi.StringWidth(hint), 0))+"╯")
+	hint := ansi.Truncate(" space toggles · esc closes ", max(inner-3, 0), "")
+	foot := edge.Render("╰") + m.styles.Footer.Render(hint) + edge.Render(fill(inner-ansi.StringWidth(hint), "▼", below)+"╯")
 	return append(lines, foot)
 }
 

@@ -73,3 +73,37 @@ func TestReloadKeepsTheCursorOnItsName(t *testing.T) {
 		t.Errorf("after Reload the cursor is on %q, want c\n%s", cur, d.Screen())
 	}
 }
+
+// A popup open is a popup in sight: whatever the size it was opened at and the
+// size the terminal becomes, a menu or a sidebar that has the cursor can be
+// seen. Otherwise keys act on what nobody can see.
+func TestAPopupHasTheCursorOnlyWhileItIsDrawn(t *testing.T) {
+	cfg := browsecfg.Config()
+	sizes := [][2]int{{200, 40}, {90, 12}, {70, 9}, {60, 8}, {59, 7}, {40, 6}, {30, 5}, {20, 4}, {10, 3}}
+	opens := map[string][]string{"menu": {"ctrl+f"}, "sidebar": {"ctrl+g"}}
+	for name, keys := range opens {
+		for _, from := range sizes {
+			for _, to := range sizes {
+				fsys := awkwardFS()
+				d := browsetest.New(t, cfg.New(fsys, "/home/evan/files", map[string]string{"layout": "places", "filters": "kinds"}), from[0], from[1])
+				d.StrictFit = true
+				check := func(when string) {
+					t.Helper()
+					p, scr := cfg.Probe(d.M), d.Screen()
+					if p["menu"] == "true" && !scr.Contains("File types") {
+						t.Fatalf("%s %v→%v %s: the menu has the keys and is not drawn\n%s", name, from, to, when, scr)
+					}
+					if p["sidebar"] == "true" && !scr.Contains("Places") {
+						t.Fatalf("%s %v→%v %s: the sidebar has the keys and is not drawn\n%s", name, from, to, when, scr)
+					}
+				}
+				d.Press(keys...)
+				check("opened")
+				d.Resize(to[0], to[1])
+				check("resized")
+				d.Press("down", "down")
+				check("after keys")
+			}
+		}
+	}
+}

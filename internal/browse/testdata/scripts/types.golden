@@ -21,12 +21,12 @@
 === menu (70x14)
  ~
   Filter: type to filter, or a path: / ~ ../
-                     ..                ╭─ File types ───────────────╮
->         2026-01-02 projects/         │> [x] All types             │
-     300B 2026-01-02 notes.md          │  [ ] ▫ Pictures            │
-     52kB 2026-01-02 photo.png         │  [ ] ▪ Documents           │
-     900B 2026-01-02 sales.csv         │  [ ] ▤ Data                │
-    7.0kB 2026-01-02 setup.dmg         ╰ space toggles · esc closes ╯
+                     ..             ╭─ File types ──────────────────╮
+>         2026-01-02 projects/      │> [x] All types                │
+     300B 2026-01-02 notes.md       │  [ ] ▫ Pictures               │
+     52kB 2026-01-02 photo.png      │  [ ] ▪ Documents              │
+     900B 2026-01-02 sales.csv      │  [ ] ▤ Data                   │
+    7.0kB 2026-01-02 setup.dmg      ╰ space toggles · esc closes ───╯
       80B 2026-01-02 todo.txt
      40kB 2026-01-02 trip.jpg
 
@@ -37,12 +37,12 @@
 === pictures (70x14)
  ~
   Filter: type to filter, or a path: / ~ ../
-                     ..                ╭─ File types ───────────────╮
->         2026-01-02 projects/         │  [ ] All types             │
-     52kB 2026-01-02 photo.png         │> [x] ▫ Pictures            │
-     40kB 2026-01-02 trip.jpg          │  [ ] ▪ Documents           │
-                                       │  [ ] ▤ Data                │
-                                       ╰ space toggles · esc closes ╯
+                     ..             ╭─ File types ──────────────────╮
+>         2026-01-02 projects/      │  [ ] All types                │
+     52kB 2026-01-02 photo.png      │> [x] ▫ Pictures               │
+     40kB 2026-01-02 trip.jpg       │  [ ] ▪ Documents              │
+                                    │  [ ] ▤ Data                   │
+                                    ╰ space toggles · esc closes ───╯
 
 
 
@@ -77,12 +77,12 @@
 === cleared (70x14)
  ~ › projects › gloss
   Filter: type to filter, or a path: / ~ ../
-                     ..                ╭─ File types ───────────────╮
->    100B 2026-01-02 logo.png          │> [x] All types             │
-     100B 2026-01-02 readme.md         │  [ ] ▫ Pictures            │
-                                       │  [ ] ▪ Documents           │
-                                       │  [ ] ▤ Data                │
-                                       ╰ space toggles · esc closes ╯
+                     ..             ╭─ File types ──────────────────╮
+>    100B 2026-01-02 logo.png       │> [x] All types                │
+     100B 2026-01-02 readme.md      │  [ ] ▫ Pictures               │
+                                    │  [ ] ▪ Documents              │
+                                    │  [ ] ▤ Data                   │
+                                    ╰ space toggles · esc closes ───╯
 
 
 

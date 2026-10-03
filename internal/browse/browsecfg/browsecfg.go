@@ -109,6 +109,7 @@ func Config() browsetest.Config[browse.Model] {
 				"layout":  m.Layout().String(),
 				"types":   strings.Join(m.ActiveFilters(), ","),
 				"menu":    strconv.FormatBool(m.InMenu()),
+				"sidebar": strconv.FormatBool(m.InSidebar()),
 				"crumbs":  strings.Join(m.Crumbs(), " > "),
 			}
 		},

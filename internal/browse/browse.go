@@ -329,6 +329,13 @@ func (m *Model) SetPrompt(p string) { m.prompt = p }
 // SetSize sets the room the view may take.
 func (m *Model) SetSize(w, h int) {
 	m.width, m.height = max(1, w), max(1, h)
+	// A popup that can no longer be drawn does not keep the keys.
+	if m.menu && !m.canShowMenu() {
+		m.menu = false
+	}
+	if m.side && m.sideWidth() == 0 {
+		m.side = false
+	}
 	m.reveal()
 }
 

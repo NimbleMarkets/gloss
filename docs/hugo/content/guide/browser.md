@@ -258,12 +258,12 @@ and text, JSON, notebooks, Word, and tables.
 ```text
  ~
   Filter: type to filter, or a path: / ~ ../
-                     ..                ╭─ File types ───────────────╮
->         2026-01-02 projects/         │  [ ] All types             │
-     52kB 2026-01-02 photo.png         │> [x] ▫ Pictures            │
-     40kB 2026-01-02 trip.jpg          │  [ ] ▪ Documents           │
-                                       │  [ ] ▤ Data                │
-                                       ╰ space toggles · esc closes ╯
+                     ..             ╭─ File types ──────────────────╮
+>         2026-01-02 projects/      │  [ ] All types                │
+     52kB 2026-01-02 photo.png      │> [x] ▫ Pictures               │
+     40kB 2026-01-02 trip.jpg       │  [ ] ▪ Documents              │
+                                    │  [ ] ▤ Data                   │
+                                    ╰ space toggles · esc closes ───╯
 
  2/4 · list                                         types: Pictures ▾
 ```

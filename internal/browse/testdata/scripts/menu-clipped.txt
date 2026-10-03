@@ -1,0 +1,12 @@
+-- fs --
+home/evan/a.png 1
+home/evan/b.md 1
+-- script --
+option filters kinds
+start /home/evan
+size 60 8
+note the menu is clipped to the room there is, and says there is more
+press ctrl+f
+snapshot top
+press down down down
+snapshot bottom

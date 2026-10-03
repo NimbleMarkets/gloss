@@ -19,12 +19,12 @@
 === menu (90x12)
  ~
   Filter: type to filter, or a path: / ~ ../
- Places           │▸ 📁 evan              │> 📁 projects   ╭─ File types ───────────────╮
-▸ Home            │                       │  📕 notes.pdf  │> [x] All types             │
-  Root            │                       │  📷 世界の写真.│  [ ] ▫ Pictures            │
-                  │                       │  📷 📷_holiday.│  [ ] ▪ Documents           │
-                  │                       │                │  [ ] ▤ Data                │
-                  │                       │                ╰ space toggles · esc closes ╯
+ Places           │▸ 📁 evan              │> 📁 projects╭─ File types ──────────────────╮
+▸ Home            │                       │  📕 notes.pd│> [x] All types                │
+  Root            │                       │  📷 世界の写│  [ ] ▫ Pictures               │
+                  │                       │  📷 📷_holid│  [ ] ▪ Documents              │
+                  │                       │             │  [ ] ▤ Data                   │
+                  │                       │             ╰ space toggles · esc closes ───╯
                   │                       │                       │
                   │                       │                       │
                   │                       │                       │
