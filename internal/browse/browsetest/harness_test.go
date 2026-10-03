@@ -163,3 +163,50 @@ func TestScript(t *testing.T) {
 	}
 	browsetest.RunScript(t, cfg, file)
 }
+
+func TestFSQuotedNamesAndFromDir(t *testing.T) {
+	f := browsetest.NewFS(`"home/two words.txt" 12 @2025-12-25`, `"home/a b/"`, "home/plain.txt")
+	entries, err := f.ReadDir("home")
+	if err != nil || len(entries) != 3 {
+		t.Fatalf("ReadDir = %v, %v", entries, err)
+	}
+	if entries[0].Name() != "a b" || !entries[0].IsDir() || entries[1].Name() != "plain.txt" || entries[2].Name() != "two words.txt" {
+		t.Errorf("names: %v %v %v", entries[0].Name(), entries[1].Name(), entries[2].Name())
+	}
+	if info, _ := entries[2].Info(); info.Size() != 12 {
+		t.Errorf("size %d", info.Size())
+	}
+
+	// A real folder, as lines, and back.
+	dir := t.TempDir()
+	for name, size := range map[string]int{"a.txt": 3, "my notes.md": 5, "sub/deep/x.png": 7, "sub/y.txt": 1} {
+		p := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, make([]byte, size), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines, err := browsetest.FSFromDir(dir, "/fixture", 2, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	g := browsetest.NewFS(lines...)
+	root, _ := g.ReadDir("fixture")
+	if len(root) != 3 || root[1].Name() != "my notes.md" {
+		t.Fatalf("root: %v", lines)
+	}
+	if _, err := g.ReadDir("fixture/sub/deep"); err != nil {
+		t.Errorf("depth 2 includes sub/deep: %v", err)
+	}
+	if deep, _ := g.ReadDir("fixture/sub/deep"); len(deep) != 0 {
+		t.Errorf("depth 2 stops before sub/deep/x.png: %v", deep)
+	}
+	if limited, _ := browsetest.FSFromDir(dir, "x", 9, 2); len(limited) != 2 {
+		t.Errorf("limit of 2 entries gave %d", len(limited))
+	}
+	if len(browsetest.NewFS(browsetest.DemoLines()...).Reads()) != 0 {
+		t.Error("building the demo reads nothing")
+	}
+}
