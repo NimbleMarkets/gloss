@@ -15,8 +15,14 @@ this file consistent with the code.
 
 - `cmd/gloss`: CLI flags (pflag GNU syntax), stdin handling, PNG export
   orchestration, and the temporary server behind `--serve`.
-- `internal/app`: terminal pager, file-selection menu, preview pane, file
-  browser, and Markdown layout.
+- `internal/app`: terminal pager, file-selection menu, preview pane, the
+  adapter for the file browser, and Markdown layout.
+- `internal/browse`: the file chooser, a Bubble Tea component with no gloss
+  dependencies (layouts: list, columns, places; ranked filter, tab completion,
+  breadcrumbs, mouse). `internal/browse/browsetest` is its harness: an
+  in-memory filesystem, a key driver, and script-driven golden screens
+  (`testdata/scripts`, `task browse:screens`). Change the
+  browser by adding a script first.
 - `internal/document`: bounded loaders, renderers, and vision-image sizing.
 - `web`: the browser demo site and the page `--serve` shows; has its own
   Node-tested helpers (`node --test web/*.test.mjs`).
@@ -120,6 +126,11 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 
 - `task build` / `task run -- <args>` / `task install`
 - `task test` — `go test ./...`; `task test-race`, `task vet`
+- `task browse:test` / `browse:screens` / `browse:bench` / `browse:gif SCRIPT=name` —
+  the file browser's tests, golden screens, benchmark, and a VHS recording of a
+  script (needs `vhs`); `browse:play` / `browse:record NAME=x` /
+  `browse:replay SCRIPT=x` are for a person at a terminal (try it, keep a session
+  as a script, watch a script); see DEVELOP.md.
 - `task ci` — the full gate: `fmt-check`, `go-tidy-check`, `go-verify`,
   `test-race`, `vet`, `staticcheck`, `vulncheck`, `build`. Run this before
   considering work done.

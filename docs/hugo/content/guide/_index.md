@@ -9,6 +9,7 @@ How to install gloss, use it, what its keys do, what it opens, and how an agent 
 - [Install](install/)
 - [Using gloss](using/)
 - [Controls](controls/)
+- [The file browser](browser/)
 - [Asking for a file](handoff/)
 - [Markdown](markdown/)
 - [For agents](agents/)

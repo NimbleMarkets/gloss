@@ -73,6 +73,7 @@ Press `o` to browse for a file instead, starting in the folder of the one you
 are viewing. Type to filter the list, or type a path such as `~/Pictures/` to
 go straight there; `Tab` completes, `Enter` opens a file or enters a folder,
 and `Esc` cancels. The chosen file joins the list like a dropped one.
+[The file browser](../browser/) describes its layouts, filter, and completion.
 `gloss folder` starts in the browser at that folder. Beside files, folders are
 skipped, so globs stay safe.
 
@@ -86,7 +87,8 @@ greyed. Each file is marked by kind: 📁 folders, 📷 pictures, 🎨 SVG, 📕
 `Ctrl-S` changes the order: by name, by date with the newest first, or by
 kind; folders always come first, and the order is kept for the next browse.
 `G`, with nothing typed in the filter, asks for a folder's path, starting from
-the one shown: `Tab` completes it, `~/` starts from home, `Enter` goes there,
+the one shown: `Tab` completes folders (files are still listed, but not completed),
+`~/` starts from home, `Enter` goes there,
 and `Esc` comes back to the listing.
 
 `/`, likewise, searches the folder shown and those under it. Ask for globs
@@ -101,9 +103,7 @@ matches shown, and it stops after 3 seconds, saying which limit it met.
 `--glob pattern` does the same from the command line for the folders named,
 or the current one: `gloss --glob images --glob '*.stl' ~/models` opens every
 match, and with `-o` or `--info` exports or describes them all.
-The browser is [picky](https://github.com/pgavlin/picky), carried in
-`internal/picky` with those two additions; the embedded demo, which has no
-folders, does not offer it.
+The embedded demo, which has no folders, does not offer the browser.
 
 Press `e` to export what you are viewing: the current image, SVG, or PDF page,
 or a mesh from the camera's position. The PNG is rendered as `--output` would
