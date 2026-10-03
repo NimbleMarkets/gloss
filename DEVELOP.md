@@ -73,7 +73,7 @@ by commands and cached; a *layout* only draws that state (`list`, `columns`,
 `places`), so keys, filter, and completion are the same in each. Paths are
 slash-separated from the filesystem's root.
 
-Its tests drive it through `internal/browse/browsetest`, which works for any
+Its tests drive it through `internal/browse/browsetest` (see its README), which works for any
 component with `Init`, `Update`, and `View`: an in-memory filesystem (with
 latency, injected read errors, and read counts), a driver that sends keys and
 clicks and settles the commands that follow, and scripts. A script is a file in
