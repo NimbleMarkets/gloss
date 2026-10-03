@@ -346,9 +346,11 @@ func (m *Model) browse(msg tea.Msg) tea.Cmd {
 		}
 		switch {
 		case k.String() == "/" && !o.going && o.picker.FilterValue() == "":
+			o.leavePopup() // Or it would keep the keys of the finder.
 			o.find = newFinder(o.dir, o.width)
 			return nil
 		case k.String() == "G" && !o.going && o.picker.FilterValue() == "":
+			o.leavePopup() // Or Enter would check a kind, or go to a place, not the folder.
 			return o.goTo()
 		case k.String() == "enter" && o.going:
 			entered = true

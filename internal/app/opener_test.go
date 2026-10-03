@@ -882,3 +882,44 @@ func TestGoToEndsWhenTheFolderChangesAnyOtherWay(t *testing.T) {
 		}
 	}
 }
+
+func TestGoToAndFindClosePopupsThatWouldTakeTheirKeys(t *testing.T) {
+	dir := folder(t)
+	for name, open := range map[string]func(*Model){
+		"the menu of kinds": func(m *Model) { send(m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}) },
+		"the sidebar": func(m *Model) {
+			send(m, tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl}, tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl}, tea.KeyPressMsg{Code: 'g', Mod: tea.ModCtrl})
+		},
+	} {
+		// G goes to a folder: Enter confirms it, and does not toggle a kind or go to a place.
+		m := browsing(t, dir)
+		send(m, tea.WindowSizeMsg{Width: 240, Height: 30})
+		open(m)
+		if !m.opener.picker.InMenu() && !m.opener.picker.InSidebar() {
+			t.Fatalf("%s did not open", name)
+		}
+		send(m, press("G"))
+		if m.opener.picker.InMenu() || m.opener.picker.InSidebar() || !m.opener.going {
+			t.Fatalf("%s: G left the popup open: menu=%v sidebar=%v going=%v", name, m.opener.picker.InMenu(), m.opener.picker.InSidebar(), m.opener.going)
+		}
+		send(m, enter)
+		if got := m.opener.picker.ActiveFilters(); len(got) != 0 {
+			t.Errorf("%s: Enter after G chose kinds %v", name, got)
+		}
+		if m.opener.dir != dir {
+			t.Errorf("%s: Enter after G went to %q, not the folder shown", name, m.opener.dir)
+		}
+		if m.opener.going {
+			t.Errorf("%s: Enter did not end the go-to", name)
+		}
+
+		// / starts the finder, with nothing else holding the keys.
+		m = browsing(t, dir)
+		send(m, tea.WindowSizeMsg{Width: 240, Height: 30})
+		open(m)
+		send(m, press("/"))
+		if m.opener.find == nil || m.opener.picker.InMenu() || m.opener.picker.InSidebar() {
+			t.Errorf("%s: / left the popup open: find=%v", name, m.opener.find != nil)
+		}
+	}
+}
