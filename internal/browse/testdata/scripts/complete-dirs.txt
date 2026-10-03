@@ -1,0 +1,11 @@
+-- fs --
+home/evan/trips/beach.png
+home/evan/tripsheet.txt
+home/evan/travel-notes.md
+-- script --
+start /home/evan
+size 60 10
+note in the filter a file shares the start, so Tab stops at what they share; compare complete-dirs-goto
+type tri
+press tab
+state filter trips

@@ -1,0 +1,34 @@
+# files stay in the listing, but Tab completes folders alone
+
+=== listed (60x10)
+ ~
+  Filter: trips/
+>         2026-01-02 trips/
+     100B 2026-01-02 tripsheet.txt
+
+
+
+
+
+ 1/2 matches · 4 in folder · list
+
+# a name that only a file has is not completed
+
+# several folders: the start they share, then the choices, still only folders
+
+# a partial path ends in a folder too
+
+# the ghost offers the folder, not the file
+
+=== ghost (60x10)
+ ~
+  Filter: trips/
+>         2026-01-02 trips/
+     100B 2026-01-02 tripsheet.txt
+
+
+
+
+
+ 1/2 matches · 4 in folder · list
+

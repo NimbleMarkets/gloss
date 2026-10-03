@@ -1,0 +1,20 @@
+# an absolute path lists that folder without going there
+
+=== etc (60x10)
+ / › etc
+  Filter: /etc/
+                     ..
+>         2026-01-02 ssh/
+     100B 2026-01-02 hosts
+
+
+
+
+ 2/3 · list
+
+# Enter on a typed folder goes to it
+
+# home, and parent
+
+# a file typed in a path is chosen with Enter once the cursor is on it
+

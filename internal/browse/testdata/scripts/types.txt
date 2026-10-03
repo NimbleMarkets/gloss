@@ -1,0 +1,51 @@
+-- fs --
+home/evan/photo.png 52000
+home/evan/trip.jpg 40000
+home/evan/notes.md 300
+home/evan/todo.txt 80
+home/evan/sales.csv 900
+home/evan/setup.dmg 7000
+home/evan/projects/gloss/readme.md 100
+home/evan/projects/gloss/logo.png 100
+-- script --
+option filters kinds
+start /home/evan
+size 70 14
+note nothing is chosen: everything is listed; the chip at the footer's right opens the menu
+snapshot closed
+state types ""
+note Ctrl-F opens the menu of kinds; space checks one
+press ctrl+f
+snapshot menu
+state menu true
+press down space
+snapshot pictures
+state types Pictures
+note folders stay, to get to files; only pictures are listed beside them
+reject notes.md
+expect photo.png
+note a second kind widens it
+press down down space
+state types Pictures,Data
+expect sales.csv
+reject todo.txt
+note the choice holds as you walk into a folder
+press esc
+state menu false
+press enter
+state dir /home/evan/projects
+press enter
+snapshot in-gloss
+reject readme.md
+expect logo.png
+note All types clears them
+press ctrl+f
+press home space
+state types ""
+snapshot cleared
+expect readme.md
+note typing while the menu is open closes it and goes to the filter
+press ctrl+f
+type lo
+state menu false
+state filter lo

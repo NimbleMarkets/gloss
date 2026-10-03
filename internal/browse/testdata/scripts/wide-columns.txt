@@ -1,0 +1,17 @@
+-- fs --
+home/evan/notes.pdf 100
+home/evan/世界の写真.png 5000
+home/evan/📷_holiday.png 3000
+home/evan/projects/gloss/main.go
+home/evan/projects/世界/
+-- script --
+option marker emoji
+option layout places
+option filters kinds
+start /home/evan
+size 90 12
+note wide marks and names in the columns and the sidebar; the separators line up
+snapshot places
+note the menu is drawn over rows that hold wide characters, and they stay whole on either side of it
+press ctrl+f
+snapshot menu

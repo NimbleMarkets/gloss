@@ -1,0 +1,29 @@
+-- fs --
+home/evan/readme.md 1200
+home/evan/notes.md 300
+home/evan/projects/gloss/main.go 2048
+home/evan/projects/gloss/README.md 100
+home/evan/projects/gloss/internal/app/model.go
+home/evan/projects/tiny/a.txt
+home/evan/photos/2025/a.png
+-- script --
+option layout columns
+start /home/evan/projects
+size 90 14
+snapshot start
+note the cursor on a folder shows what is in it
+press down
+snapshot tiny
+press up
+press right
+state dir /home/evan/projects/gloss
+snapshot into-gloss
+press down down
+snapshot on-a-file
+press right
+state dir /home/evan/projects/gloss
+press left
+state dir /home/evan/projects
+state current gloss
+press left
+state dir /home/evan

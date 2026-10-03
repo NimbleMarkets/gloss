@@ -1,0 +1,27 @@
+-- fs --
+home/evan/readme.md 1200
+home/evan/notes.md 300
+home/evan/photo.png 52000
+home/evan/projects/gloss/main.go
+home/evan/projects/tiny/
+home/evan/.hidden
+-- script --
+start /home/evan
+size 60 12
+snapshot start
+state dir /home/evan
+state current projects
+press down
+state current notes.md
+press up
+state current projects
+press enter
+state dir /home/evan/projects
+snapshot in-projects
+press left
+state dir /home/evan
+state current projects
+press down down down
+state current readme.md
+press enter
+state chosen /home/evan/readme.md

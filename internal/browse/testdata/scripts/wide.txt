@@ -1,0 +1,23 @@
+-- fs --
+home/evan/notes.pdf 100
+home/evan/世界の写真.png 5000
+home/evan/📷_holiday.png 3000
+"home/evan/👨‍👩‍👧 family.md" 20
+"home/evan/❤️ love.txt" 9
+home/evan/projects/
+home/evan/photos/
+-- script --
+option marker emoji
+start /home/evan
+size 70 12
+note emoji marks are two cells wide: every name starts at the same cell column, whatever it begins with
+snapshot list
+col notes.pdf 24
+col 世界の写真.png 24
+col 📷_holiday.png 24
+col love 26
+note a joined family and a heart with its selector are drawn as one character each, the same width to every terminal
+note and filtering them finds the letters after the dropped ones
+type lo
+snapshot filtered
+col love 26

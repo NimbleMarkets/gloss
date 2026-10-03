@@ -1,0 +1,33 @@
+-- fs --
+home/evan/readme.md 1200
+home/evan/notes.md 300
+home/evan/projects/gloss/main.go
+home/evan/projects/tiny/a.txt
+-- script --
+# The same flow in the words of a VHS tape: what VHS has no word for
+# (start, state, expect) is ours.
+Set FontSize 16
+Output demo.gif
+start /home/evan
+size 60 10
+Hide
+Show
+Type "re"
+Sleep 200ms
+Screenshot typed
+state current readme.md
+Ctrl+U
+Down
+state current notes.md
+Up
+Enter
+Sleep 1s
+state dir /home/evan/projects
+Type@50ms 'gl'
+Tab
+Backspace 6
+Left
+state dir /home/evan
+Escape
+Shift+Tab
+Alt+Left

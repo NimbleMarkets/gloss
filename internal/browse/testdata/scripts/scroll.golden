@@ -1,0 +1,37 @@
+# the cursor stays in view as it moves down the list
+
+=== top (50x9)
+ ~ › pics
+  Filter: type to filter, or a path: / ~ ../
+          ..
+>    100B img_01.png
+     200B img_02.png
+     300B img_03.png
+     400B img_04.png
+     500B img_05.png
+ 2/31 · list
+
+=== pgdown (50x9)
+ ~ › pics
+  Filter: type to filter, or a path: / ~ ../
+     200B img_02.png
+     300B img_03.png
+     400B img_04.png
+     500B img_05.png
+     600B img_06.png
+>    700B img_07.png
+ 8/31 · list
+
+=== end (50x9)
+ ~ › pics
+  Filter: type to filter, or a path: / ~ ../
+    2.5kB img_25.png
+    2.6kB img_26.png
+    2.7kB img_27.png
+    2.8kB img_28.png
+    2.9kB img_29.png
+>   3.0kB img_30.png
+ 31/31 · list
+
+# the wheel
+

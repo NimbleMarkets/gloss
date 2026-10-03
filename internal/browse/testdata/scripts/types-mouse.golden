@@ -1,0 +1,64 @@
+# a click on the footer's chip opens the menu
+
+=== open (90x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+▸ evan/                       │> docs/                     ╭─ File types ───────────────╮
+                              │  notes.md                  │> [x] All types             │
+                              │  photo.png                 │  [ ] ▫ Pictures            │
+                              │  sales.csv                 │  [ ] ▪ Documents           │
+                              │                            │  [ ] ▤ Data                │
+                              │                            ╰ space toggles · esc closes ╯
+                              │                             │
+                              │                             │
+                              │                             │
+ 1/4 · columns                                                                    types ▾
+
+# a click on a row checks it; the menu stays open and the columns follow
+
+=== documents (90x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+▸ evan/                       │> docs/                     ╭─ File types ───────────────╮
+                              │  notes.md                  │  [ ] All types             │
+                              │                            │  [ ] ▫ Pictures            │
+                              │                            │> [x] ▪ Documents           │
+                              │                            │  [ ] ▤ Data                │
+                              │                            ╰ space toggles · esc closes ╯
+                              │                             │
+                              │                             │
+                              │                             │
+ 1/2 · columns                                                         types: Documents ▾
+
+# a click outside closes it, and does no more
+
+=== closed (90x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+▸ evan/                       │> docs/                      │  old.txt
+                              │  notes.md                   │  readme.md
+                              │  sales.csv                  │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 1/3 · columns                                                   types: Documents, Data ▾
+
+# a folder with nothing of the chosen kinds says so
+
+=== none-here (90x12)
+ ~ › docs
+  Filter: type to filter, or a path: / ~ ../
+▸ evan/                       │▸ docs/                      │  Nothing of that type.
+                              │  photo.png                  │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 0 rows · columns                                                       types: Pictures ▾
+

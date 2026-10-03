@@ -1,0 +1,24 @@
+-- fs --
+"home/evan/bell\a.txt" 1
+"home/evan/tab\there.md" 1
+"home/evan/esc\u001b[31mred.txt" 1
+"home/evan/title\u001b]0;pwned\a.txt" 1
+"home/evan/new\nline.txt" 1
+"home/evan/dir\u001b[2J/"
+-- script --
+start /home/evan
+size 60 12
+note a file's name is drawn as a name: control bytes appear as their symbols, and nothing reaches the terminal
+snapshot list
+reject-raw "\x1b]0;pwned"
+reject-raw "\x1b[31m"
+reject-raw "\x1b[2J"
+reject-raw "\a"
+type red
+snapshot filtered
+reject-raw "\x1b[31m"
+press ctrl+u
+type t
+press tab
+snapshot completed
+reject-raw "\x1b]0"

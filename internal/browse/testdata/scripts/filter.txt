@@ -1,0 +1,41 @@
+-- fs --
+home/evan/readme.md 1200
+home/evan/report.pdf 99000
+home/evan/README.txt 10
+home/evan/notes.md 300
+home/evan/photo.png 52000
+home/evan/photo-edit.PNG 52000
+home/evan/my.pdf.png 12
+home/evan/projects/gloss/main.go
+home/evan/.profile 40
+home/evan/.config/
+-- script --
+start /home/evan
+size 60 14
+note ranked: the best fit comes first, not the first in the alphabet
+type re
+snapshot re
+state current readme.md
+note a capital makes the match exact
+press ctrl+u
+type RE
+snapshot RE
+state current README.txt
+note a glob
+press ctrl+u
+type *.png
+snapshot glob
+state rows 3
+note an extension reaches the hidden too
+press ctrl+u
+type .pro
+snapshot dot
+state current .profile
+note no match
+press ctrl+u
+type zzz
+snapshot none
+state rows 0
+note backspace widens again
+press backspace backspace backspace
+state rows 9

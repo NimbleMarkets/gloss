@@ -1,0 +1,48 @@
+# home is ~ and a long path is elided from the left
+
+=== long (30x8)
+ … › app › browser › deep
+  Filter: type to filter, or…
+          ..
+>    100B notes.md
+
+
+
+ 2/2 · list
+
+# a click on a crumb goes there, the cursor on the folder it left
+
+=== clicked (30x8)
+ … › gloss › internal › app
+  Filter: type to filter, or…
+          ..
+>         browser/
+
+
+
+ 2/2 · list
+
+# outside home the root leads
+
+=== outside (30x8)
+ / › usr › local
+  Filter: /usr/local/
+          ..
+>         bin/
+
+
+
+ 2/2 · list
+
+# very narrow: the last name keeps what room there is
+
+=== narrow (12x8)
+ … › local
+  Filter: /u
+          ..
+>         b…
+
+
+
+ 2/2 · list
+

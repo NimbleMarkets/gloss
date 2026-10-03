@@ -1,0 +1,19 @@
+-- fs --
+home/evan/readme.md
+home/evan/secret/key
+home/evan/data/a.csv
+-- script --
+fail home/evan/secret permission denied
+start /home/evan
+size 60 8
+snapshot start
+note a folder that cannot be read says so
+press down
+press enter
+state dir /home/evan/secret
+snapshot denied
+note a folder typed that is not there
+press ctrl+u
+type /nowhere/
+state viewdir /nowhere
+snapshot missing

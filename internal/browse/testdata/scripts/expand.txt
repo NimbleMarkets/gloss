@@ -1,0 +1,37 @@
+-- fs --
+home/evan/projects/gloss/internal/app/model.go
+home/evan/projects/gloss/internal/browse/
+home/evan/projects/glossary/terms.txt
+home/evan/Pictures/trips/
+usr/local/bin/tool
+usr/share/doc/
+-- script --
+start /home/evan
+size 70 8
+note folders only begun are completed, each if only one begins so
+type ~/Pic
+press tab
+state filter ~/Pictures/
+press ctrl+u
+type ~/pi/tr
+press tab
+state filter ~/Pictures/trips/
+press ctrl+u
+note the last segment is completed as Tab would: the start they share
+type pro/gloss/int
+press tab
+state filter projects/gloss/internal/
+press ctrl+u
+note absolute: usr has local and share
+type /u/l/b/to
+press tab
+state filter /usr/local/bin/tool
+note ambiguous, or nothing: left as typed
+press ctrl+u
+type pro/glos/int
+press tab
+state filter pro/glos/int
+press ctrl+u
+type nowhere/x
+press tab
+state filter nowhere/x

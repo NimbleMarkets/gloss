@@ -1,0 +1,94 @@
+# nothing is chosen: everything is listed; the chip at the footer's right opens the menu
+
+=== closed (70x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>         2026-01-02 projects/
+     300B 2026-01-02 notes.md
+     52kB 2026-01-02 photo.png
+     900B 2026-01-02 sales.csv
+    7.0kB 2026-01-02 setup.dmg
+      80B 2026-01-02 todo.txt
+     40kB 2026-01-02 trip.jpg
+
+
+
+ 2/8 · list                                                   types ▾
+
+# Ctrl-F opens the menu of kinds; space checks one
+
+=== menu (70x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..                ╭─ File types ───────────────╮
+>         2026-01-02 projects/         │> [x] All types             │
+     300B 2026-01-02 notes.md          │  [ ] ▫ Pictures            │
+     52kB 2026-01-02 photo.png         │  [ ] ▪ Documents           │
+     900B 2026-01-02 sales.csv         │  [ ] ▤ Data                │
+    7.0kB 2026-01-02 setup.dmg         ╰ space toggles · esc closes ╯
+      80B 2026-01-02 todo.txt
+     40kB 2026-01-02 trip.jpg
+
+
+
+ 2/8 · list                                                   types ▾
+
+=== pictures (70x14)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..                ╭─ File types ───────────────╮
+>         2026-01-02 projects/         │  [ ] All types             │
+     52kB 2026-01-02 photo.png         │> [x] ▫ Pictures            │
+     40kB 2026-01-02 trip.jpg          │  [ ] ▪ Documents           │
+                                       │  [ ] ▤ Data                │
+                                       ╰ space toggles · esc closes ╯
+
+
+
+
+
+ 2/4 · list                                         types: Pictures ▾
+
+# folders stay, to get to files; only pictures are listed beside them
+
+# a second kind widens it
+
+# the choice holds as you walk into a folder
+
+=== in-gloss (70x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>    100B 2026-01-02 logo.png
+
+
+
+
+
+
+
+
+
+ 2/2 · list                                   types: Pictures, Data ▾
+
+# All types clears them
+
+=== cleared (70x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+                     ..                ╭─ File types ───────────────╮
+>    100B 2026-01-02 logo.png          │> [x] All types             │
+     100B 2026-01-02 readme.md         │  [ ] ▫ Pictures            │
+                                       │  [ ] ▪ Documents           │
+                                       │  [ ] ▤ Data                │
+                                       ╰ space toggles · esc closes ╯
+
+
+
+
+
+ 2/3 · list                                                   types ▾
+
+# typing while the menu is open closes it and goes to the filter
+

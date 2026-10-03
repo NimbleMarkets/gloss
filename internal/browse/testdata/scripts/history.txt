@@ -1,0 +1,33 @@
+-- fs --
+home/evan/a/x/f1
+home/evan/b/y/f2
+home/evan/c/
+-- script --
+start /home/evan
+size 60 8
+note back and forward through the folders visited
+press enter
+state dir /home/evan/a
+press enter
+state dir /home/evan/a/x
+press alt+left
+state dir /home/evan/a
+press alt+left
+state dir /home/evan
+press alt+left
+state dir /home/evan
+press alt+right
+state dir /home/evan/a
+press alt+right
+state dir /home/evan/a/x
+press alt+right
+state dir /home/evan/a/x
+note going somewhere new after going back drops the forward trail
+press alt+left alt+left
+press down
+press enter
+state dir /home/evan/b
+press alt+right
+state dir /home/evan/b
+press alt+left
+state dir /home/evan

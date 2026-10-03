@@ -1,0 +1,29 @@
+-- fs --
+home/evan/a/x1
+home/evan/a/x2
+home/evan/a/x3
+home/evan/b/y1
+home/evan/b/y2
+-- script --
+start /home/evan
+size 50 8
+note leaving a folder and coming back finds the cursor where it was
+press enter
+press down down
+state current x3
+press left
+state dir /home/evan
+state current a
+press down
+state current b
+press up
+press right
+state current x3
+press left
+press right
+state current x3
+note going up lands on the folder just left
+press left
+press left
+state dir /home
+state current evan

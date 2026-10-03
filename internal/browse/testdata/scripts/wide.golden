@@ -1,0 +1,34 @@
+# emoji marks are two cells wide: every name starts at the same cell column, whatever it begins with
+
+=== list (70x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+  📁                    ..
+> 📁         2026-01-02 photos
+  📁         2026-01-02 projects
+  📕    100B 2026-01-02 notes.pdf
+  📝      9B 2026-01-02 ❤ love.txt
+  📷   5.0kB 2026-01-02 世界の写真.png
+  📝     20B 2026-01-02 👨 family.md
+  📷   3.0kB 2026-01-02 📷_holiday.png
+
+ 2/8 · list
+
+# a joined family and a heart with its selector are drawn as one character each, the same width to every terminal
+
+# and filtering them finds the letters after the dropped ones
+
+=== filtered (70x12)
+ ~
+  Filter: lo
+> 📝      9B 2026-01-02 ❤ love.txt
+
+
+
+
+
+
+
+
+ 1/1 matches · 7 in folder · list
+

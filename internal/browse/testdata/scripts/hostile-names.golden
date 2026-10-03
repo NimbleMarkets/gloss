@@ -1,0 +1,44 @@
+# a file's name is drawn as a name: control bytes appear as their symbols, and nothing reaches the terminal
+
+=== list (60x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>         2026-01-02 dir␛[2J/
+       1B 2026-01-02 bell␇.txt
+       1B 2026-01-02 esc␛[31mred.txt
+       1B 2026-01-02 new␊line.txt
+       1B 2026-01-02 tab␉here.md
+       1B 2026-01-02 title␛]0;pwned␇.txt
+
+
+ 2/7 · list
+
+=== filtered (60x12)
+ ~
+  Filter: red
+>      1B 2026-01-02 esc␛[31mred.txt
+       1B 2026-01-02 tab␉here.md
+
+
+
+
+
+
+
+ 1/2 matches · 6 in folder · list
+
+=== completed (60x12)
+ ~
+  Filter: tab here.md
+>      1B 2026-01-02 tab␉here.md
+       1B 2026-01-02 title␛]0;pwned␇.txt
+       1B 2026-01-02 bell␇.txt
+       1B 2026-01-02 new␊line.txt
+       1B 2026-01-02 esc␛[31mred.txt
+
+
+
+
+ 1/5 matches · 6 in folder · list
+

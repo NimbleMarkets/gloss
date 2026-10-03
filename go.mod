@@ -21,6 +21,7 @@ require (
 	github.com/gen2brain/h265 v0.2.3
 	github.com/ledongthuc/pdf v0.0.0-20260907135840-6c8c28e0e8a0
 	github.com/neomantra/sqlittle v0.0.0-20261001025832-4a4bc3e212fa
+	github.com/rivo/uniseg v0.4.7
 	github.com/spf13/pflag v1.0.10
 	github.com/yuin/goldmark v1.8.2
 	golang.org/x/image v0.46.0
@@ -66,7 +67,6 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.63.0 // indirect
 	github.com/quic-go/webtransport-go v0.13.0 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect

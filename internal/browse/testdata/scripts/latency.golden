@@ -1,0 +1,12 @@
+# nothing is shown wrong while a folder is read
+
+=== slow (60x8)
+ ~ › slow
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>    100B 2026-01-02 a.txt
+
+
+
+ 2/2 · list
+

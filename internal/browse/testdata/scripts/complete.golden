@@ -1,0 +1,36 @@
+# one candidate completes, a folder gaining its slash
+
+=== photos (60x12)
+ ~ › photos
+  Filter: photos/
+                     ..
+>         2026-01-02 2025/
+          2026-01-02 2026/
+
+
+
+
+
+
+ 2/3 · list
+
+# the start the candidates share is added
+
+# no more to share: Tab steps through the candidates
+
+=== cycling (60x12)
+ ~
+  Filter: readme.md
+>    100B 2026-01-02 readme.md
+     100B 2026-01-02 readings.txt
+
+
+
+
+
+
+
+ 1/2 matches · 5 in folder · list
+
+# typing ends the stepping
+

@@ -1,0 +1,42 @@
+=== start (80x10)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+▸ gloss/                  │> internal/               │  app.go
+  tiny/                   │  main.go                 │
+                          │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+ 1/2 · columns
+
+# click in the column above: go there, the row clicked selected
+
+=== clicked-above (80x10)
+ ~ › projects
+  Filter: type to filter, or a path: / ~ ../
+  photos/                 │  gloss/                  │  a.txt
+▸ projects/               │> tiny/                   │
+  readme.md               │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+ 2/2 · columns
+
+# the columns have moved with it: the first now lists evan
+
+# click a row in the last column: descend into that folder, the row chosen
+
+=== clicked-beside (80x10)
+ ~ › projects
+  Filter: type to filter, or a path: / ~ ../
+  photos/                 │> gloss/                  │  internal/
+▸ projects/               │  tiny/                   │  main.go
+  readme.md               │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+                          │                          │
+ 1/2 · columns
+

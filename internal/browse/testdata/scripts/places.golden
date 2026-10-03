@@ -1,0 +1,74 @@
+# the sidebar lists the home folders that exist, and where you have been
+
+=== start (100x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ gloss/                  │> main.go                 │  main.go
+  Home              │  tiny/                   │                          │
+  Documents         │                          │                          │  Size      100 B
+  Downloads         │                          │                          │  Modified  2026-01-02 1…
+  Pictures          │                          │                          │  Folder    /home/evan/p…
+  Root              │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+ 1/1 · places
+
+# ctrl+g moves the cursor to it, on the first place when the folder is not one
+
+=== focused (100x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ gloss/                  │> main.go                 │  main.go
+> Home              │  tiny/                   │                          │
+  Documents         │                          │                          │  Size      100 B
+  Downloads         │                          │                          │  Modified  2026-01-02 1…
+  Pictures          │                          │                          │  Folder    /home/evan/p…
+  Root              │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+ 1/1 · places
+
+# it settles on the place being shown; arrows pick another
+
+=== documents (100x14)
+ ~ › Documents
+  Filter: type to filter, or a path: / ~ ../
+ Places             │▸ Documents/              │> taxes/                  │  2025.pdf
+  Home              │  Downloads/              │  report.pdf              │
+▸ Documents         │  Pictures/               │                          │
+  Downloads         │  projects/               │                          │
+  Pictures          │                          │                          │
+  Root              │                          │                          │
+ Recent             │                          │                          │
+  ~/projects/gloss  │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+ 1/2 · places
+
+# typing from the sidebar goes to the filter again
+
+# a click on a place goes there
+
+=== clicked (100x14)
+ ~ › Pictures
+  Filter: type to filter, or a path: / ~ ../
+ Places             │  Documents/              │> trip/                   │  beach.png
+  Home              │  Downloads/              │                          │
+  Documents         │▸ Pictures/               │                          │
+  Downloads         │  projects/               │                          │
+▸ Pictures          │                          │                          │
+  Root              │                          │                          │
+ Recent             │                          │                          │
+  ~/projects/gloss  │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+                    │                          │                          │
+ 1/1 · places
+

@@ -1,0 +1,52 @@
+-- fs --
+home/evan/pics/img_01.png 100
+home/evan/pics/img_02.png 200
+home/evan/pics/img_03.png 300
+home/evan/pics/img_04.png 400
+home/evan/pics/img_05.png 500
+home/evan/pics/img_06.png 600
+home/evan/pics/img_07.png 700
+home/evan/pics/img_08.png 800
+home/evan/pics/img_09.png 900
+home/evan/pics/img_10.png 1000
+home/evan/pics/img_11.png 1100
+home/evan/pics/img_12.png 1200
+home/evan/pics/img_13.png 1300
+home/evan/pics/img_14.png 1400
+home/evan/pics/img_15.png 1500
+home/evan/pics/img_16.png 1600
+home/evan/pics/img_17.png 1700
+home/evan/pics/img_18.png 1800
+home/evan/pics/img_19.png 1900
+home/evan/pics/img_20.png 2000
+home/evan/pics/img_21.png 2100
+home/evan/pics/img_22.png 2200
+home/evan/pics/img_23.png 2300
+home/evan/pics/img_24.png 2400
+home/evan/pics/img_25.png 2500
+home/evan/pics/img_26.png 2600
+home/evan/pics/img_27.png 2700
+home/evan/pics/img_28.png 2800
+home/evan/pics/img_29.png 2900
+home/evan/pics/img_30.png 3000
+-- script --
+start /home/evan/pics
+size 50 9
+note the cursor stays in view as it moves down the list
+snapshot top
+press pgdown
+snapshot pgdown
+press end
+state current img_30.png
+snapshot end
+press home
+state current ..
+press down
+state current img_01.png
+press pgdown pgup
+state current img_01.png
+note the wheel
+wheel 5 4 down
+state current img_04.png
+wheel 5 4 up
+state current img_01.png

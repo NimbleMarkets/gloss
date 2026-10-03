@@ -1,0 +1,34 @@
+-- fs --
+home/evan/Documents/report.pdf
+home/evan/Documents/taxes/2025.pdf
+home/evan/Downloads/setup.dmg
+home/evan/Pictures/trip/beach.png
+home/evan/projects/gloss/main.go
+home/evan/projects/tiny/a.txt
+-- script --
+option layout places
+start /home/evan/projects/gloss
+size 100 14
+note the sidebar lists the home folders that exist, and where you have been
+snapshot start
+state layout places
+note ctrl+g moves the cursor to it, on the first place when the folder is not one
+press ctrl+g
+snapshot focused
+press enter
+state dir /home/evan
+note it settles on the place being shown; arrows pick another
+press ctrl+g
+press down
+press enter
+state dir /home/evan/Documents
+snapshot documents
+note typing from the sidebar goes to the filter again
+press ctrl+g
+type rep
+state filter rep
+state current report.pdf
+note a click on a place goes there
+click 3 6
+state dir /home/evan/Pictures
+snapshot clicked

@@ -1,0 +1,66 @@
+=== start (90x14)
+ ~ › projects
+  Filter: type to filter, or a path: / ~ ../
+  photos/                     │> gloss/                     │  internal/
+▸ projects/                   │  tiny/                      │  README.md
+  notes.md                    │                             │  main.go
+  readme.md                   │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 1/2 · columns
+
+# the cursor on a folder shows what is in it
+
+=== tiny (90x14)
+ ~ › projects
+  Filter: type to filter, or a path: / ~ ../
+  photos/                     │  gloss/                     │  a.txt
+▸ projects/                   │> tiny/                      │
+  notes.md                    │                             │
+  readme.md                   │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 2/2 · columns
+
+=== into-gloss (90x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+▸ gloss/                      │> internal/                  │  app/
+  tiny/                       │  README.md                  │
+                              │  main.go                    │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 1/3 · columns
+
+=== on-a-file (90x14)
+ ~ › projects › gloss
+  Filter: type to filter, or a path: / ~ ../
+▸ gloss/                      │  internal/                  │  main.go
+  tiny/                       │  README.md                  │
+                              │> main.go                    │  Size      2.0 kB
+                              │                             │  Modified  2026-01-02 15:04
+                              │                             │  Folder    /home/evan/proje…
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+                              │                             │
+ 3/3 · columns
+

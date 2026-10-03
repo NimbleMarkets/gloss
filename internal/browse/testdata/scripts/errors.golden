@@ -1,0 +1,34 @@
+=== start (60x8)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>         2026-01-02 data/
+          2026-01-02 secret/
+     100B 2026-01-02 readme.md
+
+ 2/4 · list
+
+# a folder that cannot be read says so
+
+=== denied (60x8)
+ ~ › secret
+  Filter: type to filter, or a path: / ~ ../
+>                    ..
+  ⚠ permission denied
+
+
+
+ ⚠ permission denied
+
+# a folder typed that is not there
+
+=== missing (60x8)
+ / › nowhere
+  Filter: /nowhere/
+>                    ..
+  ⚠ no such folder
+
+
+
+ ⚠ no such folder
+

@@ -1,0 +1,29 @@
+-- fs --
+home/evan/readme.md
+home/evan/projects/gloss/main.go
+home/evan/projects/tiny/a.txt
+etc/hosts
+etc/ssh/config
+-- script --
+start /home/evan/projects
+size 60 10
+note an absolute path lists that folder without going there
+type /etc/
+state viewdir /etc
+state dir /home/evan/projects
+snapshot etc
+note Enter on a typed folder goes to it
+press enter
+state dir /etc
+state filter ""
+note home, and parent
+type ~/
+state viewdir /home/evan
+press ctrl+u
+type ../
+state viewdir /
+note a file typed in a path is chosen with Enter once the cursor is on it
+press ctrl+u
+type /etc/ho
+press enter
+state chosen /etc/hosts

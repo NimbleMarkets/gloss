@@ -1,0 +1,39 @@
+-- fs --
+home/evan/trips/beach.png
+home/evan/tripsheet.txt
+home/evan/travel-notes.md
+home/evan/projects/gloss/main.go
+home/evan/projects/gloss.md
+home/evan/projects/glossary/terms.txt
+-- script --
+option dirsonly true
+start /home/evan
+size 60 10
+note files stay in the listing, but Tab completes folders alone
+type tri
+snapshot listed
+press tab
+state filter trips/
+note a name that only a file has is not completed
+press ctrl+u
+type tra
+press tab
+state filter tra
+note several folders: the start they share, then the choices, still only folders
+press ctrl+u
+type projects/gl
+press tab
+state filter projects/gloss
+press tab
+state filter projects/gloss/
+press tab
+state filter projects/glossary/
+note a partial path ends in a folder too
+press ctrl+u
+type pro/gloss/ma
+press tab
+state filter projects/gloss/ma
+note the ghost offers the folder, not the file
+press ctrl+u
+type tri
+snapshot ghost

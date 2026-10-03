@@ -1,0 +1,55 @@
+-- fs --
+home/evan/readme.md
+home/evan/projects/gloss/main.go
+home/evan/projects/gloss/internal/
+home/evan/projects/glossary/
+home/evan/photos/2025/
+home/evan/photos/2026/
+home/evan/Zebra.txt
+-- script --
+start /home/evan
+size 60 10
+note the ghost shows what Tab would add; the cursor sits on it
+type pro
+snapshot ghost
+note right accepts it
+press right
+state filter projects/
+note a chain: complete the next segment
+type gl
+snapshot chain
+press tab
+state filter projects/gloss
+note two folders share gloss: now Tab steps through them
+press tab
+state filter projects/gloss/
+press ctrl+u
+type projects/glo
+press tab tab tab
+state filter projects/glossary/
+press shift+tab
+state filter projects/gloss/
+note fuzzy completion when nothing starts with the letters
+press ctrl+u
+type rdm
+press tab
+state filter readme.md
+note smart case: a capital in the typed name matches case
+press ctrl+u
+type z
+press tab
+state filter Zebra.txt
+note nothing to complete
+press ctrl+u
+type qq
+press tab
+state filter qq
+note tilde and parent
+press ctrl+u
+type ~/pho
+press tab
+state filter ~/photos/
+press ctrl+u
+type ../ev
+press tab
+state filter ../evan/

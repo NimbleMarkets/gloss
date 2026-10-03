@@ -1,0 +1,19 @@
+-- fs --
+home/evan/a.md
+home/evan/b.png
+home/evan/c.stl
+home/evan/dir/
+-- script --
+option only .png
+start /home/evan
+size 50 8
+note only what may be chosen is chosen; the rest is greyed but listed
+press down
+state current a.md
+press enter
+state chosen ""
+press down
+state current b.png
+press enter
+state chosen /home/evan/b.png
+snapshot chosen

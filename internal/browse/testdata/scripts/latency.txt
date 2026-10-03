@@ -1,0 +1,12 @@
+-- fs --
+home/evan/readme.md
+home/evan/slow/a.txt
+-- script --
+latency 40ms
+start /home/evan
+size 60 8
+note nothing is shown wrong while a folder is read
+press enter
+snapshot slow
+reads home/evan/slow 1
+reads home/evan 1

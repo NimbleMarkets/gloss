@@ -1,0 +1,40 @@
+# the ghost shows what Tab would add; the cursor sits on it
+
+=== ghost (60x10)
+ ~
+  Filter: projects/
+>         2026-01-02 projects/
+
+
+
+
+
+
+ 1/1 matches · 4 in folder · list
+
+# right accepts it
+
+# a chain: complete the next segment
+
+=== chain (60x10)
+ ~ › projects
+  Filter: projects/gloss
+>         2026-01-02 gloss/
+          2026-01-02 glossary/
+
+
+
+
+
+ 1/2 matches · 2 in folder · list
+
+# two folders share gloss: now Tab steps through them
+
+# fuzzy completion when nothing starts with the letters
+
+# smart case: a capital in the typed name matches case
+
+# nothing to complete
+
+# tilde and parent
+

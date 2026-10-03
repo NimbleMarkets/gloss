@@ -1,0 +1,25 @@
+-- fs --
+home/evan/readme.md
+home/evan/projects/gloss/main.go
+home/evan/projects/gloss/internal/app.go
+home/evan/projects/tiny/a.txt
+home/evan/photos/a.png
+-- script --
+option layout columns
+start /home/evan/projects/gloss
+size 80 10
+snapshot start
+note click in the column above: go there, the row clicked selected
+click 3 3
+state dir /home/evan/projects
+state current tiny
+snapshot clicked-above
+note the columns have moved with it: the first now lists evan
+click 3 3
+state dir /home/evan
+state current projects
+note click a row in the last column: descend into that folder, the row chosen
+click 60 2
+state dir /home/evan/projects
+state current gloss
+snapshot clicked-beside

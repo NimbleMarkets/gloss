@@ -1,0 +1,32 @@
+# wide marks and names in the columns and the sidebar; the separators line up
+
+=== places (90x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+ Places           │▸ 📁 evan              │> 📁 projects          │  📁 gloss
+▸ Home            │                       │  📕 notes.pdf         │  📁 世界
+  Root            │                       │  📷 世界の写真.png    │
+                  │                       │  📷 📷_holiday.png    │
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+ 1/4 · places                                                                     types ▾
+
+# the menu is drawn over rows that hold wide characters, and they stay whole on either side of it
+
+=== menu (90x12)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+ Places           │▸ 📁 evan              │> 📁 projects   ╭─ File types ───────────────╮
+▸ Home            │                       │  📕 notes.pdf  │> [x] All types             │
+  Root            │                       │  📷 世界の写真.│  [ ] ▫ Pictures            │
+                  │                       │  📷 📷_holiday.│  [ ] ▪ Documents           │
+                  │                       │                │  [ ] ▤ Data                │
+                  │                       │                ╰ space toggles · esc closes ╯
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+ 1/4 · places                                                                     types ▾
+

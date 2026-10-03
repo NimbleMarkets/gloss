@@ -1,0 +1,23 @@
+-- fs --
+home/evan/projects/gloss/internal/app/browser/deep/notes.md
+home/evan/projects/gloss/readme.md
+usr/local/bin/tool
+-- script --
+start /home/evan/projects/gloss/internal/app/browser/deep
+size 30 8
+note home is ~ and a long path is elided from the left
+snapshot long
+state crumbs … > app > browser > deep
+note a click on a crumb goes there, the cursor on the folder it left
+click 6 0
+snapshot clicked
+state dir /home/evan/projects/gloss/internal/app
+state current browser
+note outside home the root leads
+press ctrl+u
+type /usr/local/
+state crumbs / > usr > local
+snapshot outside
+resize 12 8
+note very narrow: the last name keeps what room there is
+snapshot narrow

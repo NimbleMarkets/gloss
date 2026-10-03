@@ -1,0 +1,12 @@
+# only what may be chosen is chosen; the rest is greyed but listed
+
+=== chosen (50x8)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+          ..
+          dir/
+     100B a.md
+>    100B b.png
+     100B c.stl
+ 4/5 · list
+
