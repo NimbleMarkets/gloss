@@ -3,8 +3,8 @@
 ## What gloss is
 
 A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3MF
-meshes, Markdown, HTML, JSON, Jupyter notebooks, Word, Excel, Grist, and CSV
-files.
+meshes, Markdown, HTML, plain text, JSON, Jupyter notebooks, Word, Excel,
+Grist, and CSV files.
 Written in Go (module `github.com/NimbleMarkets/gloss`, Go 1.26.8+) on Bubble
 Tea, NTCharts, NTCharts SVG, NTCharts PDF, and NTCharts3d. The README is the
 short introduction; the user reference is the guide on the documentation site
@@ -57,6 +57,8 @@ limits" page, `docs/hugo/content/guide/formats.md`):
   fall back to the embedded thumbnail.
 - **Markdown**: Glamour-rendered with local raster/SVG images inline; `s`
   toggles source.
+- **Plain text and source**: readable text is accepted even without a known
+  extension; source is syntax-highlighted.
 - **JSON / JSONL / NDJSON**: pretty-printed and highlighted, numbered records
   for line-delimited files, syntax errors reported with line number.
 - **Jupyter notebooks** (nbformat 4): Markdown and code cells with outputs,
@@ -72,20 +74,23 @@ limits" page, `docs/hugo/content/guide/formats.md`):
   writing. Other SQLite databases are refused.
 - **CSV/TSV**: separator auto-detected; shown like a sheet. Table columns can
   be hidden interactively or via `--cols`/`--coln`.
-- **Fetching** (opt-in `--fetch`): `Enter` on a table cell holding an http(s)
-  address, or dropping/pasting one URL, downloads and opens it; gloss never
-  fetches on its own. `--accept 'image/*,pdf'` requires content formats for a
-  session; mismatches are rejected, regardless of `--type`. Public pages fetch
-  URL drops directly in the browser with CORS, never through a site proxy. Such cells
-  are marked 🔗 and drawn as terminal hyperlinks (OSC 8), so the terminal,
-  not gloss, opens them in a browser when clicked.
+- **Fetching** (CLI opt-in `--fetch`): `Enter` on a table cell holding an
+  http(s) address, or dropping/pasting one URL, downloads and opens it.
+  Table addresses are marked 🔗 and drawn as terminal hyperlinks (OSC 8), so
+  the terminal opens them in a browser when clicked. URL drops on `--serve`
+  pages also require `--fetch`. The public landing demo and app enable URL
+  drops directly in the browser: CORS is enforced, credentials and referrers
+  are omitted, and no site proxy is used. Browser downloads have a one-minute
+  deadline and a streamed 128 MiB limit; URL documents are not saved in the
+  public app's persistent library.
 
 Key viewer features: Kitty graphics with colored half-block glyph fallback;
 alternate screen by default, `-X` for main screen; file menu (`--menu`),
 preview pane (`--preview` or `v`), file browser (`o`), drag-and-drop and
 bracketed-paste path input, zoom/pan, per-format info box (`i`), PNG export of
 the current view (`e`), mesh orbit/pan/zoom, ortho/perspective toggle, mesh
-color picker (`C`, `--color`), reload (`R`/`r`).
+color picker (`C`, `--color`), background color picker (`B`), reload (`R`;
+`r` for non-mesh documents), and mesh auto-rotation (`r`).
 
 Agent-facing / scriptable surface:
 
@@ -99,6 +104,15 @@ Agent-facing / scriptable surface:
 - `--view front|back|left|right|top|bottom|iso[,...]|all`, `--camera`,
   `--projection`, `--parts`, `--partn`, `--color`: posed mesh exports,
   including multi-view contact sheets.
+- `--text`: extract PDF page text, Markdown from Word/HTML/notebooks, text or
+  JSON, or CSV from a sheet. `--page` selects pages/sheets; ranges and `all`
+  need `--output-dir` or `--json`. Images, SVGs, and meshes use `--output`.
+- `--accept 'image/*,pdf'`: require session content formats for initial files,
+  choices, drops, and downloads, independently of `--type`. `image/*` includes
+  SVG; other entries are gloss format names. Mismatches are errors and rejected
+  downloads are removed. Text formats without a distinctive signature retain
+  filename hints; this filter does not replace loader validation. Public app
+  links use `?accept=image%2F*` to require images.
 - `--info [--json]`: print per-file metadata (what the `i` box shows) without
   opening the viewer; JSON mode emits an array of objects with `error` entries
   for files that fail.
@@ -109,17 +123,17 @@ Agent-facing / scriptable surface:
   `--prompt-loc` positions the prompt box in the terminal only. Pick returns
   exit 0 paths, 1 error, 2 nothing chosen, 124 timeout and blocks, in
   a terminal. With stdin not a terminal, both `--pick` and `--serve` instead
-  detach the server (`cmd/gloss/detach.go`), print one JSON object (`url`,
-  `dir`, `timeout_seconds`, `resume_token`, `resume`), exit 0, and open no
-  browser; `--timeout` defaults to 10 minutes. `--resume TOKEN` reads the
+  detach the server (`cmd/gloss/detach.go`), print one JSON object (`status`,
+  `url`, `dir`, `timeout_seconds`, `resume_token`, `resume`, `pick`), exit 0,
+  and open no browser; `--timeout` defaults to 10 minutes. `--resume TOKEN` reads the
   state file and answers as a pick does (0, 2, 124). `--status TOKEN` only
   looks: it prints one JSON object (`state` waiting, picked, declined, timeout,
   closed, or failed; `settled`; `paths`; `error`; `seconds_left`) and exits 0
   whenever it reported, 1 for no such pick. It must change nothing, not the
   state file nor the folder: `observe` in `detach.go` works out an overdue or
   dead waiting state for both, and only `--resume` writes the result. Dropped
-  files stay in the
-  private `dir` for the caller to delete, and are removed on timeout/decline.
+  files stay in the private `dir` for the caller to delete, and are removed
+  on timeout/decline.
   This is how a non-terminal agent asks a human for a file or shows one.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
 
@@ -139,8 +153,9 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
   `browse:replay SCRIPT=x` are for a person at a terminal (try it, keep a session
   as a script, watch a script); see DEVELOP.md.
 - `task ci` — the full gate: `fmt-check`, `go-tidy-check`, `go-verify`,
-  `test-race`, `vet`, `staticcheck`, `vulncheck`, `build`. Run this before
-  considering work done.
+  `test-race`, `vet`, `cross-windows`, `staticcheck`, `vulncheck`, `build`,
+  `notices-check`, `docs-check`. Run this before considering work done.
+  `demo-check` and `web-check` are separate checks for browser changes.
 - `task docs` — the `gloss(1)` man page (`docs/man`), the command reference
   (`gloss --docs-man`/`--docs-markdown --docs-hugo`, hidden options) and the
   two guide pages (`internal/tools/docsite`, from DEVELOP.md and
@@ -164,8 +179,11 @@ pinned in `go.mod`; builds use `-mod=readonly`.
 
 - Go, formatted with `gofmt` (enforced by `task ci`); follow NTCharts' layout
   conventions and the existing code style.
-- All loaders must stay bounded: respect the 128 MiB input cap, per-format
-  pixel/row/face limits, and never fetch the network unless `--fetch` is given.
+- All loaders must stay bounded: respect the 128 MiB input cap and per-format
+  pixel/row/face limits. Loaders never fetch remote assets. CLI document fetching
+  requires `--fetch` and an explicit user action; public pages fetch only a URL
+  the user drops or asks to open through `?src=`, directly with browser CORS.
+  Do not add a public fetch proxy or a fallback that bypasses CORS.
 - Never overwrite an existing output file; number the name instead.
 - Interactive output requires a terminal; export (`--output`) and `--info`
   paths must keep working without a TTY and write only the payload to stdout.

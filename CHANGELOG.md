@@ -2,7 +2,42 @@
 
 ## Unreleased
 
-  * Commands
+  * **The file browser**
+    * A rebuilt chooser (`o`) with three layouts: list, file-manager columns,
+      and columns with a sidebar of common and recently visited folders.
+      `Ctrl-L` switches layouts; `Ctrl-G` moves to the sidebar
+    * Ranked fuzzy filtering with highlighted matches, smart case, globs,
+      and access to hidden files by typing a leading dot
+    * `Tab` completes a common prefix, then cycles candidates; `Shift-Tab`
+      cycles backward and `→` accepts the dimmed suggestion. `Tab` also expands
+      abbreviated folder paths; `G` completes folders only
+    * Clickable breadcrumbs, back and forward history, and mouse navigation
+      through rows, columns, places, and the file-type menu (`Ctrl-F`)
+    * Cursor positions survive folder reads and navigation. Completion works
+      after accented and other multibyte characters. Typing and search commands
+      close popups; hidden popups no longer capture keys, and the wheel
+      scrolls the menu or sidebar under it
+    * File detection is deferred until rows are drawn or files are chosen,
+      avoiding reads of every unknown file just to list a folder. Pipes,
+      devices, and links to them are never opened for detection
+    * A new guide explains the layouts, filtering, completion, and keys
+
+  * **URL drops and required formats**
+    * `--fetch` also enables dropping or pasting one http(s) URL in the
+      terminal, and dropping one on a `--serve` page
+    * `--accept 'image/*'` requires images, including SVG; comma-separated
+      formats such as `--accept 'image/*,pdf'` allow alternatives. The filter
+      applies to initial files, choices, drops, and downloads independently
+      of `--type`. Mismatches report the received and required formats;
+      rejected downloads are removed
+    * The landing-page demo and browser app accept URL drops. Downloads go
+      directly from the source to the browser, subject to CORS, without a
+      site proxy, credentials, or referrer. Browser downloads have a one-minute
+      deadline and enforce the 128 MiB limit while streaming
+    * `?accept=image%2F*` restricts a browser app session to images. Documents
+      opened from URLs are not saved in the app's persistent file library
+
+  * **Commands**
     * `gloss skill` prints the agent skill and `gloss skill install [FOLDER]`
       installs it; they replace `--skill` and `--install`, which still work
       but are no longer listed
@@ -10,6 +45,18 @@
       `gloss FILE`, and is how to open a file named `skill`, `view` or `help`
     * `gloss help [command]` shows the usage of gloss or of one command; the
       shell completions offer the commands
+
+  * **Development and packaging**
+    * The file chooser is a separate Bubble Tea component. Its test harness
+      provides an in-memory filesystem, scripted golden screens, layout and
+      terminal-safety checks, and session recording and replay; `task browse:*`
+      exposes the tests, playground, benchmarks, and VHS recordings
+    * `task build` skips rebuilding when its sources, embedded assets,
+      dependencies, and requested version have not changed. A test checks
+      that the build's source list covers everything the binary uses
+    * License notice generation finds Go's license in Homebrew installations
+      and reports an error if it cannot read it, instead of silently omitting
+      the runtime license
 
 ## `v0.2.0` (2026-10-02)
 

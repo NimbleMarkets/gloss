@@ -44,7 +44,9 @@ cat drawing.svg | gloss                # read from a pipe
 | `e` | Export what you see as a PNG |
 
 Pictures use Kitty graphics where the terminal has them, and colored half-blocks
-where it does not. Drag files or a web URL onto the terminal to open them.
+where it does not. Drag files onto the terminal to open them; add `--fetch`
+to open a dropped web URL. The [file browser](https://nimblemarkets.github.io/gloss/docs/guide/browser/)
+offers list, columns, and places layouts, with filtering and Tab completion.
 
 ## From a script or an agent
 
@@ -55,8 +57,13 @@ takes out a file's text or its details, and can ask a person for a file.
 gloss --output page.png --page 3 report.pdf   # a PNG, with no terminal
 gloss --text report.docx                      # Markdown on stdout
 gloss --info --json model.3mf                 # what a file says about itself
-gloss --serve --pick                          # ask the user for a file; print its path
+gloss --serve --pick                          # ask the user for a file in a browser
 ```
+
+Without a terminal on stdin, `--serve` and `--pick` return session JSON
+immediately; `gloss --resume TOKEN` waits for the chosen paths. Add
+`--accept 'image/*'` to require images, including SVG. See
+[handing files over](https://nimblemarkets.github.io/gloss/docs/guide/handoff/).
 
 gloss also carries a skill that teaches an agent all of this, in the order it
 needs it: read a file's text, see a page or model as a PNG sized for its vision
