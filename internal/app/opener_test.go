@@ -640,3 +640,193 @@ func TestSlashFindsFilesUnderTheFolder(t *testing.T) {
 		t.Fatal("Esc did not close the browser")
 	}
 }
+
+func TestCtrlLLaysFoldersOutInColumnsAndKeepsTheChoice(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	if strings.Contains(strings.Join(plain(m), "\n"), "│") {
+		t.Fatalf("the list is the default layout:\n%s", strings.Join(plain(m), "\n"))
+	}
+	send(m, tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl})
+	view := strings.Join(plain(m), "\n")
+	// The folder beside the one it is in, and what is under the cursor.
+	if !strings.Contains(view, "│") || !strings.Contains(view, "columns") || !strings.Contains(view, "alpha.png") {
+		t.Fatalf("columns:\n%s", view)
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Ctrl-L layout") {
+		t.Fatalf("hints: %s", hints)
+	}
+	// The choice outlasts the visit.
+	send(m, escape, press("O"))
+	if view := strings.Join(plain(m), "\n"); !strings.Contains(view, "│") {
+		t.Fatalf("the layout was not kept:\n%s", view)
+	}
+}
+
+func TestBrowserTakesTheMouse(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	send(m, typed("trips")...)
+	send(m, enter)
+	if got := m.View().MouseMode; got != tea.MouseModeCellMotion {
+		t.Fatalf("mouse mode %v: the browser should take clicks", got)
+	}
+	// The breadcrumbs are on the first row; the last crumb is this folder,
+	// and one before it the folder above, which a click goes to.
+	crumbs := m.opener.picker.Crumbs()
+	if len(crumbs) < 2 || crumbs[len(crumbs)-1] != "trips" {
+		t.Fatalf("crumbs %q", crumbs)
+	}
+	row := plain(m)[0]
+	x := ansi.StringWidth(row[:strings.Index(row, "001 › trips")]) + 1 // On the crumb before "trips".
+	send(m, tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+	if m.opener == nil || m.opener.dir != dir || !listed(m, "alpha.png") {
+		t.Fatalf("a click on the crumb above did not go there: dir=%q\n%s", m.opener.dir, strings.Join(plain(m), "\n"))
+	}
+	// A click on the row the cursor is on opens it, as Enter does.
+	send(m, typed("beta")...)
+	y := -1
+	for i, l := range plain(m) {
+		if strings.HasSuffix(strings.TrimRight(l, " "), "beta.svg") {
+			y = i
+		}
+	}
+	send(m, tea.MouseClickMsg{X: 10, Y: y, Button: tea.MouseLeft})
+	if m.opener != nil || len(m.opts.Files) != 2 || filepath.Base(m.opts.Files[1]) != "beta.svg" {
+		t.Fatalf("opener=%v files=%q", m.opener != nil, m.opts.Files)
+	}
+}
+
+func TestOpenerWalksIntoALinkedFolderEvenWhenGreyedFilesAreHidden(t *testing.T) {
+	dir := folder(t)
+	if err := os.Symlink(filepath.Join(dir, "trips"), filepath.Join(dir, "shortcut")); err != nil {
+		t.Skip("cannot make a symlink here:", err)
+	}
+	m := browsing(t, dir)
+	send(m, toggleHidden)
+	if !listed(m, "shortcut") || !strings.Contains(line(t, m, "shortcut"), "📁") {
+		t.Fatalf("a link to a folder is not listed as a folder:\n%s", ansi.Strip(m.View().Content))
+	}
+	send(m, typed("shortcut")...)
+	send(m, enter)
+	if m.opener == nil || !listed(m, "coast.png") {
+		t.Fatalf("Enter did not go into the linked folder:\n%s", ansi.Strip(m.View().Content))
+	}
+}
+
+func TestCtrlFChoosesKindsOfFileToShow(t *testing.T) {
+	dir := folder(t)
+	m := browsing(t, dir)
+	for _, name := range []string{"alpha.png", "beta.svg", "notes.dmg", "LICENSE", "trips"} {
+		if !listed(m, name) {
+			t.Fatalf("%s not listed to begin with:\n%s", name, ansi.Strip(m.View().Content))
+		}
+	}
+	send(m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl})
+	view := strings.Join(plain(m), "\n")
+	for _, want := range []string{"File types", "All types", "📷 Pictures", "📊 Tables (CSV, Excel, Grist)", "space toggles"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("menu lacks %q:\n%s", want, view)
+		}
+	}
+	// Pictures: the picture and the folders stay, the rest goes.
+	send(m, tea.KeyPressMsg{Code: tea.KeyDown}, tea.KeyPressMsg{Code: tea.KeySpace, Text: " "})
+	if !strings.Contains(strings.Join(plain(m), "\n"), "[x] 📷 Pictures") {
+		t.Fatalf("the box is not checked:\n%s", strings.Join(plain(m), "\n"))
+	}
+	if !m.opener.picker.InMenu() {
+		t.Fatal("checking a kind closed the menu")
+	}
+	send(m, tea.KeyPressMsg{Code: tea.KeyDown}, tea.KeyPressMsg{Code: tea.KeyUp}) // The menu is over the rows' right end; look past it.
+	send(m, escape)
+	for name, want := range map[string]bool{"alpha.png": true, "trips": true, "beta.svg": false, "notes.dmg": false, "LICENSE": false} {
+		if got := listed(m, name); got != want {
+			t.Errorf("%s listed=%v, want %v:\n%s", name, got, want, strings.Join(plain(m), "\n"))
+		}
+	}
+	if view := strings.Join(plain(m), "\n"); !strings.Contains(view, "types: Pictures") {
+		t.Errorf("the footer does not say what is chosen:\n%s", view)
+	}
+	// Esc closed the menu, not the browser; the choice stays.
+	if m.opener == nil || m.opener.picker.InMenu() || strings.Contains(strings.Join(plain(m), "\n"), "File types") {
+		t.Fatal("Esc did not close just the menu")
+	}
+	if listed(m, "beta.svg") {
+		t.Error("closing the menu undid the choice")
+	}
+	// A second kind, drawings, widens it; text files (by content) are their own.
+	// The menu opens on the first kind chosen, so one Down reaches Drawings.
+	send(m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}, tea.KeyPressMsg{Code: tea.KeyDown}, enter, escape)
+	if !listed(m, "beta.svg") || !listed(m, "alpha.png") || listed(m, "LICENSE") {
+		t.Errorf("pictures and drawings:\n%s", strings.Join(plain(m), "\n"))
+	}
+	// The choice outlasts the visit, as the order and layout do, and Esc once more leaves.
+	send(m, escape, escape, press("O"))
+	if m.opener == nil || !listed(m, "alpha.png") || !listed(m, "beta.svg") || listed(m, "LICENSE") {
+		t.Fatalf("the kinds chosen were not kept:\n%s", strings.Join(plain(m), "\n"))
+	}
+	// All types clears it.
+	send(m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}, tea.KeyPressMsg{Code: tea.KeyHome}, enter, escape)
+	if !listed(m, "LICENSE") || !listed(m, "notes.dmg") {
+		t.Errorf("All types did not show everything:\n%s", strings.Join(plain(m), "\n"))
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Ctrl-F types") {
+		t.Errorf("hints: %s", hints)
+	}
+}
+
+func TestKindsOfFileChosenAlsoNarrowWhatIsTyped(t *testing.T) {
+	m := browsing(t, folder(t))
+	send(m, tea.KeyPressMsg{Code: 'f', Mod: tea.ModCtrl}, tea.KeyPressMsg{Code: tea.KeyDown}, tea.KeyPressMsg{Code: tea.KeyDown}, enter, escape)
+	// Drawings only: .png is not among them.
+	send(m, typed("a")...)
+	if listed(m, "alpha.png") || !listed(m, "beta.svg") {
+		t.Fatalf("typing over a kind:\n%s", strings.Join(plain(m), "\n"))
+	}
+	// And a chosen file of the kind opens as usual.
+	send(m, tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+	send(m, typed("beta")...)
+	send(m, enter)
+	if m.opener != nil || len(m.opts.Files) != 2 || filepath.Base(m.opts.Files[1]) != "beta.svg" {
+		t.Fatalf("opener=%v files=%q", m.opener != nil, m.opts.Files)
+	}
+}
+
+func TestGoToCompletesFoldersAloneButStillListsFiles(t *testing.T) {
+	dir := folder(t)
+	// A file that begins as the folder "trips" does.
+	if err := os.WriteFile(filepath.Join(dir, "tripsheet.txt"), []byte("notes"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	m := browsing(t, dir)
+	filterOf := func() string { return m.opener.picker.FilterValue() }
+
+	// In the filter, the file and the folder share "trips": Tab stops there.
+	send(m, typed("tri")...)
+	send(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := filterOf(); got != "trips" {
+		t.Fatalf("in the filter Tab gave %q, want trips", got)
+	}
+	send(m, tea.KeyPressMsg{Code: 'u', Mod: tea.ModCtrl})
+
+	// G is after a folder: Tab goes to it, and both are still listed.
+	send(m, press("G"))
+	send(m, typed("tri")...)
+	if !listed(m, "tripsheet.txt") || !listed(m, "trips") {
+		t.Fatalf("the go-to hides files, which are worth seeing:\n%s", ansi.Strip(m.View().Content))
+	}
+	send(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	if got, want := filterOf(), filepath.Join(dir, "trips")+string(filepath.Separator); got != want {
+		t.Fatalf("in the go-to Tab gave %q, want %q", got, want)
+	}
+	if hints := plain(m)[len(plain(m))-1]; !strings.Contains(hints, "Tab completes folders") {
+		t.Errorf("hints: %s", hints)
+	}
+	// Esc leaves it, and Tab in the filter completes files again.
+	send(m, escape)
+	send(m, typed("tripsh")...)
+	send(m, tea.KeyPressMsg{Code: tea.KeyTab})
+	if got := filterOf(); got != "tripsheet.txt" {
+		t.Fatalf("after the go-to, Tab gave %q, want tripsheet.txt", got)
+	}
+}

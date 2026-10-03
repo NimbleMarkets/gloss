@@ -11,12 +11,11 @@ import (
 	"slices"
 	"strings"
 	"sync"
-	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/NimbleMarkets/gloss/internal/browse"
 	"github.com/NimbleMarkets/gloss/internal/document"
-	"github.com/NimbleMarkets/gloss/internal/picky"
 )
 
 // The orders a folder can be listed in, cycled with Ctrl-S.
@@ -36,6 +35,32 @@ var kindMarks = map[string]string{
 	".md": "📝", ".markdown": "📝", ".mdown": "📝", ".html": "📝", ".htm": "📝", ".txt": "📝", ".text": "📝", ".log": "📝",
 	".json": "🧾", ".jsonl": "🧾", ".ndjson": "🧾", ".ipynb": "📓",
 	".docx": "📄", ".docm": "📄", ".xlsx": "📊", ".xlsm": "📊", ".csv": "📊", ".tsv": "📊", ".grist": "📊",
+}
+
+// typeFilters are the kinds of file the browser can be told to show alone, by
+// the marks that say what a file is; the menu names them for people.
+var typeFilters = []struct {
+	name  string
+	marks []string
+}{
+	{"Pictures", []string{"📷"}},
+	{"Drawings (SVG)", []string{"🎨"}},
+	{"PDF", []string{"📕"}},
+	{"Meshes (STL, 3MF)", []string{"🧊"}},
+	{"Markdown, HTML, text", []string{"📝", "📃"}},
+	{"JSON", []string{"🧾"}},
+	{"Notebooks", []string{"📓"}},
+	{"Word", []string{"📄"}},
+	{"Tables (CSV, Excel, Grist)", []string{"📊"}},
+}
+
+// browseFilters are those kinds as the chooser takes them.
+func browseFilters() []browse.Filter {
+	out := make([]browse.Filter, len(typeFilters))
+	for i, f := range typeFilters {
+		out[i] = browse.Filter{Name: f.name, Mark: f.marks[0], Match: func(e fs.DirEntry) bool { return slices.Contains(f.marks, mark(e)) }}
+	}
+	return out
 }
 
 // mark is what stands before a name in the listing, in place of its mode.
@@ -91,12 +116,12 @@ func kindOrder(e fs.DirEntry) string {
 	return string(rune('a'+rank)) + strings.ToLower(filepath.Ext(e.Name()))
 }
 
-// opener browses the host's folders for a file to add to the session.
+// opener browses the host's folders for a file to add to the session. The
+// browsing itself is the browse package's; this is what gloss adds to it.
 type opener struct {
-	picker picky.Model
+	picker browse.Model
 	reads  *readLog
-	seen   int
-	dir    string // The folder being listed, for the status bar.
+	dir    string // The folder being browsed, for the status bar.
 	going  bool   // A folder's path is being typed, to go to.
 	find   *finder
 	width  int
@@ -110,34 +135,30 @@ const filterPrompt, goPrompt = "  Filter: ", "  Go to: "
 func (o *opener) goTo() tea.Cmd {
 	o.going = true
 	o.picker.SetPrompt(goPrompt)
-	return o.picker.SetPath(o.dir + string(filepath.Separator))
+	o.picker.SetDirsOnlyCompletion(true) // The aim is a folder; its files are still listed.
+	return o.picker.SetFilter(o.dir + string(filepath.Separator))
+}
+
+// leavePopup closes what floats over the folder, the menu of kinds or the
+// cursor in the sidebar of places, and says whether there was any.
+func (o *opener) leavePopup() bool {
+	switch {
+	case o.picker.InMenu():
+		o.picker.CloseMenu()
+	case o.picker.InSidebar():
+		o.picker.LeaveSidebar()
+	default:
+		return false
+	}
+	return true
 }
 
 // stopGoing ends the go-to, the filter cleared.
-func (o *opener) stopGoing() {
+func (o *opener) stopGoing() tea.Cmd {
 	o.going = false
 	o.picker.SetPrompt(filterPrompt)
-	o.picker.SetFilterValue("")
-}
-
-// gone goes to the folder the path names when Enter is pressed: the one
-// typed to its separator, or the folder under the cursor. A file under the
-// cursor is left for the picker to open.
-func (o *opener) gone() (tea.Cmd, bool) {
-	dir, query, ok := o.picker.PathDir()
-	if !ok {
-		return nil, false
-	}
-	if query != "" {
-		entry := o.picker.Current()
-		if entry == nil || !entry.IsDir() || entry.Name() == ".." {
-			return nil, false
-		}
-		dir = filepath.Join(dir, entry.Name())
-	}
-	o.going = false
-	o.picker.SetPrompt(filterPrompt)
-	return o.picker.GoTo(dir), true
+	o.picker.SetDirsOnlyCompletion(false)
+	return o.picker.ClearFilter()
 }
 
 type openResult struct {
@@ -145,15 +166,12 @@ type openResult struct {
 	err  error
 }
 
-// readLog notes which folder the picker read last. The picker does not say
-// where it is, and it reads from a command, outside the update loop.
-//
-// It is also where unsupported files are left out, when that is asked for.
+// readLog is the filesystem the picker reads: where files that gloss cannot
+// show are looked into, and left out when that is asked for. It reads from a
+// command, outside the update loop, so its choices are kept under a lock.
 type readLog struct {
 	fs.ReadDirFS
 	mu      sync.Mutex
-	dir     string
-	count   int
 	allowed []string // Extensions the picker does not grey; nil allows all.
 	hide    bool
 	text    bool // Files that read as text may be chosen, whatever their name.
@@ -170,10 +188,10 @@ type sniffed struct {
 // out when that is asked for.
 func (l *readLog) ReadDir(name string) ([]fs.DirEntry, error) {
 	l.mu.Lock()
-	l.dir, l.count = name, l.count+1
 	hide, allowed := l.hide && l.allowed != nil, l.allowed
 	l.mu.Unlock()
 	entries, err := l.ReadDirFS.ReadDir(name)
+	entries = browse.FollowLinks(l.ReadDirFS, name, entries) // Before any are left out.
 	if allowed == nil {
 		return entries, err
 	}
@@ -227,13 +245,7 @@ func (o *opener) resize(w, h int) {
 	if o.find != nil {
 		o.find.input.SetWidth(max(1, w-lipgloss.Width(o.find.input.Prompt)-1))
 	}
-	// The filter's text input cannot draw itself narrower than its
-	// placeholder; the view clips whatever does not fit.
-	o.picker.SetWidth(max(w, 48))
-	o.picker.SetHeight(max(1, h-1))
-	// The picker shortens its window of rows but never lengthens it;
-	// filtering again lays it out afresh around the cursor.
-	o.picker.SetFilterValue(o.picker.FilterValue())
+	o.picker.SetSize(w, h)
 }
 
 // The embedded gallery has no folders, and a preview never takes keys.
@@ -262,13 +274,14 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 		return nil
 	}
 	reads := &readLog{ReadDirFS: os.DirFS(string(filepath.Separator)).(fs.ReadDirFS), hide: m.hideUnsupported, text: !m.noTextFiles}
-	options := []picky.Option{picky.WithFS(reads), picky.WithMarker(mark), picky.WithSort(ordering(m.sortBy))}
+	options := []browse.Option{browse.WithMarker(mark), browse.WithSort(ordering(m.sortBy)), browse.WithLayout(browse.Layout(m.browseLayout)), browse.WithPrompt(filterPrompt),
+		browse.WithFilters(browseFilters()), browse.WithActiveFilters(m.browseTypes...)}
 	if m.opts.Type == "" {
 		// Judged by name where the name says; the rest by a look inside.
 		reads.allowed = document.Extensions
-		options = append(options, picky.WithSelectable(reads.selectable))
+		options = append(options, browse.WithSelectable(reads.selectable))
 	}
-	m.opener = &opener{picker: picky.New(filepath.ToSlash(dir), options...), reads: reads, dir: dir}
+	m.opener = &opener{picker: browse.New(reads, filepath.ToSlash(dir), options...), reads: reads, dir: dir}
 	m.opener.resize(m.width, m.bodyHeight())
 	m.screen, m.help = screenBrowser, false
 	m.keepLayer()
@@ -277,6 +290,7 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 
 func (m *Model) browse(msg tea.Msg) tea.Cmd {
 	o := m.opener
+	entered := false
 	if k, ok := msg.(tea.KeyPressMsg); ok {
 		if o.find != nil {
 			if cmd, ok := m.findKey(k); ok {
@@ -290,27 +304,24 @@ func (m *Model) browse(msg tea.Msg) tea.Cmd {
 		case k.String() == "G" && !o.going && o.picker.FilterValue() == "":
 			return o.goTo()
 		case k.String() == "enter" && o.going:
-			if cmd, ok := o.gone(); ok {
-				return cmd
-			}
+			entered = true
 		}
 	}
 	var cmd tea.Cmd
 	o.picker, cmd = o.picker.Update(msg)
-	// A path typed into the filter lists other folders in passing; the
-	// folder being browsed is the one read while no path was being typed.
-	o.reads.mu.Lock()
-	read, count := o.reads.dir, o.reads.count
-	o.reads.mu.Unlock()
-	if count != o.seen && !strings.ContainsRune(o.picker.FilterValue(), filepath.Separator) {
-		o.seen, o.dir = count, string(filepath.Separator)+filepath.FromSlash(read)
+	o.dir, m.browseLayout, m.browseTypes = filepath.FromSlash(o.picker.Dir()), int(o.picker.Layout()), o.picker.ActiveFilters()
+	if entered && o.picker.FilterValue() == "" {
+		// The folder typed was gone to.
+		o.going = false
+		o.picker.SetPrompt(filterPrompt)
+		o.picker.SetDirsOnlyCompletion(false)
 	}
-	chosen := o.picker.Selected()
-	if chosen == "" {
+	chosen, ok := o.picker.Chosen()
+	if !ok {
 		return cmd
 	}
-	o.picker.ClearSelected()
-	path, forced := string(filepath.Separator)+filepath.FromSlash(chosen), m.opts.Type
+	o.picker.ClearChosen()
+	path, forced := filepath.FromSlash(chosen), m.opts.Type
 	return tea.Batch(cmd, func() tea.Msg {
 		_, err := document.Probe(path, forced)
 		return openResult{path: path, err: err}
@@ -335,22 +346,13 @@ func (m *Model) toggleText() tea.Cmd {
 	return m.reread()
 }
 
-// reread lists the folder again under the choices made.
+// reread lists the folders again under the choices made.
 func (m *Model) reread() tea.Cmd {
 	o := m.opener
 	o.reads.mu.Lock()
 	o.reads.hide, o.reads.text = m.hideUnsupported, !m.noTextFiles
 	o.reads.mu.Unlock()
-	cmd := o.picker.Init() // Reads the folder again.
-	// The folder of a typed path is read only when the text changes, so its
-	// last character is typed again.
-	if path := o.picker.FilterValue(); strings.ContainsRune(path, filepath.Separator) {
-		last, size := utf8.DecodeLastRuneInString(path)
-		o.picker.SetFilterValue("")
-		o.picker.SetFilterValue(path[:len(path)-size])
-		cmd = tea.Batch(cmd, m.browse(tea.KeyPressMsg{Code: last, Text: string(last)}))
-	}
-	return cmd
+	return o.picker.Reload()
 }
 
 func (m *Model) opened(r openResult) tea.Cmd {

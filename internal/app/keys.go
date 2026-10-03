@@ -52,8 +52,9 @@ func (m *Model) browserKey(msg tea.KeyPressMsg) tea.Cmd {
 		switch {
 		case m.opener.find != nil:
 			m.opener.find = nil
+		case m.opener.leavePopup():
 		case m.opener.going:
-			m.opener.stopGoing()
+			return m.opener.stopGoing()
 		default:
 			m.showDocument()
 		}

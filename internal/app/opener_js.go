@@ -24,9 +24,10 @@ type openResult struct{}
 
 var orderNames = []string{"name", "date", "kind"}
 
-func (o *opener) view() string    { return "" }
-func (o *opener) resize(int, int) {}
-func (o *opener) stopGoing()      {}
+func (o *opener) view() string       { return "" }
+func (o *opener) resize(int, int)    {}
+func (o *opener) stopGoing() tea.Cmd { return nil }
+func (o *opener) leavePopup() bool   { return false }
 
 func (m *Model) canBrowse() bool            { return false }
 func (m *Model) openBrowser() tea.Cmd       { return nil }

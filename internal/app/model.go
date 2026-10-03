@@ -92,7 +92,9 @@ type browserState struct {
 	sortBy          int  // The order the browser lists in; kept likewise.
 	thumbs          bool // The list is shown as a grid of thumbnails, last time and next.
 	grid            *grid
-	noTextFiles     bool // The browser sets text files aside; kept likewise.
+	noTextFiles     bool     // The browser sets text files aside; kept likewise.
+	browseLayout    int      // How the browser lays folders out (a browse.Layout); kept likewise.
+	browseTypes     []string // The kinds of file the browser shows alone, if any; kept likewise.
 }
 
 // Model is the pager. A preview pane is itself a Model (isPreview set) that
@@ -322,7 +324,10 @@ func (m *Model) movePage(page int) tea.Cmd {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.browsing() {
 		if _, ok := msg.(tea.MouseMsg); ok {
-			return m, nil
+			if m.help || m.opener.find != nil {
+				return m, nil
+			}
+			return m, m.browse(m.onBody(msg))
 		}
 	}
 	msg = m.onBody(msg)

@@ -51,6 +51,9 @@ func (m *Model) body(w, h int) (string, tea.MouseMode) {
 		body = helpScreen()
 	case m.screen == screenBrowser:
 		body = m.opener.view()
+		if m.opener.find == nil {
+			mouse = tea.MouseModeCellMotion // For clicks on crumbs and rows, and the wheel.
+		}
 	case len(m.opts.Files) == 0:
 		body = m.emptyView(w)
 	case m.listing():
@@ -225,9 +228,9 @@ func (m *Model) browserStatus(w int) (bar, hint string) {
 	if m.noTextFiles {
 		text = "text"
 	}
-	hint = ansi.Truncate(" Enter open · / find · G go to · Tab complete · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
+	hint = ansi.Truncate(" Enter open · ←/→ folders · / find · G go to · Tab complete · Ctrl-F types · Ctrl-L layout · Ctrl-G places · Ctrl-S sort · Ctrl-T "+greyed+" · Ctrl-X "+text+" · Esc cancel", w, "")
 	if m.opener.going {
-		hint = ansi.Truncate(" Type a folder's path · Tab complete · Enter go · Esc back", w, "")
+		hint = ansi.Truncate(" Type a folder's path · Tab completes folders · Enter go · Esc back", w, "")
 	}
 	if f := m.opener.find; f != nil {
 		bar = lipgloss.NewStyle().Width(w).Render(ansi.Truncate(" Find · "+f.status(), w, "…"))
