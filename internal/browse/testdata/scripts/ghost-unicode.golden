@@ -1,0 +1,22 @@
+# the cursor is counted in letters, not bytes: é is one letter and two bytes
+
+=== ghost (60x8)
+ ~
+  Filter: émile.txt
+>    100B 2026-01-02 émile.txt
+
+
+
+
+ 1/1 matches · 4 in folder · list
+
+=== path (60x8)
+ ~
+  Filter: ~/Müsik/
+>         2026-01-02 Müsik/
+
+
+
+
+ 1/1 matches · 4 in folder · list
+

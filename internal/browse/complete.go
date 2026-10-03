@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // cycle is Tab stepping through the names a typed beginning could be
@@ -145,7 +146,7 @@ func (m *Model) ghost() (suffix string) {
 }
 
 func (m *Model) ghostName() (name, suffix string) {
-	if m.cycle != nil || m.input.Value() == "" || m.input.Position() != len(m.input.Value()) {
+	if m.cycle != nil || m.input.Value() == "" || !m.cursorAtEnd() {
 		return "", ""
 	}
 	c := m.completions(m.input.Value())
@@ -161,4 +162,11 @@ func (m *Model) ghostName() (name, suffix string) {
 		return "", ""
 	}
 	return c.dirPart + full, string(want[len(have):])
+}
+
+// cursorAtEnd says whether the cursor is after the last letter typed. The
+// input counts its position in letters (runes), so the end is that many, not
+// the number of bytes.
+func (m Model) cursorAtEnd() bool {
+	return m.input.Position() == utf8.RuneCountInString(m.input.Value())
 }

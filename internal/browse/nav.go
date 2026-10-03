@@ -109,7 +109,7 @@ func (m Model) key(msg tea.KeyPressMsg) (Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		if m.input.Position() == len(m.input.Value()) {
+		if m.cursorAtEnd() {
 			if name, _ := m.ghostName(); name != "" {
 				m.input.SetValue(name)
 				m.input.CursorEnd()

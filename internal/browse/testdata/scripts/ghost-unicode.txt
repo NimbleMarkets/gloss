@@ -1,0 +1,22 @@
+-- fs --
+home/evan/émile.txt
+home/evan/other.txt
+home/evan/Müsik/lied.mp3
+home/evan/世界/地図.png
+-- script --
+start /home/evan
+size 60 8
+note the cursor is counted in letters, not bytes: é is one letter and two bytes
+type é
+snapshot ghost
+press right
+state filter émile.txt
+press ctrl+u
+type ~/Mü
+snapshot path
+press right
+state filter ~/Müsik/
+press ctrl+u
+type 世
+press right
+state filter 世界/
