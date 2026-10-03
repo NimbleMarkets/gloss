@@ -1,0 +1,30 @@
+-- fs --
+home/evan/Documents/x
+home/evan/a.png 1
+home/evan/b.md 1
+home/evan/c.csv 1
+-- script --
+option filters kinds
+option layout places
+start /home/evan
+size 100 12
+note typing from the sidebar closes it for good, not just for that letter
+press ctrl+g
+state sidebar true
+type b
+state sidebar false
+state filter b
+press ctrl+u
+press down down
+state current b.md
+note and the menu likewise: the arrows after a letter move the folder's cursor, not a menu's
+press ctrl+f
+state menu true
+type c
+state menu false
+press ctrl+u
+press home
+state current Documents
+press enter
+state types ""
+state dir /home/evan/Documents

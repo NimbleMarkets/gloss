@@ -42,15 +42,22 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) key(msg tea.KeyPressMsg) (Model, tea.Cmd) {
+	// A popup takes the keys it knows. Any other key closes it and goes on to be
+	// what it would have been, so the popup's closing is kept, not just for
+	// this key.
 	if m.side {
-		if next, cmd, taken := m.sideKey(msg); taken {
+		next, cmd, taken := m.sideKey(msg)
+		if taken {
 			return next, cmd
 		}
+		m = next
 	}
 	if m.menu {
-		if next, cmd, taken := m.menuKey(msg); taken {
+		next, cmd, taken := m.menuKey(msg)
+		if taken {
 			return next, cmd
 		}
+		m = next
 	}
 	empty := m.input.Value() == ""
 	if m.cycle != nil && !key.Matches(msg, m.keys.Complete, m.keys.CompleteBack) {
