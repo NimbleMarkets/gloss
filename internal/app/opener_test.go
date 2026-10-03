@@ -847,3 +847,38 @@ func TestTogglingWhatIsShownKeepsTheCursorOnItsFile(t *testing.T) {
 		t.Fatalf("after setting text aside the cursor is on %q, not beta.svg", got)
 	}
 }
+
+func TestGoToEndsWhenTheFolderChangesAnyOtherWay(t *testing.T) {
+	dir := folder(t)
+	for name, leave := range map[string]func(*Model){
+		"a click on a crumb": func(m *Model) {
+			row := plain(m)[0]
+			x := ansi.StringWidth(row[:strings.Index(row, "001 › trips")]) + 1 // On the crumb before "trips".
+			send(m, tea.MouseClickMsg{X: x, Y: 0, Button: tea.MouseLeft})
+		},
+		"Alt-Up": func(m *Model) { send(m, tea.KeyPressMsg{Code: tea.KeyUp, Mod: tea.ModAlt}) },
+		"Enter on the folder typed, which is the one already shown": func(m *Model) { send(m, enter) },
+	} {
+		m := browsing(t, dir)
+		send(m, typed("trips")...)
+		send(m, enter)
+		send(m, press("G"))
+		if !m.opener.going || !strings.Contains(strings.Join(plain(m), "\n"), "Go to: ") {
+			t.Fatalf("%s: G did not ask for a folder", name)
+		}
+		leave(m)
+		view := strings.Join(plain(m), "\n")
+		if m.opener.going || strings.Contains(view, "Go to: ") || strings.Contains(plain(m)[len(plain(m))-1], "Type a folder's path") {
+			t.Errorf("%s: still going to a folder after the folder changed:\n%s", name, view)
+		}
+		// So G, and / for the finder, mean what they mean with nothing typed.
+		send(m, press("G"))
+		if !m.opener.going {
+			t.Errorf("%s: G did not ask for a folder again", name)
+		}
+		send(m, escape, press("/"))
+		if m.opener.find == nil {
+			t.Errorf("%s: / did not start the finder", name)
+		}
+	}
+}

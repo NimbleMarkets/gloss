@@ -307,11 +307,14 @@ func (m *Model) browse(msg tea.Msg) tea.Cmd {
 			entered = true
 		}
 	}
+	was := o.picker.Dir()
 	var cmd tea.Cmd
 	o.picker, cmd = o.picker.Update(msg)
 	o.dir, m.browseLayout, m.browseTypes = filepath.FromSlash(o.picker.Dir()), int(o.picker.Layout()), o.picker.ActiveFilters()
-	if entered && o.picker.FilterValue() == "" {
-		// The folder typed was gone to.
+	if o.going && (o.picker.Dir() != was || entered && o.picker.FilterValue() == "") {
+		// The folder aimed at was gone to: by Enter on it, or by any other way
+		// of changing folders (a click on a crumb or a place, up, back), after
+		// which the filter is the filter again and G and / mean what they did.
 		o.going = false
 		o.picker.SetPrompt(filterPrompt)
 		o.picker.SetDirsOnlyCompletion(false)
