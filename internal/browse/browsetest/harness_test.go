@@ -210,3 +210,42 @@ func TestFSQuotedNamesAndFromDir(t *testing.T) {
 		t.Error("building the demo reads nothing")
 	}
 }
+
+func TestScreenProblems(t *testing.T) {
+	family := "👨‍👩‍👧" // 2 cells as one cluster, 6 by wcwidth.
+	for _, tc := range []struct {
+		name   string
+		raw    string
+		w, h   int
+		expect []string // Substrings of the problems, in order; none for a sound view.
+	}{
+		{"sound", "abc\ndef", 5, 2, nil},
+		{"styling is not text", "\x1b[1;31mabc\x1b[m\n\x1b]8;;http://x\x07link\x1b]8;;\x07", 5, 2, nil},
+		{"wide characters count their cells", "世界!", 5, 1, nil},
+		{"wide characters overflow by cells, not letters", "世界世", 5, 1, []string{"row 0 is 6 cells wide, over the 5"}},
+		{"too many rows", "a\nb\nc", 5, 2, []string{"3 rows, over the 2"}},
+		{"too wide", "abcdef", 5, 1, []string{"6 cells wide"}},
+		{"tables disagree and one overflows", "ab" + family, 5, 1, []string{"8 cells wide by wcwidth (4 by grapheme clusters)"}},
+		{"tables disagree but both fit", "ab" + family, 8, 1, nil},
+		{"a tab", "a\tb", 9, 1, []string{"control character U+0009"}},
+		{"a carriage return", "a\rb", 9, 1, []string{"U+000D"}},
+		{"a bell outside an escape", "a\x07b", 9, 1, []string{"U+0007"}},
+	} {
+		got := browsetest.Screen{Raw: tc.raw, Width: tc.w, Height: tc.h}.Problems()
+		if len(got) != len(tc.expect) {
+			t.Errorf("%s: problems %q, want %q", tc.name, got, tc.expect)
+			continue
+		}
+		for i, want := range tc.expect {
+			if !strings.Contains(got[i], want) {
+				t.Errorf("%s: problem %q lacks %q", tc.name, got[i], want)
+			}
+		}
+	}
+	if err := (browsetest.Screen{Raw: "a\tb\nc", Width: 9, Height: 1}).Fits(); err == nil || !strings.Contains(err.Error(), "rows") || !strings.Contains(err.Error(), "control") {
+		t.Errorf("Fits should report every problem: %v", err)
+	}
+	if !(browsetest.Screen{Raw: "x\x1b[31my\x1b[m"}).RawContains("\x1b[31m") || (browsetest.Screen{Raw: "xy"}).RawContains("\x1b") {
+		t.Error("RawContains looks at the view as drawn")
+	}
+}

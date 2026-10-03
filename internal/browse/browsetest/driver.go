@@ -34,8 +34,9 @@ type Driver[M Component[M]] struct {
 	// a timer and let go.
 	Patience time.Duration
 
-	// StrictFit makes every settled screen be checked to fit Width by
-	// Height.
+	// StrictFit makes every settled screen be checked with Screen.Problems:
+	// to fit Width by Height, by both width tables, and hold no control
+	// characters.
 	StrictFit bool
 
 	trail []string
@@ -220,19 +221,56 @@ func (s Screen) Row(i int) string {
 	return rows[i]
 }
 
-// Fits says whether the view stays within its size.
+// Fits says whether the view is drawn soundly for its size: see Problems.
 func (s Screen) Fits() error {
-	rows := strings.Split(s.Raw, "\n")
-	if s.Height > 0 && len(rows) > s.Height {
-		return fmt.Errorf("view is %d rows, over the %d it was given", len(rows), s.Height)
-	}
-	for i, r := range rows {
-		if w := ansi.StringWidth(r); s.Width > 0 && w > s.Width {
-			return fmt.Errorf("row %d is %d cells wide, over the %d it was given", i, w, s.Width)
-		}
+	if p := s.Problems(); len(p) > 0 {
+		return fmt.Errorf("%s", strings.Join(p, "; "))
 	}
 	return nil
 }
+
+// Problems lists what is wrong with how the view is drawn for the size it was
+// given, the faults that mess up a terminal:
+//
+//   - more rows than there are;
+//   - a row wider than the terminal, which wraps. Width is measured by two
+//     tables, grapheme clusters and wcwidth, which disagree about some emoji
+//     (a family of people joined, a heart with its emoji selector): a row that
+//     fits by one and overflows by the other wraps on some terminals, so it
+//     counts;
+//   - a control character in the text (a tab, a carriage return, a bell), as a
+//     file name can carry, which moves the cursor and breaks the columns.
+//
+// Escape sequences that style the text are not text and are not counted.
+func (s Screen) Problems() []string {
+	var out []string
+	rows := strings.Split(s.Raw, "\n")
+	if s.Height > 0 && len(rows) > s.Height {
+		out = append(out, fmt.Sprintf("view is %d rows, over the %d it was given", len(rows), s.Height))
+	}
+	for i, r := range rows {
+		if s.Width > 0 {
+			grapheme, wc := ansi.StringWidth(r), ansi.StringWidthWc(r)
+			switch {
+			case grapheme > s.Width:
+				out = append(out, fmt.Sprintf("row %d is %d cells wide, over the %d it was given", i, grapheme, s.Width))
+			case wc > s.Width:
+				out = append(out, fmt.Sprintf("row %d is %d cells wide by wcwidth (%d by grapheme clusters), over the %d it was given: it wraps on a terminal that counts so", i, wc, grapheme, s.Width))
+			}
+		}
+		for _, c := range ansi.Strip(r) {
+			if c < 0x20 || c >= 0x7f && c < 0xa0 {
+				out = append(out, fmt.Sprintf("row %d holds the control character %U", i, c))
+				break
+			}
+		}
+	}
+	return out
+}
+
+// RawContains says whether the text is in the view as drawn, escape sequences
+// and all: for checking that nothing a file's name says gets to the terminal.
+func (s Screen) RawContains(text string) bool { return strings.Contains(s.Raw, text) }
 
 // ParseKey makes the key press a name stands for.
 func ParseKey(name string) (tea.KeyPressMsg, error) {

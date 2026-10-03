@@ -60,6 +60,8 @@ type Config[M Component[M]] struct {
 //	snapshot [LABEL]       record the screen
 //	expect TEXT            fail unless the screen has the text
 //	reject TEXT            fail if the screen has the text
+//	reject-raw TEXT        fail if the text is drawn, escape sequences included
+//	col TEXT N             fail unless the text first appears at cell column N
 //	state KEY VALUE        fail unless Probe says so
 //	reads DIR N            fail unless the folder was read N times
 //	note TEXT              put a remark in the golden file
@@ -226,6 +228,7 @@ func (r *runner[M]) step(s step) {
 		r.open()
 		v := ints(2)
 		r.d.Click(v[0], v[1])
+		r.d.Screen()
 	case "wheel":
 		r.open()
 		f := strings.Fields(s.arg)
@@ -238,10 +241,12 @@ func (r *runner[M]) step(s step) {
 			r.fail(s, "bad position")
 		}
 		r.d.Wheel(x, y, f[2] == "up")
+		r.d.Screen()
 	case "resize":
 		r.open()
 		v := ints(2)
 		r.d.Resize(v[0], v[1])
+		r.d.Screen()
 	case "snapshot":
 		r.open()
 		label := s.arg
@@ -261,6 +266,27 @@ func (r *runner[M]) step(s step) {
 		r.open()
 		if want := r.text(s); r.d.Screen().Contains(want) {
 			r.fail(s, "is on the screen")
+		}
+	case "reject-raw":
+		r.open()
+		if want := r.text(s); r.d.Screen().RawContains(want) {
+			r.fail(s, "is in what is drawn, escape sequences included")
+		}
+	case "col":
+		// col TEXT N: the text first appears at cell column N (from 0), as a
+		// wide character before it makes it later than characters would say.
+		r.open()
+		i := strings.LastIndexByte(s.arg, ' ')
+		if i < 0 {
+			r.fail(s, "want TEXT N")
+		}
+		want, err := strconv.Atoi(strings.TrimSpace(s.arg[i+1:]))
+		if err != nil {
+			r.fail(s, "%v", err)
+		}
+		text := unquote(strings.TrimSpace(s.arg[:i]))
+		if _, got, ok := r.d.Screen().Find(text); !ok || got != want {
+			r.fail(s, "is at column %d (found %v), want %d", got, ok, want)
 		}
 	case "state":
 		r.open()
