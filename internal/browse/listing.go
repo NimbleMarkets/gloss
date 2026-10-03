@@ -147,22 +147,24 @@ func (parentInfo) Sys() any           { return nil }
 
 // rowsOf lists a folder narrowed by a filter: all in order if it is empty,
 // else those it matches, best first. A filter starting with a dot reaches
-// the hidden. The parent is listed first when asked for.
-func (m *Model) rowsOf(dir string, filter string, parent bool) []row {
+// the hidden. The parent is a row, first when nothing narrows the folder and
+// among the matches when the filter takes it in (".." does), only in a layout
+// that lists it (parentRow); the others never have it.
+func (m *Model) rowsOf(dir string, filter string, parentRow bool) []row {
 	q := parseQuery(filter)
 	entries := m.order(dir, strings.HasPrefix(filter, "."))
 	rows := make([]row, 0, len(entries)+1)
-	if parent && dir != "/" {
-		rows = append(rows, row{entry: parentEntry{}, name: "..", parent: true})
-	}
+	parentRow = parentRow && dir != "/"
 	if q.empty() {
+		if parentRow {
+			rows = append(rows, row{entry: parentEntry{}, name: "..", parent: true})
+		}
 		for _, e := range entries {
 			rows = append(rows, row{entry: e, name: e.Name()})
 		}
 		return rows
 	}
-	rows = rows[:0]
-	if dir != "/" {
+	if parentRow {
 		if score, at, ok := q.match(".."); ok {
 			rows = append(rows, row{entry: parentEntry{}, name: "..", at: at, score: score, parent: true})
 		}

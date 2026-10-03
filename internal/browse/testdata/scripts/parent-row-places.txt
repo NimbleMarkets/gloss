@@ -1,0 +1,20 @@
+-- fs --
+home/evan/notes.md 1
+home/evan/photo.png 1
+home/evan/projects/
+-- script --
+option layout places
+start /home/evan
+size 90 9
+note the places have no parent row, however the filter reads: the dots match nothing, and Enter goes nowhere
+type .
+state rows 2
+type .
+state rows 0
+snapshot dots
+press enter
+state dir /home/evan
+note ← and a typed ../ still go up
+press ctrl+u
+press left
+state dir /home

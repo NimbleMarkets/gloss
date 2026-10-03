@@ -1,0 +1,15 @@
+# the places have no parent row, however the filter reads: the dots match nothing, and Enter goes nowhere
+
+=== dots (90x9)
+ ~
+  Filter: ..
+ Places           │▸ home/                │▸ evan/                │  No matching files.
+▸ Home            │                       │                       │
+  Root            │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+                  │                       │                       │
+ 0 rows · places
+
+# ← and a typed ../ still go up
+

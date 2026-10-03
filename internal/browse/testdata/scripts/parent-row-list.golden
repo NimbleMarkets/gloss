@@ -1,0 +1,13 @@
+# the list has the parent as a row, so a filter that matches it lists it: typing .. and Enter goes up
+
+=== dots (70x9)
+ ~
+  Filter: ..
+>                    ..
+  No matching files.
+
+
+
+
+ 1/1 matches · 3 in folder · list
+

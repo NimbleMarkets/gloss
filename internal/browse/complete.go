@@ -59,7 +59,7 @@ func (m *Model) completions(typed string) completion {
 		return c
 	}
 	for _, r := range m.rowsOf(dir, c.rest, false) {
-		if !r.parent && (!m.dirsOnly || r.entry.IsDir()) {
+		if !r.parent && (!m.dirsOnly || r.entry.IsDir()) { // The parent is no candidate.
 			c.names = append(c.names, spell(r.entry))
 		}
 	}

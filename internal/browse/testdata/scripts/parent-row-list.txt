@@ -1,0 +1,14 @@
+-- fs --
+home/evan/notes.md 1
+home/evan/photo.png 1
+home/evan/projects/
+-- script --
+start /home/evan
+size 70 9
+note the list has the parent as a row, so a filter that matches it lists it: typing .. and Enter goes up
+type ..
+state rows 1
+state current ..
+snapshot dots
+press enter
+state dir /home

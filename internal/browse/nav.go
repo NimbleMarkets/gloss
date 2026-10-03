@@ -140,7 +140,7 @@ func (m *Model) edited() tea.Cmd {
 func (m *Model) rebuild() {
 	filter := m.filterText()
 	dir := m.viewDir()
-	m.rows = m.rowsOf(dir, filter, m.layout == LayoutList && filter == "")
+	m.rows = m.rowsOf(dir, filter, m.layout == LayoutList)
 	i := -1
 	if m.sel != "" {
 		i = slices.IndexFunc(m.rows, func(r row) bool { return r.name == m.sel })
