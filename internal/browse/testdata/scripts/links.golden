@@ -1,0 +1,26 @@
+# links to folders are folders, the rest are files: none is ever opened, only described
+
+=== list (60x10)
+ ~
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>         2026-01-02 docs/
+          2026-01-02 shortcut/
+      17B 2026-01-02 broken
+      14B 2026-01-02 loop
+       1B 2026-01-02 plain.txt
+      24B 2026-01-02 readme-link
+ 2/7 · list
+
+=== inside (60x10)
+ ~ › shortcut
+  Filter: type to filter, or a path: / ~ ../
+                     ..
+>      5B 2026-01-02 readme.md
+
+
+
+
+
+ 2/2 · list
+

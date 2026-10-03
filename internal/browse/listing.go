@@ -38,10 +38,13 @@ func (m *Model) load(dir string) tea.Cmd {
 		return nil
 	}
 	m.lists[dir] = &listing{loading: true}
-	fsys, id, epoch := m.fsys, m.id, m.epoch
+	fsys, id, epoch, followed := m.fsys, m.id, m.epoch, m.linksFollowed
 	return func() tea.Msg {
 		entries, err := fsys.ReadDir(fsName(dir))
-		return listedMsg{id: id, epoch: epoch, dir: dir, entries: FollowLinks(fsys, dir, entries), err: err}
+		if !followed {
+			entries = FollowLinks(fsys, dir, entries)
+		}
+		return listedMsg{id: id, epoch: epoch, dir: dir, entries: entries, err: err}
 	}
 }
 
@@ -56,7 +59,10 @@ func (l linked) Type() fs.FileMode { return l.DirEntry.Type()&^fs.ModeSymlink | 
 
 // FollowLinks finds which of the entries of a folder are links to folders,
 // which a listing does not say, and returns them as folders. A host that
-// filters a listing before the chooser sees it should do this first.
+// filters a listing before the chooser sees it should do this first, and say so
+// with [WithLinksFollowed]. Each link is described with fs.Stat, which is
+// cheap if fsys has a Stat method (os.DirFS does) and opens it if not: a
+// filesystem that wraps another should pass Stat through.
 func FollowLinks(fsys fs.FS, dir string, entries []fs.DirEntry) []fs.DirEntry {
 	out, cloned := entries, false
 	for i, e := range entries {

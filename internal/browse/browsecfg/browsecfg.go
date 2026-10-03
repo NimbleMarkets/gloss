@@ -24,10 +24,11 @@ import (
 //	only .png                    only that extension may be chosen
 //	columns N                    at most N columns
 //	dirsonly true                Tab completes folders alone (as in go-to)
+//	linksfollowed true           the host has made links to folders folders
 //	filters kinds                offer the kinds Pictures (.png .jpg), Documents
 //	                             (.md .txt), and Data (.csv); "active NAME,NAME"
 //	                             starts with some chosen
-const Options = "layout, hidden, home, marker, only, columns, filters, active, dirsonly"
+const Options = "layout, hidden, home, marker, only, columns, filters, active, dirsonly, linksfollowed"
 
 // StateKeys are the Probe values F2 records in the playground.
 var StateKeys = []string{"dir", "filter", "current", "chosen", "layout", "types"}
@@ -68,6 +69,9 @@ func Config() browsetest.Config[browse.Model] {
 			if o["only"] != "" {
 				ext := o["only"]
 				opts = append(opts, browse.WithSelectable(func(e fs.DirEntry) bool { return path.Ext(e.Name()) == ext }))
+			}
+			if o["linksfollowed"] == "true" {
+				opts = append(opts, browse.WithLinksFollowed())
 			}
 			if o["dirsonly"] == "true" {
 				opts = append(opts, browse.WithDirsOnlyCompletion(true))

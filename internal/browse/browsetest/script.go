@@ -64,6 +64,7 @@ type Config[M Component[M]] struct {
 //	col TEXT N             fail unless the text first appears at cell column N
 //	state KEY VALUE        fail unless Probe says so
 //	reads DIR N            fail unless the folder was read N times
+//	opens N | stats N      fail unless N files were opened, or described, so far
 //	note TEXT              put a remark in the golden file
 //
 // Where VHS has a word for it, that word does too: see vhs.go.
@@ -305,6 +306,21 @@ func (r *runner[M]) step(s step) {
 		}
 		if want := unquote(strings.TrimSpace(v)); got != want {
 			r.fail(s, "state %s is %q, want %q", k, got, want)
+		}
+	case "opens", "stats":
+		// opens N, stats N: how many files were opened, or described without
+		// being opened, in all so far.
+		r.open()
+		want, err := strconv.Atoi(strings.TrimSpace(s.arg))
+		if err != nil {
+			r.fail(s, "%v", err)
+		}
+		got := r.fsys.Opens()
+		if s.cmd == "stats" {
+			got = r.fsys.Stats()
+		}
+		if len(got) != want {
+			r.fail(s, "%d so far (%v), want %d", len(got), got, want)
 		}
 	case "reads":
 		r.open()

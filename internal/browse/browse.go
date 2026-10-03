@@ -130,6 +130,11 @@ func WithPlaces(p []Place) Option {
 // in it.
 func WithDirsOnlyCompletion(on bool) Option { return func(m *Model) { m.dirsOnly = on } }
 
+// WithLinksFollowed says the filesystem already presents a link to a folder as
+// a folder (its host did [FollowLinks] before filtering the listing), so the
+// chooser need not look at the links again.
+func WithLinksFollowed() Option { return func(m *Model) { m.linksFollowed = true } }
+
 // Model is the chooser. Like bubbles' own, it is a value: Update returns
 // the new one.
 type Model struct {
@@ -155,7 +160,8 @@ type Model struct {
 	histAt int
 	travel bool // Moving through the history, which does not add to it.
 
-	dirsOnly bool // Tab completes folders alone.
+	dirsOnly      bool // Tab completes folders alone.
+	linksFollowed bool // The host has made links to folders folders.
 
 	filters []Filter // The kinds of file that can be chosen to show alone.
 	picked  []bool   // Which are.

@@ -1,0 +1,21 @@
+-- fs --
+home/evan/docs/readme.md 5
+home/evan/shortcut -> /home/evan/docs
+home/evan/readme-link -> /home/evan/docs/readme.md
+home/evan/broken -> /home/evan/nowhere
+home/evan/loop -> /home/evan/loop
+home/evan/plain.txt 1
+-- script --
+start /home/evan
+size 60 10
+note links to folders are folders, the rest are files: none is ever opened, only described
+snapshot list
+state rows 7
+opens 0
+press down
+state current shortcut
+press enter
+state dir /home/evan/shortcut
+snapshot inside
+expect readme.md
+opens 0
