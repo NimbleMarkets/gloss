@@ -34,12 +34,14 @@ it alone does not inspect its contents.
 | `--resume TOKEN` | Chosen paths; with `--json`, an object with `protocol`, `status`, `paths`, and `error` |
 | `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `protocol`, `state`, `settled`, and `paths`, `error`, or `seconds_left` as they apply |
 | `--cancel TOKEN` | Nothing; exit 0 means the session is ended and its folder deleted |
+| `gloss skill schema` | The JSON Schema of every object above |
 
 Exit status 1 means an error; in a batch, at least one input failed: inspect
 and use the successful results. Pick/resume also use 2 for decline and 124 for
 timeout, as described below. `--status` exits 0 whenever it reports a state
 (the state is in the JSON, not the exit code) and 1 when there is no such
-session. The session objects carry `"protocol": 1`.
+session. `gloss skill schema` prints a JSON Schema of the JSON gloss writes,
+made from the types that write it; the session objects carry `"protocol": 1`.
 
 `gloss skill` prints this file, so the installed binary can always say what
 it itself does; `gloss skill install` writes it where the agents on the

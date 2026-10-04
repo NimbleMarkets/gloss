@@ -170,3 +170,5 @@ func TestGrepFlags(t *testing.T) {
 		}
 	}
 }
+
+func grepPattern(p string) *regexp.Regexp { return regexp.MustCompile(p) }

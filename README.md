@@ -63,7 +63,8 @@ gloss --serve --pick                          # ask the user for a file in a bro
 
 Without a terminal on stdin, `--serve` and `--pick` return session JSON
 immediately; `gloss --resume TOKEN` waits for the chosen paths, `--status`
-looks without waiting, and `--cancel` ends the session. Add
+looks without waiting, and `--cancel` ends the session. `gloss skill schema`
+prints the JSON Schema of everything gloss writes as JSON. Add
 `--accept 'image/*'` to require images, including SVG. See
 [handing files over](https://nimblemarkets.github.io/gloss/docs/guide/handoff/).
 

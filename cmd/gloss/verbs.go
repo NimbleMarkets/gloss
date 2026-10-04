@@ -20,7 +20,7 @@ type verb struct {
 
 var verbs = []verb{
 	{"view", "open files in the pager, or export, extract, pick and serve them (the default)"},
-	{"skill", "print the skill that teaches agents to use gloss, or install it"},
+	{"skill", "print the skill that teaches agents to use gloss, install it, or print the schema of its JSON"},
 	{"help", "say how to use gloss, or one of its commands"},
 }
 
@@ -35,12 +35,17 @@ func splitVerb(args []string) (name string, rest []string) {
 
 const skillUsage = `Usage: gloss skill [show]
        gloss skill install [FOLDER]
+       gloss skill schema
 
 show prints the skill (SKILL.md) that teaches an agent gloss's headless
 surface, so it always matches this binary. It is the default.
 
 install writes it as gloss/SKILL.md under the skills folder of each agent found
-on this machine, or under FOLDER, and prints the paths it wrote.`
+on this machine, or under FOLDER, and prints the paths it wrote.
+
+schema prints the JSON Schema of the objects gloss writes for a program:
+the --json results of an export, --text, --grep, and --info, and the objects
+of a session started without a terminal (start, --status, --resume --json).`
 
 // parseSkill is the skill verb: show prints it, and done says nothing more is
 // to be done; install leaves the folder in opts for run, as an option does.
@@ -63,10 +68,12 @@ func parseSkill(args []string, opts options, out io.Writer) (options, bool, erro
 			opts.SkillInstall = args[0]
 		}
 		return opts, false, nil
-	case sub == "show" || sub == "install":
+	case sub == "schema" && len(args) == 0:
+		return opts, true, writeSchema(out)
+	case sub == "show" || sub == "install" || sub == "schema":
 		return opts, false, fmt.Errorf("skill %s: too many arguments (see gloss skill --help)", sub)
 	}
-	return opts, false, fmt.Errorf("skill: unknown command %q: show or install (see gloss skill --help)", sub)
+	return opts, false, fmt.Errorf("skill: unknown command %q: show, install, or schema (see gloss skill --help)", sub)
 }
 
 // parseHelp is the help verb: with no argument, the usage of gloss; with a

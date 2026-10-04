@@ -107,6 +107,10 @@ and the last one's `note` says so. Pages with no text layer are named on stderr
 and not searched; a file that is not a PDF is an `error` entry, and pictures,
 SVG, and meshes point at `--output`.
 
+`gloss skill schema` prints the JSON Schema of every JSON object gloss writes:
+these manifests, `--info --json`, and the objects of a detached session. It is
+made from the types gloss encodes them with, so it matches the binary.
+
 Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
 transparency onto white, and contain no terminal chrome. Smaller raster sources
 are not enlarged. SVG and PDF are rasterized for the requested size (PDF remains

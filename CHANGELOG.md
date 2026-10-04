@@ -52,6 +52,8 @@
     * `--grep PATTERN` searches the text layer of a PDF and prints only the
       matching pages, with an excerpt; `--json` gives one object per match.
       Matches stop at 200
+    * `gloss skill schema` prints the JSON Schema of everything gloss writes as
+      JSON, generated from the types that write it
 
   * **Commands**
     * `gloss skill` prints the agent skill and `gloss skill install [FOLDER]`

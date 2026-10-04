@@ -12,12 +12,12 @@ import (
 
 // described is what a file says about itself, for a program to read.
 type described struct {
-	Path    string                       `json:"path"`
-	Kind    string                       `json:"kind,omitempty"`
-	Page    int                          `json:"page,omitempty"` // Of a PDF.
-	Pages   int                          `json:"pages,omitempty"`
-	Details map[string]map[string]string `json:"details,omitempty"` // By section, then by label.
-	Error   string                       `json:"error,omitempty"`
+	Path    string                       `json:"path" doc:"The file, as named; stdin for -."`
+	Kind    string                       `json:"kind,omitempty" doc:"The format gloss read it as."`
+	Page    int                          `json:"page,omitempty" doc:"The page described, of a PDF."` // Of a PDF.
+	Pages   int                          `json:"pages,omitempty" doc:"How many pages a PDF has."`
+	Details map[string]map[string]string `json:"details,omitempty" doc:"What the viewer's i box shows, by section, then by label: details.Model.Triangles."` // By section, then by label.
+	Error   string                       `json:"error,omitempty" doc:"Why this file could not be described; the others still are."`
 
 	fields []document.Field // In the order of the viewer's details box.
 }

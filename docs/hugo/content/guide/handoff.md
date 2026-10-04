@@ -79,7 +79,7 @@ prints one JSON object on standard output, exiting 0, with no browser opened
 `url` carries a token of its own and is for the human; it lets a browser in and
 nothing more. `resume_token` is a different secret, and the only one that
 `--resume`, `--status`, and `--cancel` take. `protocol` is the version of these
-objects' shape. `dir` is the private folder
+objects' shape; `gloss skill schema` prints their JSON Schema. `dir` is the private folder
 (mode 0700) where dropped files land; `--timeout` defaults to 10 minutes off a
 terminal and bounds the server's life. `gloss --resume <token>` then waits for
 the answer and gives it as a terminal pick does: the paths on standard output
