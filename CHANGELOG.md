@@ -37,6 +37,16 @@
     * `?accept=image%2F*` restricts a browser app session to images. Documents
       opened from URLs are not saved in the app's persistent file library
 
+  * **The agent contract**
+    * `gloss --cancel TOKEN` ends a detached session: it stops the server,
+      deletes the session folder with every dropped file, and makes later
+      `--status` and `--resume` exit 1
+    * `--resume` no longer removes a settled session: `--status` still reports
+      it, paths and all, and `--resume` answers again, until `--cancel` or a
+      day after the session's timeout
+    * The startup, `--status`, and `--resume --json` objects carry
+      `"protocol": 1`
+
   * **Commands**
     * `gloss skill` prints the agent skill and `gloss skill install [FOLDER]`
       installs it; they replace `--skill` and `--install`, which still work

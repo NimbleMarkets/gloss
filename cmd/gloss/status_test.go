@@ -152,22 +152,30 @@ func TestStatusDoesNotConsumeTheAnswer(t *testing.T) {
 	if err := resume(options{Resume: testToken}, &out, &errs); err != nil || strings.TrimSpace(out.String()) != picked {
 		t.Fatalf("resume after status: %q %v", out.String(), err)
 	}
-	if got, err := ask(t, testToken); err != nil || got.State != "picked" {
-		t.Fatalf("status after resume, files still there: %+v %v", got, err)
+	if got, err := ask(t, testToken); err != nil || got.State != "picked" || len(got.Paths) != 1 || got.Protocol != 1 {
+		t.Fatalf("status after resume: %+v %v", got, err)
+	}
+	// Collecting does not end the session: the harness cleaning up its files
+	// does not either.
+	os.RemoveAll(dir)
+	if got, err := ask(t, testToken); err != nil || got.State != "picked" || len(got.Paths) != 1 {
+		t.Fatalf("status after the files were deleted: %+v %v", got, err)
 	}
 
-	// A decline is used up by resume, and not before: status never uses it.
+	// A decline is not used up by resume either.
 	settle(t, testToken, state{Status: statusDeclined})
 	for i := 0; i < 3; i++ {
 		if got, err := ask(t, testToken); err != nil || got.State != "declined" {
 			t.Fatalf("declined, ask %d: %+v %v", i, got, err)
 		}
 	}
-	if err := resume(options{Resume: testToken}, &out, &errs); !errors.Is(err, errCancelled) {
-		t.Fatalf("resume of a decline: %v", err)
+	for i := 0; i < 2; i++ {
+		if err := resume(options{Resume: testToken}, &out, &errs); !errors.Is(err, errCancelled) {
+			t.Fatalf("resume %d of a decline: %v", i, err)
+		}
 	}
-	if _, err := ask(t, testToken); !errors.Is(err, errNoSession) {
-		t.Fatalf("status after the decline was collected: %v", err)
+	if got, err := ask(t, testToken); err != nil || got.State != "declined" {
+		t.Fatalf("status after the decline was collected: %+v %v", got, err)
 	}
 }
 
@@ -257,7 +265,7 @@ func TestStatusOfARealDetachedPick(t *testing.T) {
 	if !errors.As(err, &exit) || exit.ExitCode() != 124 {
 		t.Fatalf("resume after status: %v", err)
 	}
-	if _, code := query(); code != 1 {
-		t.Fatalf("status once the timeout was collected: exit %d, want 1", code)
+	if got, code := query(); code != 0 || got.State != "timeout" {
+		t.Fatalf("status once the timeout was collected: %+v exit %d", got, code)
 	}
 }

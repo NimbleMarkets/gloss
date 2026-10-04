@@ -48,6 +48,7 @@ type options struct {
 	Pages         pageRange // What --page asked for; Page holds it when it is one.
 	Resume        string    // Token of a detached pick whose answer is wanted.
 	Status        string    // Token of a detached pick whose state is wanted, now.
+	Cancel        string    // Token of a detached session to end, files and all.
 	Detached      string    // Set on the server a detached start runs: its token.
 	VisionProfile string    // A convenience alias for a max edge; --max-edge is the stable flag.
 	EdgeReason    string    // Why the alias chose its edge, for the manifest.
@@ -93,6 +94,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringVar(&opts.VisionProfile, "vision-profile", "", "alias for a --max-edge, which is stable where these go stale: "+strings.Join(document.VisionProfileNames(), ", "))
 	f.StringVar(&opts.Resume, "resume", "", "print the answer of a pick that was started without a terminal, by the token it printed; with --timeout, stop waiting after that long")
 	f.StringVar(&opts.Status, "status", "", "print, as JSON and at once, how a pick started without a terminal stands: waiting, picked, declined, timeout, closed, or failed; it waits for nothing and changes nothing")
+	f.StringVar(&opts.Cancel, "cancel", "", "end a session started without a terminal, by its resume token: stop its server and delete its folder, dropped files and answer alike")
 	f.StringVar(&opts.Detached, "detached", "", "")
 	_ = f.MarkHidden("detached")
 	showVersion := f.BoolP("version", "V", false, "print version")
@@ -287,6 +289,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		return opts, false, fmt.Errorf("--resume only asks what a pick came to: it takes no files and no other mode (--json, --timeout excepted)")
 	case opts.Status != "" && (len(opts.Files) > 0 || opts.Serve || opts.Pick || opts.Info || opts.Text || opts.JSON || opts.Output != "" || opts.OutputDir != "" || opts.Detached != "" || opts.Resume != "" || opts.Timeout > 0 || opts.Prompt != "" || len(opts.Globs) > 0):
 		return opts, false, fmt.Errorf("--status only asks how a pick stands: it takes no files, no timeout, and no other mode")
+	case opts.Cancel != "" && (len(opts.Files) > 0 || opts.Serve || opts.Pick || opts.Info || opts.Text || opts.JSON || opts.Output != "" || opts.OutputDir != "" || opts.Detached != "" || opts.Resume != "" || opts.Status != "" || opts.Timeout > 0 || opts.Prompt != "" || len(opts.Globs) > 0):
+		return opts, false, fmt.Errorf("--cancel only ends a session: it takes no files, no timeout, and no other mode")
 	case opts.Detached != "" && (!opts.Serve || !tokenPattern.MatchString(opts.Detached)):
 		return opts, false, fmt.Errorf("--detached is for gloss's own use")
 	}
@@ -303,6 +307,9 @@ func run(args []string) (err error) {
 	}
 	if opts.SkillInstall != "" {
 		return installSkill(opts.SkillInstall, os.Stdout, os.Stderr)
+	}
+	if opts.Cancel != "" {
+		return cancel(opts)
 	}
 	if opts.Status != "" {
 		return status(opts, os.Stdout)
@@ -481,6 +488,8 @@ func arguments(opts options, terminal bool) []string {
 func served(opts options, stdout, stderr io.Writer) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	ctx, end := context.WithCancel(ctx)
+	defer end()
 	s, err := serve(ctx, opts.Options)
 	if err != nil {
 		return err
@@ -491,6 +500,7 @@ func served(opts options, stdout, stderr io.Writer) error {
 		dir, _ := detachedPaths(opts.Detached)
 		s.useFolder(dir)
 		announce(opts.Detached, s.URL)
+		go watchCancel(opts.Detached, end, ctx.Done())
 	}
 	fmt.Fprintf(stderr, "gloss: viewer at %s\n", s.URL)
 	if !opts.NoOpen {

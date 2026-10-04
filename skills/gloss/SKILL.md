@@ -30,13 +30,15 @@ it alone does not inspect its contents.
 | `--json` with text, export, or info | JSON array of results, including errors |
 | `--pick` with terminal stdin | Chosen full paths after confirmation |
 | `--pick` / `--serve` without terminal stdin | One JSON object describing the detached session; exit 0 means started, not answered |
-| `--resume TOKEN` | Chosen paths; with `--json`, an object with `status`, `paths`, and `error` |
-| `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `state`, `settled`, and `paths`, `error`, or `seconds_left` as they apply |
+| `--resume TOKEN` | Chosen paths; with `--json`, an object with `protocol`, `status`, `paths`, and `error` |
+| `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `protocol`, `state`, `settled`, and `paths`, `error`, or `seconds_left` as they apply |
+| `--cancel TOKEN` | Nothing; exit 0 means the session is ended and its folder deleted |
 
-Exit status 1 means an error; in a batch, inspect and use the successful results.
-Pick/resume also use 2 for decline and 124 for timeout, as described below.
-`--status` exits 0 whenever it reports a state (the state is in the JSON, not
-the exit code) and 1 when there is no such session.
+Exit status 1 means an error; in a batch, at least one input failed: inspect
+and use the successful results. Pick/resume also use 2 for decline and 124 for
+timeout, as described below. `--status` exits 0 whenever it reports a state
+(the state is in the JSON, not the exit code) and 1 when there is no such
+session. The session objects carry `"protocol": 1`.
 
 `gloss skill` prints this file, so the installed binary can always say what
 it itself does; `gloss skill install` writes it where the agents on the
@@ -206,7 +208,7 @@ process and print one JSON object on stdout, exit 0:
 
 ```sh
 gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
-# {"status":"waiting","url":"http://127.0.0.1:41233/<token>/","dir":"/tmp/gloss-pick-…",
+# {"protocol":1,"status":"waiting","url":"http://127.0.0.1:41233/<page-token>/","dir":"/tmp/gloss-pick-…",
 #  "timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
 ```
 
@@ -224,21 +226,25 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
    stderr saying it is still waiting); a settled pick answers at once.
    To look without waiting, between other work, `gloss --status <token>` prints
    one JSON object at once and exits 0:
-   `{"state":"waiting","settled":false,"seconds_left":412}`. `state` is
+   `{"protocol":1,"state":"waiting","settled":false,"seconds_left":412}`. `state` is
    `waiting`, `picked` (with `paths`), `declined`, `timeout`, `closed` (a page
    that only showed something was closed), or `failed` (with `error`, as when
    the server died). It changes nothing: it does not take the answer, end the
    session, or touch the files, so ask as often as you like and then `--resume`
-   to collect the answer. Exit 1 means there is no such session, because the
-   token is wrong or an answer was already collected and its state removed.
+   to collect the answer. Collecting does not end the session either: `--status`
+   and `--resume` still give the settled answer afterwards. Exit 1 means there
+   is no such session: the token is wrong, or the session was cancelled.
 3. Inspect the returned paths with `--text`, `--info --json`, or `--output`
    as appropriate, then continue the user's task. Do not treat startup JSON
    as a successful file selection.
-4. **Clean up the session directory when its files are no longer needed.**
-   Use the exact `dir` returned at startup; preserve artifacts the user wants
-   to keep. Dropped files are private copies there. Never delete original
-   paths returned from browsing or pasting. gloss removes its directory on
-   timeout or decline, but keeps selected drops after an answer.
+4. **End the session when its files are no longer needed:**
+   `gloss --cancel <token>` stops the server if it is still waiting, deletes
+   the session's `dir` (dropped files, picked or not), and forgets the session,
+   so later `--status` and `--resume` exit 1. Copy out first anything the user
+   wants to keep. It never touches original paths returned from browsing or
+   pasting. Without it, gloss removes the directory on timeout or decline, but
+   keeps selected drops after an answer, and the session's state is kept for a
+   day after its timeout.
 
 - Give `--prompt` a concise request and purpose, such as "Choose the March
   invoice so I can check its totals against your spreadsheet." The browser
@@ -249,7 +255,9 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
 - On a terminal `--serve --pick` still blocks and opens the browser; `--no-open`
   prints the address (on stderr) instead. Off a terminal that is the default.
 - The server is on 127.0.0.1 only, and nothing is served without the token in
-  the `url`; treat the `url` and the resume token as secrets.
+  the `url`; treat the `url` and the resume token as secrets. They are
+  different tokens: the `url` lets a browser in, and only `resume_token` works
+  with `--resume`, `--status`, and `--cancel`.
 - The human's browser must reach the machine where gloss runs. A localhost
   link from a remote host or container does not automatically reach that
   session from the human's computer. Use the environment's supported local

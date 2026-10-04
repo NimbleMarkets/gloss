@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/NimbleMarkets/gloss/internal/document"
@@ -22,6 +24,20 @@ import (
 // gloss then starts the server as a process of its own, prints where it
 // is, and leaves. The answer is kept in a small state file, read back by
 // `gloss --resume TOKEN`, so nothing needs the first process to stay alive.
+//
+// Two secrets come of a start. The page's address carries the server's own
+// token, which lets a browser in and nothing more. The resume token names the
+// state file, and is what --resume, --status, and --cancel take: the address
+// does not lead to it.
+
+// protocolVersion is put on every object a harness reads of a session, so
+// that one can tell the shape it is reading. It changes only when a field
+// changes meaning or goes; new fields do not change it.
+const protocolVersion = 1
+
+// keepSettled is how long, past its deadline, a session's state is kept for
+// --status and --resume when nobody cancels it. A later start removes it.
+const keepSettled = 24 * time.Hour
 
 // defaultDetachedTimeout bounds a server nobody is waiting on.
 const defaultDetachedTimeout = 10 * time.Minute
@@ -56,13 +72,14 @@ type state struct {
 
 // started is the one object a detached start prints on stdout.
 type started struct {
-	Status         string `json:"status"`
-	URL            string `json:"url"`
-	Dir            string `json:"dir"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
-	ResumeToken    string `json:"resume_token"`
-	Resume         string `json:"resume"`
-	Pick           bool   `json:"pick"`
+	Protocol       int    `json:"protocol" const:"1" doc:"Version of this object's shape."`
+	Status         string `json:"status" enum:"waiting" doc:"Always waiting: the session started, nobody has answered yet."`
+	URL            string `json:"url" doc:"The page for the human, on 127.0.0.1. Its token lets a browser in, and nothing else; treat it as a secret."`
+	Dir            string `json:"dir" doc:"The private folder (mode 0700) where dropped files land."`
+	TimeoutSeconds int    `json:"timeout_seconds" doc:"How long the server lives."`
+	ResumeToken    string `json:"resume_token" doc:"The secret that --resume, --status, and --cancel take; not the token in url."`
+	Resume         string `json:"resume" doc:"The command that collects the answer."`
+	Pick           bool   `json:"pick" doc:"Whether the session asks for files (--pick) or only shows them."`
 }
 
 // The folder for drops, and the file for state, are named by a hash of the
@@ -108,6 +125,7 @@ func readState(file string) (state, error) {
 // gloss was given; "-" in them is replaced by standard input, kept in the
 // private folder, since the server will have none.
 func detach(args []string, opts options, stdout, stderr io.Writer) error {
+	pruneSessions(time.Now())
 	token, err := random()
 	if err != nil {
 		return err
@@ -193,6 +211,7 @@ func detach(args []string, opts options, stdout, stderr io.Writer) error {
 	}
 	failed = false
 	return json.NewEncoder(stdout).Encode(started{
+		Protocol:       protocolVersion,
 		Status:         statusWaiting,
 		URL:            st.URL,
 		Dir:            dir,
@@ -201,6 +220,24 @@ func detach(args []string, opts options, stdout, stderr io.Writer) error {
 		Resume:         "gloss --resume " + token,
 		Pick:           opts.Pick,
 	})
+}
+
+// pruneSessions removes the state of sessions long over, which nobody
+// cancelled: their deadline passed more than keepSettled ago. A session that
+// still says waiting was abandoned, and its dropped files go too; an answer's
+// files are the caller's, and stay.
+func pruneSessions(now time.Time) {
+	files, _ := filepath.Glob(filepath.Join(os.TempDir(), "gloss-pick-*.json"))
+	for _, file := range files {
+		st, err := readState(file)
+		if err != nil || st.Deadline.IsZero() || !now.After(st.Deadline.Add(keepSettled)) {
+			continue
+		}
+		if st.Status == statusWaiting {
+			os.RemoveAll(strings.TrimSuffix(file, ".json"))
+		}
+		os.Remove(file)
+	}
 }
 
 // announce records where the detached server is.
@@ -219,7 +256,11 @@ func announce(token, address string) {
 // whoever reads the state can count on it being gone.
 func conclude(token string, err error, paths []string, pick bool) {
 	dir, file := detachedPaths(token)
-	st, _ := readState(file)
+	st, readErr := readState(file)
+	if errors.Is(readErr, fs.ErrNotExist) {
+		os.RemoveAll(dir) // Cancelled: nothing is to be kept, or said.
+		return
+	}
 	st.Dir, st.URL, st.Paths = dir, "", nil
 	switch {
 	case err == nil && pick:
@@ -272,11 +313,11 @@ func resume(opts options, stdout, stderr io.Writer) error {
 			}
 			continue
 		}
-		return answer(st, file, opts.JSON, stdout)
+		return answer(st, opts.JSON, stdout)
 	}
 }
 
-var errNoSession = errors.New("no such pick, or it was already settled and its state removed")
+var errNoSession = errors.New("no such session: the token is not a resume token gloss gave, or the session was cancelled")
 
 // observe reads a pick's state as it now stands, without changing it. A state
 // that says waiting may be out of date: the deadline has passed, or the server
@@ -306,11 +347,12 @@ func observe(file string, now time.Time) (st state, derived bool, err error) {
 
 // sessionStatus is what --status prints: how a pick stands, at once.
 type sessionStatus struct {
-	State       string   `json:"state"`                  // waiting, picked, declined, timeout, closed, or failed.
-	Settled     bool     `json:"settled"`                // False only while waiting.
-	Paths       []string `json:"paths,omitempty"`        // The answer, once picked.
-	Error       string   `json:"error,omitempty"`        // Why, when failed.
-	SecondsLeft *int     `json:"seconds_left,omitempty"` // About how long the pick has, while waiting.
+	Protocol    int      `json:"protocol" const:"1" doc:"Version of this object's shape."`
+	State       string   `json:"state" enum:"waiting,picked,declined,timeout,closed,failed" doc:"How the session stands."`
+	Settled     bool     `json:"settled" doc:"False only while waiting."`
+	Paths       []string `json:"paths,omitempty" doc:"The answer, once picked."`
+	Error       string   `json:"error,omitempty" doc:"Why, when failed."`
+	SecondsLeft *int     `json:"seconds_left,omitempty" doc:"About how long the session has, while waiting."`
 }
 
 // status says at once how a pick stands, as one JSON object, and exit status
@@ -327,7 +369,7 @@ func status(opts options, stdout io.Writer) error {
 	if err != nil {
 		return errNoSession
 	}
-	out := sessionStatus{State: st.Status, Settled: st.Status != statusWaiting, Error: st.Error}
+	out := sessionStatus{Protocol: protocolVersion, State: st.Status, Settled: st.Status != statusWaiting, Error: st.Error}
 	switch st.Status {
 	case statusError:
 		out.State = "failed"
@@ -343,16 +385,20 @@ func status(opts options, stdout io.Writer) error {
 	return json.NewEncoder(stdout).Encode(out)
 }
 
-// answer gives a settled state's outcome. A state that holds nothing more
-// is removed with it; an answer is kept while its files are.
-func answer(st state, file string, asJSON bool, stdout io.Writer) error {
-	if st.Status != statusPicked {
-		defer os.Remove(file)
-	} else if _, err := os.Stat(st.Dir); err != nil {
-		defer os.Remove(file) // The caller has cleaned up.
-	}
+// resumed is what --resume --json prints: the answer, as one object.
+type resumed struct {
+	Protocol int      `json:"protocol" const:"1" doc:"Version of this object's shape."`
+	Status   string   `json:"status" enum:"picked,declined,timeout,closed,error" doc:"How the session ended."`
+	Paths    []string `json:"paths" doc:"The answer when picked; null otherwise."`
+	Error    string   `json:"error" doc:"Why, when status is error; empty otherwise."`
+}
+
+// answer gives a settled state's outcome. The state stays, so that --status
+// still says what came of the session, and --resume says it again, until
+// --cancel or pruneSessions removes it.
+func answer(st state, asJSON bool, stdout io.Writer) error {
 	if asJSON {
-		_ = json.NewEncoder(stdout).Encode(map[string]any{"status": st.Status, "paths": st.Paths, "error": st.Error})
+		_ = json.NewEncoder(stdout).Encode(resumed{Protocol: protocolVersion, Status: st.Status, Paths: st.Paths, Error: st.Error})
 	}
 	switch st.Status {
 	case statusPicked:
@@ -370,4 +416,59 @@ func answer(st state, file string, asJSON bool, stdout io.Writer) error {
 		return errTimeout
 	}
 	return errors.New(st.Error)
+}
+
+// cancelWait is how long --cancel gives a server to notice and go, before it
+// is stopped. A variable so that tests can shorten it.
+var cancelWait = 5 * time.Second
+
+// cancel ends a session at once, whatever it stands at: its state goes, which
+// the server watches for and stops at, and so does its folder, dropped files
+// and answer alike. --status and --resume then know of no such session. It
+// prints nothing.
+func cancel(opts options) error {
+	if !tokenPattern.MatchString(opts.Cancel) {
+		return fmt.Errorf("--cancel takes the resume token the start printed")
+	}
+	dir, file := detachedPaths(opts.Cancel)
+	st, err := readState(file)
+	if err != nil {
+		return errNoSession
+	}
+	clear := func() {
+		os.Remove(file)
+		os.RemoveAll(dir)
+	}
+	clear()
+	if st.Status == statusWaiting && st.PID != 0 {
+		for end := time.Now().Add(cancelWait); running(st.PID) && time.Now().Before(end); {
+			time.Sleep(50 * time.Millisecond)
+		}
+		if running(st.PID) {
+			if p, err := os.FindProcess(st.PID); err == nil {
+				_ = p.Kill()
+			}
+		}
+		clear() // What a server wrote, or dropped, as it went.
+	}
+	return nil
+}
+
+// watchCancel stops a detached server once its state is gone, which is how
+// --cancel tells it to.
+func watchCancel(token string, stop func(), done <-chan struct{}) {
+	_, file := detachedPaths(token)
+	tick := time.NewTicker(250 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-done:
+			return
+		case <-tick.C:
+			if _, err := os.Stat(file); errors.Is(err, fs.ErrNotExist) {
+				stop()
+				return
+			}
+		}
+	}
 }

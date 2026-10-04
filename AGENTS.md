@@ -123,17 +123,22 @@ Agent-facing / scriptable surface:
   `--prompt-loc` positions the prompt box in the terminal only. Pick returns
   exit 0 paths, 1 error, 2 nothing chosen, 124 timeout and blocks, in
   a terminal. With stdin not a terminal, both `--pick` and `--serve` instead
-  detach the server (`cmd/gloss/detach.go`), print one JSON object (`status`,
-  `url`, `dir`, `timeout_seconds`, `resume_token`, `resume`, `pick`), exit 0,
-  and open no browser; `--timeout` defaults to 10 minutes. `--resume TOKEN` reads the
-  state file and answers as a pick does (0, 2, 124). `--status TOKEN` only
-  looks: it prints one JSON object (`state` waiting, picked, declined, timeout,
-  closed, or failed; `settled`; `paths`; `error`; `seconds_left`) and exits 0
-  whenever it reported, 1 for no such pick. It must change nothing, not the
-  state file nor the folder: `observe` in `detach.go` works out an overdue or
-  dead waiting state for both, and only `--resume` writes the result. Dropped
-  files stay in the private `dir` for the caller to delete, and are removed
-  on timeout/decline.
+  detach the server (`cmd/gloss/detach.go`), print one JSON object (`protocol`,
+  `status`, `url`, `dir`, `timeout_seconds`, `resume_token`, `resume`, `pick`),
+  exit 0, and open no browser; `--timeout` defaults to 10 minutes. The URL's
+  token is the server's own; only the resume token names the state file.
+  `--resume TOKEN` reads the state file and answers as a pick does (0, 2, 124),
+  and leaves the state in place. `--status TOKEN` only looks: it prints one
+  JSON object (`protocol`; `state` waiting, picked, declined, timeout, closed,
+  or failed; `settled`; `paths`; `error`; `seconds_left`) and exits 0 whenever
+  it reported, 1 for no such session, also after `--resume`. It must change
+  nothing, not the state file nor the folder: `observe` in `detach.go` works
+  out an overdue or dead waiting state for both, and only `--resume` writes the
+  result. `--cancel TOKEN` removes the state file (the server polls for it and
+  stops), then the folder, and waits for the server to exit; later status and
+  resume exit 1. Dropped files stay in the private `dir` for the caller to
+  delete, and are removed on timeout/decline/cancel. A start prunes states a
+  day past their deadline.
   This is how a non-terminal agent asks a human for a file or shows one.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
 

@@ -73,14 +73,17 @@ prints one JSON object on standard output, exiting 0, with no browser opened
 (`--no-open` is then the default; on a terminal it is still opt-in):
 
 ```json
-{"status":"waiting","url":"http://127.0.0.1:41233/<token>/","dir":"/tmp/gloss-pick-…","timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
+{"protocol":1,"status":"waiting","url":"http://127.0.0.1:41233/<page-token>/","dir":"/tmp/gloss-pick-…","timeout_seconds":600,"resume_token":"<token>","resume":"gloss --resume <token>","pick":true}
 ```
 
-`url` carries the token and is for the human; `dir` is the private folder
+`url` carries a token of its own and is for the human; it lets a browser in and
+nothing more. `resume_token` is a different secret, and the only one that
+`--resume`, `--status`, and `--cancel` take. `protocol` is the version of these
+objects' shape. `dir` is the private folder
 (mode 0700) where dropped files land; `--timeout` defaults to 10 minutes off a
 terminal and bounds the server's life. `gloss --resume <token>` then waits for
 the answer and gives it as a terminal pick does: the paths on standard output
-(or `--json`, `{"status","paths","error"}`) and exit status 0, 2, or 124, from
+(or `--json`, `{"protocol","status","paths","error"}`) and exit status 0, 2, or 124, from
 any process, whether or not the one that started it is alive.
 `--resume <token> --timeout 30s` bounds only the waiting (exit 124, with a
 message saying the pick is still open), so a harness can poll; a settled pick
@@ -91,11 +94,13 @@ nothing on standard output.
 for a harness that wants to look between other work and not wait. It changes
 nothing: it does not take the answer, end the session, or touch the files, so
 it can be asked as often as wanted, and `--resume` then answers as it would have.
+Collecting the answer does not end the session: `--status` still reports the
+settled state, paths and all, and `--resume` gives the answer again.
 
 ```json
-{"state":"waiting","settled":false,"seconds_left":412}
-{"state":"picked","settled":true,"paths":["/tmp/gloss-1234/invoice.pdf"]}
-{"state":"failed","settled":true,"error":"the server ended without an answer"}
+{"protocol":1,"state":"waiting","settled":false,"seconds_left":412}
+{"protocol":1,"state":"picked","settled":true,"paths":["/tmp/gloss-1234/invoice.pdf"]}
+{"protocol":1,"state":"failed","settled":true,"error":"the server ended without an answer"}
 ```
 
 | `state` | Meaning |
@@ -110,12 +115,19 @@ it can be asked as often as wanted, and `--resume` then answers as it would have
 A state that is out of date on disk (its deadline has passed, or its server has
 died) is reported as what it has become, without being rewritten. The exit
 status is 0 whenever a state was reported, because the state is in the JSON, and
-1 when there is no such pick: the token is not one, or the answer was collected
-and its state removed.
+1 when there is no such session: the token is not one, or the session was
+cancelled.
 
-Files handed over are kept for the caller, which must delete `dir` when done.
-gloss deletes it on timeout, on a decline, and when the server dies unanswered,
-but never after an answer.
+`gloss --cancel <token>` ends a session at once: the server, if it is still
+waiting, stops; `dir` is deleted with every file dropped there, picked or not;
+and the session is forgotten, so `--status` and `--resume` then exit 1. It
+prints nothing and exits 0, or 1 for no such session.
+
+Files handed over are kept for the caller, which deletes `dir` when done, or
+runs `--cancel`. gloss deletes it on timeout, on a decline, on `--cancel`, and
+when the server dies unanswered, but never after an answer otherwise. A
+session nobody cancels keeps its state for a day after its timeout, for
+`--status` and `--resume`; a later start then removes it.
 
 Files dropped on a page are written to a folder of their own under the system's
 temporary directory, readable by you alone. If they are the answer to a pick
