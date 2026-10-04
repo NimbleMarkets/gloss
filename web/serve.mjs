@@ -49,9 +49,31 @@ choose.addEventListener('click', async () => {
     notice(error.message || String(error));
   }
 });
+// An export made in the viewer is kept by the server for this page, which
+// saves it as a download: where the browser saves, not where gloss runs.
+async function takeExports(open) {
+  let after = 0;
+  while (open()) {
+    let list;
+    try {
+      const response = await fetch(`exports?after=${after}`, { cache: 'no-store' });
+      if (!response.ok) return;
+      list = await response.json();
+    } catch {
+      return; // The server has gone with the viewer.
+    }
+    for (const { id, name } of list) {
+      const link = document.createElement('a');
+      link.href = `export/${id}`;
+      link.download = name;
+      link.click();
+      after = id + 1;
+    }
+  }
+}
 try {
   terminal = new BoobaTerminal('terminal', { renderer: parseRendererFromURL() });
-  let connected = false;
+  let connected = false, ended = false;
   terminal.onStatusChange = state => {
     if (state === 'connected') {
       connected = true;
@@ -59,12 +81,14 @@ try {
       status.hidden = true;
     } else if (connected && state === 'disconnected') {
       // gloss ends with its viewer, and its server with it.
+      ended = true;
       status.textContent = 'gloss has finished. You can close this tab.';
       status.hidden = false;
       choose.disabled = true;
     }
   };
   terminal.onTitleChange = title => { document.title = title || 'gloss'; };
+  takeExports(() => !ended);
   await terminal.init();
   const urls = resolveBoobaURLs(document.baseURI);
   terminal.connectAuto(urls.wsUrl, null, null);

@@ -12,6 +12,7 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -21,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -74,7 +76,22 @@ type server struct {
 	model  *app.Model
 	dir    string       // Where drops are kept; made when the first arrives.
 	stored atomic.Int64 // Bytes kept so far, against maxSessionBytes.
+
+	// Exports, made by e in the viewer, wait here for the page to take
+	// them as downloads: the server's working directory is not the
+	// visitor's, and may be no place for them.
+	exports  []export
+	exported chan struct{} // Closed, and replaced, when one is added.
 }
+
+type export struct {
+	name string
+	data []byte
+}
+
+// exportWait is how long the page's question for new exports is held open.
+// It is a variable so that tests need not wait.
+var exportWait = 25 * time.Second
 
 func random() (string, error) {
 	b := make([]byte, 16)
@@ -86,7 +103,7 @@ func random() (string, error) {
 
 func serve(ctx context.Context, opts app.Options) (*server, error) {
 	ctx, cancel := context.WithCancel(ctx)
-	s := &server{fetch: opts.Fetch != nil, accept: opts.Accept, cancel: cancel, prompt: opts.Prompt, pick: opts.Pick, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{})}
+	s := &server{fetch: opts.Fetch != nil, accept: opts.Accept, cancel: cancel, prompt: opts.Prompt, pick: opts.Pick, drops: make(chan []string, 16), started: make(chan struct{}), done: make(chan struct{}), exported: make(chan struct{})}
 	// The browser carries the full request as accessible page text, outside
 	// the terminal's size and line limits.
 	opts.Prompt = ""
@@ -108,7 +125,7 @@ func serve(ctx context.Context, opts app.Options) (*server, error) {
 	probe.Close()
 	config := booba.DefaultConfig()
 	config.Host, config.Port, config.HTTP3Port, config.MaxConnections = "127.0.0.1", probe.Addr().(*net.TCPAddr).Port, -1, 1
-	opts.Drops = s.drops
+	opts.Drops, opts.Save = s.drops, s.offer
 	viewer := booba.NewServer(config, booba.WithConnectMiddleware(func(next booba.ConnectHandler) booba.ConnectHandler {
 		return func(r *http.Request) error {
 			if subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Gloss-Secret")), []byte(s.secret)) != 1 {
@@ -251,6 +268,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(data)
 	case rest == "drop":
 		s.receive(w, r)
+	case rest == "exports":
+		s.listExports(w, r)
+	case strings.HasPrefix(rest, "export/"):
+		s.sendExport(w, r, strings.TrimPrefix(rest, "export/"))
 	case rest == "ws" || strings.HasPrefix(rest, "static/"):
 		r.URL.Path, r.URL.RawPath = "/"+rest, ""
 		s.proxy.ServeHTTP(w, r)
@@ -347,6 +368,80 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string][]string{"paths": paths})
+}
+
+// offer keeps an export for the page to download, within what the session
+// may keep.
+func (s *server) offer(name string, data []byte) (string, error) {
+	if s.stored.Add(int64(len(data))) > maxSessionBytes {
+		s.stored.Add(-int64(len(data)))
+		return "", errors.New("this session has kept all the files it will")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.exports = append(s.exports, export{name: name, data: data})
+	close(s.exported)
+	s.exported = make(chan struct{})
+	return name + " (downloaded by the browser)", nil
+}
+
+// listExports answers the page with the exports from number after on, as
+// soon as there are any or, with none, after a while.
+func (s *server) listExports(w http.ResponseWriter, r *http.Request) {
+	after, err := strconv.Atoi(r.URL.Query().Get("after"))
+	if err != nil || after < 0 {
+		http.Error(w, "after what?", http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	more := s.exported
+	s.mu.Unlock()
+	if s.exportsFrom(after) == nil {
+		select {
+		case <-more:
+		case <-r.Context().Done():
+			return
+		case <-time.After(exportWait):
+		}
+	}
+	type listed struct {
+		ID   int    `json:"id"`
+		Name string `json:"name"`
+	}
+	list := []listed{}
+	for i, e := range s.exportsFrom(after) {
+		list = append(list, listed{after + i, e.name})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(list)
+}
+
+func (s *server) exportsFrom(after int) []export {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if after >= len(s.exports) {
+		return nil
+	}
+	return s.exports[after:]
+}
+
+// sendExport gives the page an export, to be saved where the browser saves.
+func (s *server) sendExport(w http.ResponseWriter, r *http.Request, id string) {
+	i, err := strconv.Atoi(id)
+	s.mu.Lock()
+	ok := err == nil && i >= 0 && i < len(s.exports)
+	var e export
+	if ok {
+		e = s.exports[i]
+	}
+	s.mu.Unlock()
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": e.name}))
+	w.Write(e.data)
 }
 
 // keep writes a dropped file under its own name, or the nearest one free.

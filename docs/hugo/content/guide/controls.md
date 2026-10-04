@@ -28,7 +28,7 @@ bookToC: false
 | `f`, `0` | Fit image / reset camera |
 | `g` | Toggle Kitty / glyph output when Kitty is supported |
 | `R` | Reload file from disk |
-| `e` | Export the current page as a PNG in the working directory |
+| `e` | Export the current page as a PNG in the working directory (a download in a browser) |
 | `i` | Show or hide a box of details about the current file and the terminal |
 | `r` | Toggle mesh auto-rotation; reload other formats |
 | `5` | Toggle mesh orthographic / perspective projection |
@@ -112,7 +112,9 @@ Press `e` to export what you are viewing: the current image, SVG, or PDF page,
 or a mesh from the camera's position. The PNG is rendered as `--output` would
 render it, honors `--max-edge`, and is named after the file
 (`report-page-3.png`). An existing file is never replaced; the name gains a
-number instead. The browser demo offers the PNG as a download.
+number instead. The browser demo, and a page shown with `--serve`, offer the
+PNG as a download instead: what is saved goes where the browser saves, not
+where gloss runs.
 
 Press `i` for what a file says about itself. Every format shows its path, size,
 and modification time, followed by:

@@ -532,3 +532,56 @@ func TestAcceptFlag(t *testing.T) {
 		t.Fatal("unknown filter accepted")
 	}
 }
+
+// An export made in a served viewer goes to the page, to be downloaded: the
+// server's working directory is not the visitor's.
+func TestServedExportsAreDownloadedByThePage(t *testing.T) {
+	wait := exportWait
+	exportWait = 50 * time.Millisecond
+	t.Cleanup(func() { exportWait = wait })
+	s := &server{token: "test-token", exported: make(chan struct{})}
+	get := func(rest string) *httptest.ResponseRecorder {
+		w := httptest.NewRecorder()
+		s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/test-token/"+rest, nil))
+		return w
+	}
+	if w := get("exports?after=0"); w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != "[]" {
+		t.Fatalf("none yet: %d %q", w.Code, w.Body.String())
+	}
+	// The page's question is answered as soon as there is one.
+	exportWait = time.Minute
+	answered := make(chan string, 1)
+	go func() { answered <- get("exports?after=0").Body.String() }()
+	time.Sleep(10 * time.Millisecond)
+	name, err := s.offer("page-2.png", []byte("\x89PNG one"))
+	if err != nil || !strings.Contains(name, "page-2.png") {
+		t.Fatalf("offer: %q %v", name, err)
+	}
+	select {
+	case list := <-answered:
+		if !strings.Contains(list, `{"id":0,"name":"page-2.png"}`) {
+			t.Fatalf("list: %s", list)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("the page was not told")
+	}
+	s.offer("page-3.png", []byte("\x89PNG two"))
+	if list := get("exports?after=1").Body.String(); strings.Contains(list, "page-2") || !strings.Contains(list, `"id":1`) {
+		t.Fatalf("after 1: %s", list)
+	}
+	w := get("export/1")
+	if w.Code != http.StatusOK || w.Body.String() != "\x89PNG two" || w.Header().Get("Content-Type") != "image/png" || !strings.Contains(w.Header().Get("Content-Disposition"), `attachment; filename=page-3.png`) {
+		t.Fatalf("export: %d %v %q", w.Code, w.Header(), w.Body.String())
+	}
+	for _, bad := range []string{"export/2", "export/-1", "export/x"} {
+		if w := get(bad); w.Code != http.StatusNotFound {
+			t.Errorf("%s: %d", bad, w.Code)
+		}
+	}
+	// Without the token there is nothing.
+	w = httptest.NewRecorder()
+	s.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "http://127.0.0.1:1234/other-token/export/0", nil))
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("no token: %d", w.Code)
+	}
+}
