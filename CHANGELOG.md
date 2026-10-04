@@ -46,6 +46,28 @@
     * `gloss help [command]` shows the usage of gloss or of one command; the
       shell completions offer the commands
 
+  * **Fixes**
+    * Exports and `--text` refuse a page, sheet, table, or 3MF part the file
+      does not have, naming what it has, instead of giving the last one; a
+      range past the end makes the pages there are and reports the rest once.
+      Each failure is reported once on stderr, not twice
+    * A 3MF too large to draw, or to unpack within 128 MiB, exports its
+      embedded thumbnail with a `note` in the manifest and on stderr saying so;
+      `--info` describes a package too large to unpack from its root model
+    * Mesh exports of named views outline edges, so holes and openings no
+      longer vanish in flat-shaded front, back, and top views
+    * `--text` into a file or folder writes a notebook's or Word document's
+      pictures beside the text and links them; on stdout a `note` says they
+      were left out. The browser app no longer shows dropped files under
+      `dropped/`
+    * Grist summary tables show what they group by as Grist does (the site's
+      name, not `Sites[1]`) and are titled `Table [by Column]`
+    * `e` in a `--serve` page downloads the PNG in the browser instead of
+      writing it into the directory gloss was started in
+    * The browser app no longer keeps showing the previous picture after
+      moving to another file of the same size (a texture cache in ghostty-web
+      is worked around with a new Kitty image id per picture)
+
   * **Development and packaging**
     * The file chooser is a separate Bubble Tea component. Its test harness
       provides an in-memory filesystem, scripted golden screens, layout and

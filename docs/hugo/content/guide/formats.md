@@ -47,7 +47,8 @@ bookToC: false
   settings of their own; colors painted onto faces are not read. Textures, beam lattices, slices, and
   encrypted content are not read. The same 932,067-face limit applies: a larger
   model is shown by its embedded thumbnail, and described by `i`. A package may
-  hold 4,096 entries and unpack to 128 MiB.
+  hold 4,096 entries and unpack to 128 MiB; one that unpacks to more is shown
+  by its thumbnail too, and described by what its root model says.
 - Plain text (`.txt`, `.text`, `.log`, and any file that is not binary):
   shown as it is, in the document view, so that no line of it is read as a
   heading, a list, or emphasis. Returns and a byte order mark are dropped,
@@ -86,7 +87,9 @@ bookToC: false
 - Grist (`.grist`): a Grist document is a SQLite database, and each of its
   tables is shown as a sheet is, with `n` and `p` turning between tables. The
   first row holds the columns' labels, and rows and columns stand in the order
-  Grist keeps them in; summary tables come after the others. Cells show what
+  Grist keeps them in; summary tables come after the others, titled as Grist
+  titles them (`Sightings [by Site]`), what they group by shown as the table
+  summed shows it. Cells show what
   is stored: formulas by their last result, as Grist saved it, and an error
   by its name (`#TypeError`). Dates and times are written out, a reference
   shows what Grist shows for it, or `Table[row]` where it shows the row,
