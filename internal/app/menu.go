@@ -212,7 +212,9 @@ func (m *Model) menuView() string {
 		if i == m.index {
 			current = "*"
 		}
-		name := safe(m.opts.Files[i])
+		// Files dropped in a browser live in its "dropped" folder, which
+		// is no folder the visitor knows.
+		name := safe(strings.TrimPrefix(m.opts.Files[i], "dropped/"))
 		if pw > 0 {
 			name = safe(filepath.Base(m.opts.Files[i])) // The preview says the rest.
 		}

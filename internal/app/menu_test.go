@@ -285,3 +285,15 @@ func TestListColumnsAreJustified(t *testing.T) {
 		t.Fatalf("numbers not right-aligned:\n%s\n%s", lines[8], lines[9])
 	}
 }
+
+// A browser's dropped files are listed by their names, not under the folder
+// that holds them in memory.
+func TestMenuListsDroppedFilesByName(t *testing.T) {
+	m := New(Options{Files: []string{"dropped/plate.3mf", "notes/dropped/a.txt"}, Render: "glyph", Menu: true, Page: 1, DPI: 72})
+	defer m.Close()
+	m.Update(tea.WindowSizeMsg{Width: 60, Height: 10})
+	view := ansi.Strip(m.menuView())
+	if strings.Contains(view, "dropped/plate") || !strings.Contains(view, "1  plate.3mf") || !strings.Contains(view, "notes/dropped/a.txt") {
+		t.Fatalf("menu:\n%s", view)
+	}
+}

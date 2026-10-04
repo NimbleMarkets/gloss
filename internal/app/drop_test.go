@@ -194,7 +194,8 @@ func TestEmbeddedSessionTakesDropsButNotPastedPaths(t *testing.T) {
 	if n := len(examples.Names); len(m.opts.Files) != n+2 || m.selection != n || !m.listing() {
 		t.Fatalf("files=%q selection=%d", m.opts.Files, m.selection)
 	}
-	if view := m.View().Content; !strings.Contains(view, "dropped/first.png") || !strings.Contains(view, "dropped/second.png") {
+	// Listed by name: their folder in memory is not one the visitor knows.
+	if view := m.View().Content; !strings.Contains(view, "first.png") || !strings.Contains(view, "second.png") || strings.Contains(view, "dropped/first") {
 		t.Fatalf("dropped files are not listed:\n%s", view)
 	}
 	if got := strings.Join(m.Skipped(), "\n"); !strings.Contains(got, "notes.bin: unsupported format (skipped)") {
