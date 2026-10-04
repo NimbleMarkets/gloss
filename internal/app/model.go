@@ -125,6 +125,7 @@ type Model struct {
 	preview                  *Model
 	isPreview                bool
 	kittyID                  int
+	picID                    int // The Kitty image id the document picture goes under now.
 	previewDrag              bool
 	suspended                bool
 	note                     string // Outcome of the last drop, shown until the next key.
@@ -159,7 +160,7 @@ func New(opts Options) *Model {
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := nextKittyID()
-	m := &Model{opts: opts, meshState: meshState{tint: opts.Color, bg: opts.Background}, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: color.RGBA{R: 24, G: 26, B: 30, A: 255}}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
+	m := &Model{opts: opts, meshState: meshState{tint: opts.Color, bg: opts.Background}, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, picID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: pictureBackground}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
 	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
 		m.screen = screenList
 	}
@@ -554,7 +555,27 @@ func (m *Model) refreshImage() tea.Cmd {
 	span := 1 / float64(int(1)<<m.zoom)
 	limit := (1 - span) / 2
 	m.panX, m.panY = max(-limit, min(limit, m.panX)), max(-limit, min(limit, m.panY))
-	return m.pic.SetImage(crop(m.source, m.zoom, m.panX, m.panY))
+	return m.showPicture(crop(m.source, m.zoom, m.panX, m.panY))
+}
+
+// pictureBackground is behind a picture that does not fill its place.
+var pictureBackground = color.RGBA{R: 24, G: 26, B: 30, A: 255}
+
+// showPicture puts img on screen. With Kitty graphics it goes under a new
+// image id, the old one deleted: ghostty-web, the browser app's terminal,
+// keeps a texture for each id and keeps it for a new picture of the same size
+// that lands at the same place in its memory, so another page, file, or zoom
+// would show the last one again.
+func (m *Model) showPicture(img image.Image) tea.Cmd {
+	if m.pic.Mode() != picture.PictureKitty {
+		return m.pic.SetImage(img)
+	}
+	old := m.pic
+	cw, ch := old.CellPixelSize()
+	m.picID = nextKittyID()
+	m.pic = picture.NewWithConfig(picture.Config{KittyID: m.picID, KittyZ: -1, Background: pictureBackground,
+		CellPixelWidth: cw, CellPixelHeight: ch, KittyResolutionFactor: old.KittyResolutionFactor(), KittyFormat: old.KittyFormat(), KittyMedium: old.KittyMedium()})
+	return tea.Sequence(old.SetImage(nil), m.pic.SetSize(m.width, m.bodyHeight()), m.pic.Toggle(), m.pic.SetImage(img))
 }
 
 func crop(src image.Image, zoom int, panX, panY float64) image.Image {

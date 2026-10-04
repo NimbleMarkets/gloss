@@ -113,7 +113,7 @@ func (m *Model) layoutGrid() tea.Cmd {
 			load = m.loadThumb(path)
 		}
 	}
-	return tea.Batch(m.pic.SetImage(g.image), load)
+	return tea.Batch(m.showPicture(g.image), load)
 }
 
 // loadThumb makes one file's thumbnail: its picture, a mesh drawn small
