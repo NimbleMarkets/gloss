@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"syscall"
@@ -44,15 +45,16 @@ type options struct {
 	Info, JSON    bool
 	FetchAllowed  bool
 	Globs         []string
-	Text          bool      // Take the text out, rather than draw.
-	Pages         pageRange // What --page asked for; Page holds it when it is one.
-	Resume        string    // Token of a detached pick whose answer is wanted.
-	Status        string    // Token of a detached pick whose state is wanted, now.
-	Cancel        string    // Token of a detached session to end, files and all.
-	Detached      string    // Set on the server a detached start runs: its token.
-	VisionProfile string    // A convenience alias for a max edge; --max-edge is the stable flag.
-	EdgeReason    string    // Why the alias chose its edge, for the manifest.
-	SkillInstall  string    // Where gloss skill install writes, "auto" to find the agents here.
+	Text          bool           // Take the text out, rather than draw.
+	Grep          *regexp.Regexp // Search the text layer of PDF pages for this, and report the matches.
+	Pages         pageRange      // What --page asked for; Page holds it when it is one.
+	Resume        string         // Token of a detached pick whose answer is wanted.
+	Status        string         // Token of a detached pick whose state is wanted, now.
+	Cancel        string         // Token of a detached session to end, files and all.
+	Detached      string         // Set on the server a detached start runs: its token.
+	VisionProfile string         // A convenience alias for a max edge; --max-edge is the stable flag.
+	EdgeReason    string         // Why the alias chose its edge, for the manifest.
+	SkillInstall  string         // Where gloss skill install writes, "auto" to find the agents here.
 }
 
 func parse(args []string, out io.Writer) (options, bool, error) {
@@ -66,6 +68,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	accept := f.String("accept", "", "require these content formats for this session, comma-separated: image/*, pdf, svg, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown")
 	page := f.StringP("page", "p", "1", "PDF page or workbook sheet, from 1; for an export or text into a folder, a range such as 2-5, or all")
 	f.BoolVar(&opts.Text, "text", false, "take the text out: Markdown of a Word document, page, or notebook, text of a PDF page, CSV of a sheet, text and JSON as they are")
+	grep := f.String("grep", "", "search the text layer of a PDF, every page unless --page says, for this regular expression (RE2), and print each match's page and a line around it; --json for objects")
 	f.IntVarP(&opts.DPI, "dpi", "d", 150, "PDF rasterization DPI (36–600)")
 	f.BoolVarP(&opts.Menu, "menu", "m", false, "start with the file-selection menu")
 	f.BoolVarP(&opts.Preview, "preview", "P", false, "start with the file menu and a preview pane")
@@ -82,7 +85,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringArrayVar(&opts.Globs, "glob", nil, "search the folders named, or the current one, for files: a glob, an extension, or a kind such as images (repeatable)")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening a dropped URL or a table address with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
-	f.BoolVar(&opts.JSON, "json", false, "with --info, print JSON")
+	f.BoolVar(&opts.JSON, "json", false, "with --info, --text, --grep, an export, or --resume, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
 	f.BoolVar(&opts.Serve, "serve", false, "show the viewer on a web page, from a temporary server on this machine")
 	f.BoolVar(&opts.NoOpen, "no-open", false, "with --serve, print the page's address without opening a browser")
@@ -175,6 +178,19 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if !slices.Contains([]string{"", "image", "svg", "pdf", "stl", "3mf", "docx", "xlsx", "grist", "csv", "json", "ipynb", "html", "text", "markdown"}, opts.Type) {
 		return opts, false, fmt.Errorf("--type must be image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, or markdown")
 	}
+	if f.Changed("grep") {
+		if *grep == "" {
+			return opts, false, fmt.Errorf("--grep needs a pattern")
+		}
+		pattern, err := regexp.Compile(*grep)
+		if err != nil {
+			return opts, false, fmt.Errorf("--grep: %w", err)
+		}
+		opts.Grep = pattern
+		if !f.Changed("page") {
+			*page = "all" // A search is of the whole document unless told otherwise.
+		}
+	}
 	pages, err := parsePages(*page)
 	if err != nil {
 		return opts, false, err
@@ -185,7 +201,7 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	opts.Pages = pages
 	if single, ok := opts.Pages.single(); ok {
 		opts.Page = single
-	} else if opts.OutputDir == "" && !opts.JSON {
+	} else if opts.OutputDir == "" && !opts.JSON && opts.Grep == nil {
 		return opts, false, fmt.Errorf("--page with a range or all needs --output-dir, or --json with --text")
 	}
 	if opts.DPI < 36 || opts.DPI > 600 {
@@ -242,8 +258,10 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 		}
 	}
 	switch {
-	case opts.JSON && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "" && opts.Resume == "":
-		return opts, false, fmt.Errorf("--json goes with --info, --text, or an export")
+	case opts.Grep != nil && (opts.Output != "" || opts.OutputDir != "" || opts.Info || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen || opts.FetchAllowed):
+		return opts, false, fmt.Errorf("--grep prints the matches and exits; it cannot be combined with an export, --info, or the viewer's options")
+	case opts.JSON && opts.Grep == nil && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "" && opts.Resume == "":
+		return opts, false, fmt.Errorf("--json goes with --info, --text, --grep, or an export")
 	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Text || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
 		return opts, false, fmt.Errorf("--info prints and exits; it cannot be combined with the viewer's or export's options")
 	case opts.Text && (opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen || opts.FetchAllowed):
@@ -327,7 +345,7 @@ func run(args []string) (err error) {
 		return err
 	}
 	opts.Files = arguments(opts, stdinTTY)
-	exporting := opts.Output != "" || opts.OutputDir != "" || opts.Text
+	exporting := opts.Output != "" || opts.OutputDir != "" || opts.Text || opts.Grep != nil
 	if opts.Output == "-" && term.IsTerminal(os.Stdout.Fd()) {
 		return fmt.Errorf("redirect PNG stdout to a file or pipe")
 	}
@@ -402,6 +420,9 @@ func run(args []string) (err error) {
 		return err
 	}
 
+	if opts.Grep != nil {
+		return grepFiles(opts, os.Stdout, os.Stderr)
+	}
 	if opts.Text {
 		return textFiles(opts, os.Stdout, os.Stderr)
 	}

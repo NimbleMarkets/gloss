@@ -46,6 +46,12 @@
       day after the session's timeout
     * The startup, `--status`, and `--resume --json` objects carry
       `"protocol": 1`
+    * `--text --json` on a PDF page adds `chars` and `images`, and
+      `"sparse": true` for a page with images and under 100 characters of
+      text, which is better exported as a picture
+    * `--grep PATTERN` searches the text layer of a PDF and prints only the
+      matching pages, with an excerpt; `--json` gives one object per match.
+      Matches stop at 200
 
   * **Commands**
     * `gloss skill` prints the agent skill and `gloss skill install [FOLDER]`

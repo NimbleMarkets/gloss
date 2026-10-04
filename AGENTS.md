@@ -107,6 +107,11 @@ Agent-facing / scriptable surface:
 - `--text`: extract PDF page text, Markdown from Word/HTML/notebooks, text or
   JSON, or CSV from a sheet. `--page` selects pages/sheets; ranges and `all`
   need `--output-dir` or `--json`. Images, SVGs, and meshes use `--output`.
+  With `--json` a PDF page carries `chars` and `images`, and `sparse: true`
+  when it has images and under 100 characters (export it instead).
+- `--grep PATTERN` (RE2): matching PDF pages only, `page: excerpt` or one JSON
+  object per match; every page unless `--page`; capped at 200 matches; pages
+  without a text layer are named on stderr, not searched.
 - `--accept 'image/*,pdf'`: require session content formats for initial files,
   choices, drops, and downloads, independently of `--type`. `image/*` includes
   SVG; other entries are gloss format names. Mismatches are errors and rejected

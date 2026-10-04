@@ -161,6 +161,7 @@ type Result struct {
 	Markdown    *Markdown
 	Text        string         // Plain text, or pretty JSON, as a reader wants it, without the viewer's fences.
 	Sheet       *Sheet         // One sheet of a workbook; Page and Pages count sheets.
+	Layer       *TextLayer     // How much of a PDF page its text is, when the text was asked for.
 	Camera      *charts.Camera // Export view of a mesh, as the viewer has it; nil uses Views.
 	Views       []View         // Export views of a mesh: several make a sheet. None uses the default camera.
 	CPU         bool           // Export a mesh without trying the GPU.
@@ -475,6 +476,9 @@ func (l *Loader) renderPDF(q Request) Result {
 	if q.TextOnly {
 		out.Text, err = pdfPageText(l.pdfReader, page)
 		out.Err = err
+		if err == nil || errors.Is(err, ErrNoTextLayer) {
+			out.Layer = measureLayer(l.pdfReader, page, out.Text)
+		}
 		return out
 	}
 	if l.pdf == nil {

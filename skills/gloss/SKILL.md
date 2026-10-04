@@ -24,10 +24,11 @@ it alone does not inspect its contents.
 | Mode | stdout |
 | --- | --- |
 | `--text` | Extracted text; with `--output-dir`, written paths |
+| `--grep PATTERN` | Matching PDF pages: `page: excerpt`, one match to a line |
 | `--output file.png` / `--output-dir` | Actual written paths, one per line |
 | `--output -` | PNG bytes only |
 | `--info` | Human-readable metadata |
-| `--json` with text, export, or info | JSON array of results, including errors |
+| `--json` with text, grep, export, or info | JSON array of results, including errors |
 | `--pick` with terminal stdin | Chosen full paths after confirmation |
 | `--pick` / `--serve` without terminal stdin | One JSON object describing the detached session; exit 0 means started, not answered |
 | `--resume TOKEN` | Chosen paths; with `--json`, an object with `protocol`, `status`, `paths`, and `error` |
@@ -63,6 +64,7 @@ gloss --text --page 3 report.pdf             # the text layer of one PDF page
 gloss --text --page all --output-dir text report.pdf   # a .txt per page, paths printed
 gloss --text --page all --output-dir sheets sales.xlsx   # every sheet, one CSV each
 gloss --text --json notes.txt batch.jsonl    # [{"path","kind","text"}, …]
+gloss --grep '(?i)invoice total' report.pdf  # matching pages only: "3: …the invoice total is…"
 ```
 
 | Kind | What comes out |
@@ -78,6 +80,21 @@ gloss --text --json notes.txt batch.jsonl    # [{"path","kind","text"}, …]
 A PDF page with **no text layer** (a scan, a figure) is an error on that page,
 in the `error` field with `--json`, never a blank success: fall back to
 `--output` for that page. Other pages are still done and the exit status is 1.
+
+With `--json`, each PDF page also says how much of it is text: `chars` (runes
+of the text layer) and `images` (images drawn on it). A page with images and
+fewer than 100 characters, such as a scan with a page number or a figure with a
+caption, succeeds with `"sparse": true`: its text is not the page, so export
+that page with `--output` and look at it.
+
+To find where a PDF says something without reading it all, `--grep PATTERN`
+(an RE2 regular expression; `(?i)` ignores case) searches the text layer of
+every page, or those `--page` names, and prints only the matches: `page:
+excerpt`, one to a line (prefixed `path:` for several files), or with `--json`
+one object per match with `page` and `excerpt`. No match is an empty answer
+(`[]`), exit 0. Matches stop at 200, and the last says so in its `note`.
+Pages with no text layer are not searched, and stderr names them; a file that
+is not a PDF is an `error` entry.
 
 One text goes to stdout; for several inputs or pages use `--output-dir` (paths
 are printed) or `--json`. `--text` needs no terminal. Pictures inside a

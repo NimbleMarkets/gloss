@@ -56,6 +56,7 @@ takes out a file's text or its details, and can ask a person for a file.
 ```sh
 gloss --output page.png --page 3 report.pdf   # a PNG, with no terminal
 gloss --text report.docx                      # Markdown on stdout
+gloss --grep '(?i)total' report.pdf           # the PDF pages that match, and where
 gloss --info --json model.3mf                 # what a file says about itself
 gloss --serve --pick                          # ask the user for a file in a browser
 ```

@@ -77,6 +77,7 @@ gloss --text --page 3 report.pdf                  # the text layer of one page
 gloss --text --page all --output-dir text report.pdf   # one .txt per page
 gloss --text --json notes.txt sales.csv           # [{path, kind, text}, …]
 gloss --glob docs --text --output-dir text ~/Documents
+gloss --grep '(?i)invoice' report.pdf             # matching pages: "3: …excerpt…"
 ```
 
 One text goes to stdout; several (inputs, sheets, or pages) go to files with
@@ -90,6 +91,21 @@ has none, is an `error` on that page and never a blank success; the other pages
 are still made and the exit status is 1. Fall back to `--output` for such a
 page. A PDF's pages are bounded as for export (10,000), and a page's text to
 16 MiB.
+
+In a manifest a PDF page also has `chars`, the runes of its text layer, and
+`images`, the images it draws (inline ones and those within forms among them).
+A page with images and fewer than 100 characters, as a scan with a page number
+or a figure with its caption has, is still a success but has `"sparse": true`:
+its text is not what the page shows, so export it with `--output`.
+
+`--grep PATTERN` finds where a PDF says something without printing it all. The
+pattern is an RE2 regular expression (`(?i)` ignores case); every page is
+searched, or those `--page` names. Each match is a line of `page: excerpt`
+(`path:page: excerpt` for several files), or with `--json` an object with
+`page` and `excerpt`. No match is an empty answer, exit 0; matches stop at 200,
+and the last one's `note` says so. Pages with no text layer are named on stderr
+and not searched; a file that is not a PDF is an `error` entry, and pictures,
+SVG, and meshes point at `--output`.
 
 Exports preserve aspect ratio, fit within the requested edge (1–4096), flatten
 transparency onto white, and contain no terminal chrome. Smaller raster sources

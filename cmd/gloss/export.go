@@ -26,22 +26,28 @@ func onCPU(opts app.Options) bool { return opts.Render3D != "auto" && opts.Rende
 // A made file, or a text, as the manifest lists it: one line of JSON per
 // page of each input, with what went wrong where something did.
 type made struct {
-	Path   string `json:"path"`
-	Kind   string `json:"kind,omitempty"`
-	Page   int    `json:"page,omitempty"`
-	Pages  int    `json:"pages,omitempty"`
-	Output string `json:"output,omitempty"`
-	Width  int    `json:"width,omitempty"`
-	Height int    `json:"height,omitempty"`
+	Path   string `json:"path" doc:"The input, as named; stdin for -."`
+	Kind   string `json:"kind,omitempty" doc:"The format gloss read it as: image, svg, pdf, stl, 3mf, docx, xlsx, grist, csv, json, ipynb, html, text, markdown."`
+	Page   int    `json:"page,omitempty" doc:"The page, sheet, or table, from 1."`
+	Pages  int    `json:"pages,omitempty" doc:"How many the document has."`
+	Output string `json:"output,omitempty" doc:"The file written; read this, not stderr, as a taken name is numbered."`
+	Width  int    `json:"width,omitempty" doc:"Pixels across the PNG written."`
+	Height int    `json:"height,omitempty" doc:"Pixels down the PNG written."`
 	// What the size was resolved to; the profile and its reason only when one was named.
-	MaxEdge       int    `json:"max_edge,omitempty"`
-	VisionProfile string `json:"vision_profile,omitempty"`
-	VisionReason  string `json:"vision_reason,omitempty"`
-	Text          string `json:"text,omitempty"`
+	MaxEdge       int    `json:"max_edge,omitempty" doc:"The edge an export was sized to."`
+	VisionProfile string `json:"vision_profile,omitempty" doc:"The --vision-profile named, if one was."`
+	VisionReason  string `json:"vision_reason,omitempty" doc:"What the profile resolved to."`
+	Text          string `json:"text,omitempty" doc:"With --text --json, the text."`
+	// How much of a PDF page is text, with --text: a sparse page is a picture.
+	Chars  *int `json:"chars,omitempty" doc:"With --text on a PDF page, runes in its text layer."`
+	Images *int `json:"images,omitempty" doc:"With --text on a PDF page, images drawn on it, inline ones among them; absent when they could not be counted."`
+	Sparse bool `json:"sparse,omitempty" doc:"With --text on a PDF page: images and almost no text; export the page with --output instead."`
+	// With --grep, one match and the words about it.
+	Excerpt string `json:"excerpt,omitempty" doc:"With --grep, the match in a line of its context."`
 	// What was made instead of what was asked, as a 3MF's thumbnail for a
 	// mesh too large to draw.
-	Note  string `json:"note,omitempty"`
-	Error string `json:"error,omitempty"`
+	Note  string `json:"note,omitempty" doc:"Something stands in for what was asked, or was left out; says what."`
+	Error string `json:"error,omitempty" doc:"Why this input or page failed; the other entries still stand."`
 }
 
 // reported is an error already written to stderr, beside the file it
@@ -153,6 +159,17 @@ func textFiles(opts options, stdout, stderr io.Writer) error {
 			q.Page, q.TextOnly = page, true
 			r := loader.Load(q)
 			entry := made{Path: path, Kind: r.Kind, Page: r.Page, Pages: r.Pages}
+			if r.Layer != nil {
+				if r.Layer.Images >= 0 {
+					entry.Images = &r.Layer.Images
+				}
+				if r.Err == nil {
+					entry.Chars, entry.Sparse = &r.Layer.Chars, r.Layer.Sparse
+				}
+				if entry.Sparse {
+					fmt.Fprintf(stderr, "gloss: %s: page %d has %d %s and only %d characters of text: export it with --output to see it\n", svg.SanitizeForTerminal(path), r.Page, r.Layer.Images, plural(r.Layer.Images, "image"), r.Layer.Chars)
+				}
+			}
 			text, ext, err := document.Text(r)
 			pictures := r.Markdown.Pictures()
 			toFile := (opts.Output != "" || opts.OutputDir != "") && !opts.JSON && opts.Output != "-"
