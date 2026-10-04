@@ -173,13 +173,14 @@ func TestGristTablesAreSheets(t *testing.T) {
 	if r.Err != nil || r.Sheet.Name != "Ideas for next season" || !reflect.DeepEqual(r.Sheet.Rows, [][]string{{"Idea", "Who"}}) {
 		t.Fatalf("%+v err=%v", r.Sheet, r.Err)
 	}
-	// Summaries come last, without the rows each sums. A reference with no
-	// column to show is the row it points at.
+	// Summaries come last, without the rows each sums, titled as Grist
+	// titles them. What they group by shows as the summed table shows it:
+	// the site's name, not the row it points at.
 	r = l.Load(Request{Path: "notes.grist", Page: 9, Generation: 4})
-	if r.Err != nil || r.Page != 4 || r.Sheet.Name != "Sightings_summary_Site" || !reflect.DeepEqual(r.Sheet.Rows, [][]string{{"Site", "count"}, {"Sites[1]", "2"}, {"Sites[2]", "1"}, {"", "1"}}) {
+	if r.Err != nil || r.Page != 4 || r.Sheet.Name != "Field sightings [by Site]" || !reflect.DeepEqual(r.Sheet.Rows, [][]string{{"Site", "count"}, {"Reed Marsh", "2"}, {"Alder Creek", "1"}, {"", "1"}}) {
 		t.Fatalf("%+v err=%v", r.Sheet, r.Err)
 	}
-	if csv := string(r.Sheet.CSV()); csv != "Site,count\nSites[1],2\nSites[2],1\n,1\n" {
+	if csv := string(r.Sheet.CSV()); csv != "Site,count\nReed Marsh,2\nAlder Creek,1\n,1\n" {
 		t.Fatalf("csv: %q", csv)
 	}
 }
@@ -197,7 +198,7 @@ func TestGristInfo(t *testing.T) {
 	}
 	for label, want := range map[string]string{
 		"Format":         "Grist document",
-		"Tables":         "Field sightings (4 rows × 11 columns), Sites (2 rows × 3 columns), Ideas for next season (0 rows × 2 columns), Sightings_summary_Site (3 rows × 2 columns)",
+		"Tables":         "Field sightings (4 rows × 11 columns), Sites (2 rows × 3 columns), Ideas for next season (0 rows × 2 columns), Field sightings [by Site] (3 rows × 2 columns)",
 		"Time zone":      "UTC",
 		"Schema version": "46",
 		"Not shown":      "row ids, sort positions, and Grist's helper columns",

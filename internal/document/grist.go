@@ -2,6 +2,7 @@ package document
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -44,6 +45,7 @@ type GristDoc struct {
 	zones   map[string]*time.Location
 	sheets  []*Sheet
 	errs    []error
+	shown   map[[2]int64]map[int64]any // What rows of another table show, by table and column, for references.
 }
 
 type gristTable struct {
@@ -51,6 +53,7 @@ type gristTable struct {
 	name    string // In SQLite.
 	title   string // As Grist shows it; empty for the name.
 	summary bool
+	source  int64         // The table a summary sums.
 	columns []gristColumn // In the order Grist shows them.
 }
 
@@ -63,6 +66,7 @@ type gristColumn struct {
 	kind     string // Text, Int, Date, Ref:Table, and so on.
 	display  int64  // The column holding what a reference shows, or zero.
 	visible  int64  // The column of the other table that it shows.
+	source   int64  // In a summary, the column it groups by, of the table summed.
 	link     bool   // Shown as a hyperlink: words, then the address they lead to.
 	position int    // Among the columns SQLite stores, or -1.
 }
@@ -117,7 +121,7 @@ func OpenGrist(data []byte) (*GristDoc, error) {
 	byTable := map[int64][]gristColumn{}
 	if err := g.catalog("_grist_Tables_column", func(id int64, get func(string) any) {
 		c := gristColumn{id: id, table: gristInt(get("parentId")), pos: gristFloat(get("parentPos")), name: gristText(get("colId")),
-			label: oneLine(gristText(get("label"))), kind: gristText(get("type")), display: gristInt(get("displayCol")), visible: gristInt(get("visibleCol")), position: -1}
+			label: oneLine(gristText(get("label"))), kind: gristText(get("type")), display: gristInt(get("displayCol")), visible: gristInt(get("visibleCol")), source: gristInt(get("summarySourceCol")), position: -1}
 		var options struct{ Widget string }
 		if json.Unmarshal([]byte(gristText(get("widgetOptions"))), &options) == nil {
 			c.link = options.Widget == "HyperLink"
@@ -129,7 +133,7 @@ func OpenGrist(data []byte) (*GristDoc, error) {
 	}
 	var summaries []gristTable
 	if err := g.catalog("_grist_Tables", func(id int64, get func(string) any) {
-		t := gristTable{id: id, name: gristText(get("tableId")), title: titles[gristInt(get("rawViewSectionRef"))], summary: gristInt(get("summarySourceTable")) != 0, columns: byTable[id]}
+		t := gristTable{id: id, name: gristText(get("tableId")), title: titles[gristInt(get("rawViewSectionRef"))], summary: gristInt(get("summarySourceTable")) != 0, source: gristInt(get("summarySourceTable")), columns: byTable[id]}
 		if t.name == "" || strings.HasPrefix(t.name, "_grist") {
 			return
 		}
@@ -144,12 +148,44 @@ func OpenGrist(data []byte) (*GristDoc, error) {
 	}); err != nil {
 		return nil, fmt.Errorf("grist document: tables: %w", err)
 	}
-	g.tables = append(g.tables, summaries...)
+	for _, t := range summaries {
+		g.tables = append(g.tables, g.summarize(t))
+	}
 	if len(g.tables) == 0 {
 		return nil, fmt.Errorf("grist document has no tables")
 	}
 	g.sheets, g.errs = make([]*Sheet, len(g.tables)), make([]error, len(g.tables))
 	return g, nil
+}
+
+// summarize finds, for a summary, the columns it groups by among those of
+// the table it sums, and titles it as Grist does, by that table and them:
+// Sightings [by Site].
+func (g *GristDoc) summarize(t gristTable) gristTable {
+	var source gristTable
+	for _, other := range g.tables {
+		if other.id == t.source {
+			source = other
+		}
+	}
+	var by []string
+	for i, c := range t.columns {
+		// Grist names the column as the one it groups by; an older document
+		// may not say which that is.
+		for _, s := range source.columns {
+			if c.source == 0 && s.name == c.name {
+				c.source = s.id
+			}
+		}
+		if c.source != 0 {
+			t.columns[i] = c
+			by = append(by, cmp.Or(c.label, c.name))
+		}
+	}
+	if t.title == "" && source.id != 0 && len(by) > 0 {
+		t.title = cmp.Or(source.title, source.name) + " [by " + strings.Join(by, ", ") + "]"
+	}
+	return t
 }
 
 // catalog reads a table of the catalog, each row by the names of its columns.
@@ -259,10 +295,16 @@ func (g *GristDoc) readTable(t gristTable, name string) (*Sheet, error) {
 	}
 	// What a reference shows is kept beside it, in a column of the same row.
 	displays := make([]gristColumn, len(shown))
+	// A summary's has none: it is looked up in the other table, by the column
+	// that the summed table's reference shows.
+	lookups := make([]map[int64]any, len(shown))
 	for i, c := range shown {
 		displays[i] = gristColumn{position: -1}
 		if d, ok := g.columns[c.display]; ok && d.table == t.id {
 			displays[i] = gristColumn{position: place(d.name), kind: g.columns[c.visible].kind}
+		} else if visible := cmp.Or(c.visible, g.columns[c.source].visible); strings.HasPrefix(c.kind, "Ref:") && visible != 0 {
+			displays[i].kind = g.columns[visible].kind
+			lookups[i] = g.showing(strings.TrimPrefix(c.kind, "Ref:"), g.columns[visible])
 		}
 	}
 	type sorted struct {
@@ -298,6 +340,9 @@ func (g *GristDoc) readTable(t gristTable, name string) (*Sheet, error) {
 					row.cell[i] = g.cell(d.kind, value(rec, d.position))
 				}
 			}
+			if shows, ok := lookups[i][int64(gristFloat(v))]; ok && !gristEmptyRef(v) {
+				row.cell[i] = g.cell(displays[i].kind, shows)
+			}
 			if row.cell[i] == "" {
 				row.cell[i] = g.cell(c.kind, v)
 			}
@@ -329,6 +374,36 @@ func (g *GristDoc) readTable(t gristTable, name string) (*Sheet, error) {
 		sheet.Rows = append(sheet.Rows, r.cell)
 	}
 	return sheet, nil
+}
+
+// showing reads what column shows in each row of table, by row id, once.
+// A table that cannot be read shows nothing, and its references stand as
+// they are.
+func (g *GristDoc) showing(table string, column gristColumn) map[int64]any {
+	key := [2]int64{column.table, column.id}
+	if rows, ok := g.shown[key]; ok {
+		return rows
+	}
+	if g.shown == nil {
+		g.shown = map[[2]int64]map[int64]any{}
+	}
+	rows := map[int64]any{}
+	g.shown[key] = rows
+	t, at, err := g.table(table)
+	i, ok := at[column.name]
+	if err != nil || !ok {
+		return rows
+	}
+	_ = t.Scan(func(id int64, rec sdb.Record) bool {
+		if len(rows) >= maxSheetRows {
+			return true
+		}
+		if i < len(rec) {
+			rows[id] = rec[i]
+		}
+		return false
+	})
+	return rows
 }
 
 // gristLink parts the text of a hyperlink cell, which is words and then the
