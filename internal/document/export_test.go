@@ -3,6 +3,7 @@ package document
 import (
 	"image"
 	"image/color"
+	"image/draw"
 	"os"
 	"testing"
 
@@ -393,5 +394,34 @@ func TestGPULightsEveryView(t *testing.T) {
 	cpu := renderMesh(mesh, 256, shots[1].camera, shots[1].light)
 	if got := brightness(cpu, cpu.Bounds()); got < .95*back || got > 1.05*back {
 		t.Fatalf("the CPU lights the back %.0f, the GPU %.0f", got, back)
+	}
+}
+
+// An outline marks where depth breaks, as at the rim of a hole, and the edge
+// of the mesh; a slope, however steep, is not an edge.
+func TestOutlineMarksBreaksNotSlopes(t *testing.T) {
+	const size = 40
+	depth := make([]float32, size*size)
+	for y := range size {
+		for x := range size {
+			switch {
+			case x < 4:
+				depth[y*size+x] = 2 // Background.
+			case x >= 20 && x < 30 && y >= 10 && y < 20:
+				depth[y*size+x] = .9 // Seen through a hole.
+			default:
+				depth[y*size+x] = float32(x) / size * .5 // A steep slope.
+			}
+		}
+	}
+	src := image.NewRGBA(image.Rect(0, 0, size, size))
+	draw.Draw(src, src.Bounds(), image.NewUniform(color.RGBA{R: 200, G: 160, B: 120, A: 255}), image.Point{}, draw.Src)
+	img := outline(src, depth, size).(*image.RGBA)
+	inked := func(x, y int) bool { return img.RGBAAt(x, y).R < 100 && img.RGBAAt(x, y).R > 0 }
+	if !inked(4, 5) || !inked(20, 15) || !inked(25, 10) {
+		t.Error("an edge was not drawn")
+	}
+	if inked(10, 5) || inked(35, 30) || inked(25, 15) || inked(2, 5) {
+		t.Error("a slope, the background, or a flat inside was drawn")
 	}
 }

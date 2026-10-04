@@ -49,11 +49,12 @@ func ExportImage(r Result, maxEdge int) (image.Image, error) {
 // down or one more, each named in its corner.
 func exportMesh(r Result, maxEdge int) (image.Image, error) {
 	shots, names := []shot{{charts.DefaultCamera(), worldLight}}, []string{""}
+	named := false
 	switch {
 	case r.Camera != nil:
 		shots[0].camera = *r.Camera
 	case len(r.Views) > 0:
-		shots, names = nil, nil
+		shots, names, named = nil, nil, true
 		for _, v := range r.Views {
 			shots, names = append(shots, shot{v.Camera(r.Mesh), v.light()}), append(names, v.Name)
 		}
@@ -77,6 +78,14 @@ func exportMesh(r Result, maxEdge int) (image.Image, error) {
 	}
 	for i := 0; tiles == nil && i < len(shots) || len(tiles) < len(shots); i++ {
 		tiles = append(tiles, renderMesh(r.Mesh, tile, shots[i].camera, shots[i].light))
+	}
+	// Faces that look the same way are shaded alike, so that from straight
+	// ahead a hole, or the floor of a box seen from the top, vanishes into
+	// what is behind it. Views asked for by name have their edges drawn.
+	if named {
+		for i, img := range tiles {
+			tiles[i] = outline(img, meshDepth(r.Mesh, tile, shots[i].camera), tile)
+		}
 	}
 	if len(tiles) == 1 {
 		return tiles[0], nil
@@ -143,11 +152,24 @@ var gpuSnapshot = func(mesh *Mesh, size int, shots []shot) ([]image.Image, bool)
 // The CPU's export uses NTCharts3d geometry, normalization, and camera.
 // It rasterizes every face at the requested size with a depth buffer.
 func renderMesh(mesh *Mesh, size int, camera charts.Camera, light math3d.Vec3) image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, size, size))
+	draw.Draw(img, img.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
+	rasterize(mesh, size, camera, light, img)
+	return img
+}
+
+// meshDepth is the depth of the nearest face at each pixel, as renderMesh
+// finds it: from 0, near, to 1, far; 2 where there is none.
+func meshDepth(mesh *Mesh, size int, camera charts.Camera) []float32 {
+	return rasterize(mesh, size, camera, math3d.Vec3{}, nil)
+}
+
+// rasterize draws the faces of the mesh into img, nil for none, and gives the
+// depth buffer.
+func rasterize(mesh *Mesh, size int, camera charts.Camera, light math3d.Vec3, img *image.RGBA) []float32 {
 	g, _ := mesh.Geometry(nil)
 	normalize, _, _ := g.Bounds.Normalization()
 	matrix := camera.Matrix(1).Mul(normalize)
-	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	draw.Draw(img, img.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
 	depth := make([]float32, size*size)
 	for i := range depth {
 		depth[i] = 2
@@ -163,8 +185,11 @@ func renderMesh(mesh *Mesh, size int, camera charts.Camera, light math3d.Vec3) i
 		}
 		x0, x1 := max(0, int(math.Floor(float64(min(ax, bx, cx))))), min(size-1, int(math.Ceil(float64(max(ax, bx, cx)))))
 		y0, y1 := max(0, int(math.Floor(float64(min(ay, by, cy))))), min(size-1, int(math.Ceil(float64(max(ay, by, cy)))))
-		brightness := .3 + .7*max(float32(0), a.Normal.Dot(light))
-		shade := color.RGBA{R: uint8(float32(a.Color.R) * brightness), G: uint8(float32(a.Color.G) * brightness), B: uint8(float32(a.Color.B) * brightness), A: 255}
+		var shade color.RGBA
+		if img != nil {
+			brightness := .3 + .7*max(float32(0), a.Normal.Dot(light))
+			shade = color.RGBA{R: uint8(float32(a.Color.R) * brightness), G: uint8(float32(a.Color.G) * brightness), B: uint8(float32(a.Color.B) * brightness), A: 255}
+		}
 		for y := y0; y <= y1; y++ {
 			for x := x0; x <= x1; x++ {
 				px, py := float32(x)+.5, float32(y)+.5
@@ -179,9 +204,69 @@ func renderMesh(mesh *Mesh, size int, camera charts.Camera, light math3d.Vec3) i
 					continue
 				}
 				depth[y*size+x] = z
-				img.SetRGBA(x, y, shade)
+				if img != nil {
+					img.SetRGBA(x, y, shade)
+				}
+			}
+		}
+	}
+	return depth
+}
+
+// outline darkens the edges of a mesh's picture, in the colors of its faces,
+// found in its depth: where
+// the mesh meets the background, and where the depth breaks or folds, as at
+// the rim of a hole or of a box. A slope, however steep, changes depth
+// evenly, and is not an edge.
+func outline(src image.Image, depth []float32, size int) image.Image {
+	shaded := image.NewRGBA(image.Rect(0, 0, size, size))
+	draw.Draw(shaded, shaded.Bounds(), src, src.Bounds().Min, draw.Src)
+	img := image.NewRGBA(shaded.Bounds())
+	copy(img.Pix, shaded.Pix)
+	near, far := float32(2), float32(-1)
+	for _, z := range depth {
+		if z <= 1 {
+			near, far = min(near, z), max(far, z)
+		}
+	}
+	if near > far {
+		return img
+	}
+	step := max((far-near)*.02, 1e-5)
+	at := func(x, y int) float32 {
+		if x < 0 || y < 0 || x >= size || y >= size {
+			return 2
+		}
+		return depth[y*size+x]
+	}
+	edge := func(x, y int) bool {
+		z := at(x, y)
+		if z > 1 {
+			return false
+		}
+		l, r, u, d := at(x-1, y), at(x+1, y), at(x, y-1), at(x, y+1)
+		if max(l, r, u, d) > 1 {
+			return true
+		}
+		return abs32(l+r-2*z) > step || abs32(u+d-2*z) > step
+	}
+	width := max(1, size/500)
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			if !edge(x, y) {
+				continue
+			}
+			for dy := 0; dy < width; dy++ {
+				for dx := 0; dx < width; dx++ {
+					if x+dx < size && y+dy < size && at(x+dx, y+dy) <= 1 {
+						c := shaded.RGBAAt(x+dx, y+dy)
+						img.SetRGBA(x+dx, y+dy, color.RGBA{R: c.R / 4, G: c.G / 4, B: c.B / 4, A: 255})
+					}
+				}
 			}
 		}
 	}
 	return img
 }
+
+func abs32(v float32) float32 { return max(v, -v) }
