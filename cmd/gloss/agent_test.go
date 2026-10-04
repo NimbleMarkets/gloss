@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/NimbleMarkets/gloss/internal/app"
+	"github.com/NimbleMarkets/gloss/internal/document"
 )
 
 // The headless contract for agents: stdout carries the answer, in the
@@ -279,4 +281,89 @@ func blankPDF() []byte {
 	}
 	fmt.Fprintf(&b, "trailer\n<< /Size 4 /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n", start)
 	return b.Bytes()
+}
+
+// A page, sheet, or part that is not there is an error, never the last one
+// standing in for it; a range says so once, after the pages there are.
+func TestExportAndTextRefuseWhatIsNotThere(t *testing.T) {
+	dir := t.TempDir()
+	for _, c := range []struct {
+		text  bool
+		file  string
+		page  string
+		parts string
+		want  string
+	}{
+		{true, "field-guide.pdf", "3", "", "page 3 is past the end: the PDF has 2 pages"},
+		{false, "field-guide.pdf", "9", "", "page 9 is past the end"},
+		{true, "sales.xlsx", "9", "", "sheet 9 is past the end: the workbook has 2 sheets"},
+		{true, "notes.grist", "5", "", "table 5 is past the end: the Grist document has 4 tables"},
+		{false, "lantern.3mf", "1", "7", "no part 7: the model has 3 parts: Plinth, Column, Cap"},
+	} {
+		pages, err := parsePages(c.page)
+		if err != nil {
+			t.Fatal(err)
+		}
+		page, _ := pages.single()
+		opts := options{Options: app.Options{Files: []string{"../../examples/" + c.file}, Page: page, DPI: 72, MaxEdge: 64, Output: filepath.Join(dir, c.file+".png")}, Text: c.text, Pages: pages}
+		if c.text {
+			opts.Output = ""
+		}
+		if opts.Parts, err = document.ParseParts("", c.parts); err != nil {
+			t.Fatal(err)
+		}
+		var stdout, stderr bytes.Buffer
+		if c.text {
+			err = textFiles(opts, &stdout, &stderr)
+		} else {
+			err = exportFiles(opts, &stdout, &stderr)
+		}
+		if err == nil || !strings.Contains(err.Error(), c.want) || stdout.Len() != 0 {
+			t.Errorf("%s --page %s --partn %q: err=%v stdout=%q", c.file, c.page, c.parts, err, stdout.String())
+		}
+		// stderr has said it, beside the file: main does not say it again.
+		if strings.Count(stderr.String(), c.want) != 1 || !errors.As(err, new(reported)) {
+			t.Errorf("%s: stderr=%q", c.file, stderr.String())
+		}
+	}
+	pages, _ := parsePages("1,2-9")
+	var stdout, stderr bytes.Buffer
+	opts := options{Options: app.Options{Files: []string{"../../examples/field-guide.pdf"}, Page: 1, DPI: 72}, Text: true, JSON: true, Pages: pages}
+	if err := textFiles(opts, &stdout, &stderr); err == nil {
+		t.Fatal("a range past the end succeeded")
+	}
+	var manifest []made
+	if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil || len(manifest) != 3 || manifest[1].Text == "" || manifest[2].Page != 3 || !strings.Contains(manifest[2].Error, "past the end") {
+		t.Fatalf("manifest: %v %s", err, stdout.String())
+	}
+}
+
+// A notebook's pictures are inside it: its text, written to a folder, has
+// them beside it, linked; on stdout it says they were left out.
+func TestTextWritesPackagedPicturesBesideIt(t *testing.T) {
+	dir := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	opts := options{Options: app.Options{Files: []string{"../../examples/analysis.ipynb"}, Page: 1, DPI: 72, OutputDir: dir}, Text: true}
+	if err := textFiles(opts, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	text, err := os.ReadFile(strings.TrimSpace(stdout.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(text), "](001-analysis-pictures/cell-3-output-1.png)") || strings.Contains(string(text), "dropped/") {
+		t.Fatalf("links: %s", text)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "001-analysis-pictures", "cell-3-output-1.png")); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	opts.OutputDir, opts.JSON = "", true
+	if err := textFiles(opts, &stdout, &stderr); err != nil {
+		t.Fatal(err)
+	}
+	var manifest []made
+	if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil || len(manifest) != 1 || !strings.Contains(manifest[0].Note, "1 picture not written") {
+		t.Fatalf("manifest: %v %s", err, stdout.String())
+	}
 }

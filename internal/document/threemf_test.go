@@ -534,3 +534,52 @@ func TestLoaderReportsAndTakesThePartsShown(t *testing.T) {
 		t.Fatalf("whole model reports shown=%v", r.Shown)
 	}
 }
+
+// A package too large to unpack still has its picture and its name: they
+// stand in for the model, as they do for one with too many triangles.
+func TestUnpackable3MFFallsBackToItsThumbnail(t *testing.T) {
+	real := maxUnpacked
+	maxUnpacked = 8 << 10
+	t.Cleanup(func() { maxUnpacked = real })
+	l := &Loader{}
+	defer l.Close()
+	big := many3MF(t, 1000, map[string]string{"Metadata/thumbnail.png": thumbnail(t)})
+	r := l.Load(Request{Path: write(t, "big.3mf", big), Page: 1, DPI: 72, Generation: 1})
+	if r.Err != nil || r.Mesh != nil || r.Image == nil || !strings.Contains(r.Standin, "unpacks to more than") {
+		t.Fatalf("err=%v mesh=%v image=%v standin=%q", r.Err, r.Mesh != nil, r.Image != nil, r.Standin)
+	}
+	if got := field(r.Info, "Shown"); !strings.Contains(got, "thumbnail") {
+		t.Errorf("Shown = %q", got)
+	}
+	expect(t, r.Info, map[string]string{"Triangles": "", "Extent": ""})
+	// Without a picture there is nothing to show.
+	r = l.Load(Request{Path: write(t, "big.3mf", many3MF(t, 1000, map[string]string{})), Page: 1, DPI: 72, Generation: 2})
+	if r.Err == nil || !strings.Contains(r.Err.Error(), "unpacks to more than") {
+		t.Fatalf("without a thumbnail: err=%v", r.Err)
+	}
+}
+
+// An export asks for exactly the parts it names: one the model lacks is an
+// error, not the whole model, nor its thumbnail.
+func TestStrictPartsMustExist(t *testing.T) {
+	l := &Loader{}
+	defer l.Close()
+	path := write(t, "two.3mf", archive3MF(t, map[string]string{"Metadata/thumbnail.png": thumbnail(t),
+		"3D/3dmodel.model": model3MF("", `<resources><object id="1" name="Left">`+tetrahedron+`</object><object id="2" name="Right">`+tetrahedron+`</object></resources><build><item objectid="1"/><item objectid="2"/></build>`)}))
+	generation := uint64(0)
+	for _, filter := range []PartFilter{{Indexes: []int{3}}, {Names: []string{"Middle"}}, {Names: []string{"left"}, Indexes: []int{7}}} {
+		generation++
+		r := l.Load(Request{Path: path, Page: 1, DPI: 72, Generation: generation, Parts: filter, Strict: true})
+		if r.Err == nil || !strings.Contains(r.Err.Error(), "the model has 2 parts: Left, Right") || r.Mesh != nil || r.Image != nil {
+			t.Errorf("%+v: err=%v", filter, r.Err)
+		}
+		// The viewer, turning between files, shows the model whole instead.
+		generation++
+		if r = l.Load(Request{Path: path, Page: 1, DPI: 72, Generation: generation, Parts: filter}); r.Err != nil || r.Mesh == nil {
+			t.Errorf("%+v, not strict: err=%v", filter, r.Err)
+		}
+	}
+	if r := l.Load(Request{Path: path, Page: 1, DPI: 72, Generation: generation + 1, Parts: PartFilter{Names: []string{"right"}}, Strict: true}); r.Err != nil || r.Mesh == nil {
+		t.Errorf("a part it has: err=%v", r.Err)
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"html"
 	"image"
@@ -40,6 +41,18 @@ type Model3MF struct {
 	root      string
 	build     []placed3MF
 	settings  slicer3MF
+	limit     error // Why the model was not read, when only its thumbnail was.
+}
+
+// errUncountable is a model with more triangles than are worth counting.
+var errUncountable = errors.New("3MF has too many triangles to count")
+
+// tooLarge says why the mesh is not shown.
+func (m *Model3MF) tooLarge() string {
+	if m.limit != nil {
+		return "the model " + strings.TrimPrefix(m.limit.Error(), "3MF ")
+	}
+	return fmt.Sprintf("the model has %s triangles, and the limit for a mesh is %s", grouped(m.Triangles), grouped(maxTriangles))
 }
 
 // Part is one thing a 3MF build places: an object, with whatever it holds.
@@ -273,6 +286,41 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 	if !p.has(root) {
 		return nil, fmt.Errorf("3MF has no model")
 	}
+	// The picture is read first: it stands in for a model too large to read.
+	thumbnail := p.thumbnail(picture)
+	out, err := p.model(root)
+	if err != nil {
+		if thumbnail == nil || !errors.Is(err, errUnpacked) && !errors.Is(err, errUncountable) {
+			return nil, err
+		}
+		out = &Model3MF{metadata: map[string]string{}, pkg: p, root: root, limit: err}
+		if model := p.parts[strings.ToLower(strings.TrimPrefix(root, "/"))]; model != nil {
+			out.Unit, out.metadata = model.unit, model.metadata
+		}
+	}
+	out.Thumbnail = thumbnail
+	return out, nil
+}
+
+// thumbnail is the package's picture of the model, if it has one that decodes.
+// A slicer's rendering of the plate stands in for the model better than the
+// picture the package declares, which may be a photograph of a print.
+func (p *package3MF) thumbnail(picture string) image.Image {
+	for _, name := range []string{"Metadata/plate_1.png", picture, "Metadata/thumbnail.png", "Auxiliaries/.thumbnails/thumbnail_3mf.png"} {
+		if name == "" || !p.has(name) {
+			continue
+		}
+		if data, err := p.read(name); err == nil {
+			if img, err := decodeRaster(data); err == nil {
+				return img
+			}
+		}
+	}
+	return nil
+}
+
+// model reads the model the root part builds.
+func (p *package3MF) model(root string) (*Model3MF, error) {
 	model, err := p.part(root)
 	if err != nil {
 		return nil, err
@@ -300,7 +348,7 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 				objects[o] = true
 			}
 			if part.Triangles += len(o.triangles); out.Triangles+part.Triangles > 64<<20 {
-				return fmt.Errorf("3MF has too many triangles to count")
+				return errUncountable
 			}
 			return nil
 		})
@@ -331,19 +379,6 @@ func Parse3MF(data []byte) (*Model3MF, error) {
 		})
 		if err != nil {
 			return nil, err
-		}
-	}
-	// A slicer's rendering of the plate stands in for the model better than
-	// the picture the package declares, which may be a photograph of a print.
-	for _, name := range []string{"Metadata/plate_1.png", picture, "Metadata/thumbnail.png", "Auxiliaries/.thumbnails/thumbnail_3mf.png"} {
-		if name == "" || !p.has(name) {
-			continue
-		}
-		if data, err := p.read(name); err == nil {
-			if out.Thumbnail, err = decodeRaster(data); err == nil {
-				break
-			}
-			out.Thumbnail = nil
 		}
 	}
 	return out, nil
@@ -656,10 +691,14 @@ func (m *Model3MF) fields(shown string) []Field {
 	if unit != "" {
 		area += " " + unit + "²"
 	}
+	objects, triangles, size := grouped(m.Objects), grouped(m.Triangles), strings.TrimSpace(number(float64(extent.X))+" × "+number(float64(extent.Y))+" × "+number(float64(extent.Z))+" "+unit)
+	if m.limit != nil { // Not read: nothing is known of its size.
+		objects, triangles, size, area = "", "", "", ""
+	}
 	return Section("Model", Field{"Format", "3MF"}, Field{"Title", meta("Title")}, Field{"Designer", meta("Designer")}, Field{"Description", meta("Description")},
 		Field{"Application", meta("Application")}, Field{"Created", meta("CreationDate")}, Field{"Changed", meta("ModificationDate")},
 		Field{"License", cmp.Or(meta("LicenseTerms"), meta("License"))}, Field{"Copyright", meta("Copyright")},
-		Field{"Objects", grouped(m.Objects)}, Field{"Parts", partNames(m.Parts, nil)}, Field{"Triangles", grouped(m.Triangles)},
-		Field{"Extent", strings.TrimSpace(number(float64(extent.X)) + " × " + number(float64(extent.Y)) + " × " + number(float64(extent.Z)) + " " + unit)},
+		Field{"Objects", objects}, Field{"Parts", partNames(m.Parts, nil)}, Field{"Triangles", triangles},
+		Field{"Extent", size},
 		Field{"Surface area", area}, Field{"Thumbnail", thumbnail}, Field{"Shown", shown})
 }

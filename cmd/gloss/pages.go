@@ -55,7 +55,9 @@ func (r pageRange) single() (int, bool) {
 	return r.pages[0], true
 }
 
-// of lists the pages asked for, of a document with n pages.
+// of lists the pages asked for, of a document with n pages. A page past
+// the end is kept, the first of them only, for its load to say so: the
+// rest would only repeat it.
 func (r pageRange) of(n int) []int {
 	if r.all {
 		pages := make([]int, 0, n)
@@ -65,10 +67,17 @@ func (r pageRange) of(n int) []int {
 		return pages
 	}
 	var pages []int
+	past := 0
 	for _, p := range r.pages {
-		if p <= n {
+		switch {
+		case p <= n:
 			pages = append(pages, p)
+		case past == 0:
+			past = p
 		}
+	}
+	if past != 0 {
+		pages = append(pages, past)
 	}
 	return pages
 }

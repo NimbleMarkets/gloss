@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"path"
@@ -12,6 +13,13 @@ import (
 )
 
 const maxPackageEntries = 4096
+
+// errUnpacked is a package whose parts, read so far, pass the input limit.
+var errUnpacked = errors.New("unpacks to more than 128 MiB")
+
+// maxUnpacked is what a package's parts may come to, read whole: the input
+// limit. Tests lower it rather than unpack that much.
+var maxUnpacked int64 = MaxFileBytes
 
 // opc is an Office Open XML package: a ZIP archive of XML parts, as 3MF,
 // Word, and Excel files are. Parts are read as they are asked for, within a
@@ -30,7 +38,7 @@ func openOPC(data []byte) (*opc, error) {
 	if len(archive.File) > maxPackageEntries {
 		return nil, fmt.Errorf("has more than %d entries", maxPackageEntries)
 	}
-	p := &opc{archive: archive, files: map[string]*zip.File{}, budget: MaxFileBytes}
+	p := &opc{archive: archive, files: map[string]*zip.File{}, budget: maxUnpacked}
 	for _, f := range archive.File {
 		p.files[strings.ToLower(f.Name)] = f
 	}
@@ -56,7 +64,7 @@ func (p *opc) read(name string) ([]byte, error) {
 		return nil, fmt.Errorf("%s: %w", name, err)
 	}
 	if p.budget -= int64(len(data)); p.budget < 0 {
-		return nil, fmt.Errorf("unpacks to more than 128 MiB")
+		return nil, errUnpacked
 	}
 	return data, nil
 }

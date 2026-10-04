@@ -49,3 +49,24 @@ func WriteNewFrom(path string, r io.Reader, perm os.FileMode) (string, int64, er
 	}
 	return "", 0, fmt.Errorf("%s: too many files with this name", path)
 }
+
+// MkdirNew makes the folder path, or, where something is already there, the
+// nearest free name with a number after it: pictures, then pictures-2. It
+// gives the folder made.
+func MkdirNew(path string) (string, error) {
+	for n := 1; n < 1000; n++ {
+		name := path
+		if n > 1 {
+			name = fmt.Sprintf("%s-%d", path, n)
+		}
+		err := os.Mkdir(name, 0o755)
+		if errors.Is(err, fs.ErrExist) {
+			continue
+		}
+		if err != nil {
+			return "", err
+		}
+		return name, nil
+	}
+	return "", fmt.Errorf("%s: too many folders with this name", path)
+}

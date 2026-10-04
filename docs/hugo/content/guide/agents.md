@@ -54,8 +54,13 @@ input with an index (`001-shapes.png`, `001-report-page-2.png`). `--json`
 prints a manifest instead, one object per file and page: `path`, `kind`,
 `page`, `pages`, `output`, `width`, `height`, `max_edge` (the edge it was sized
 to), and `error` where one failed; when a profile was named, also
-`vision_profile` and a short `vision_reason`. A failure is reported on stderr
-and the rest go on; the exit status is 1.
+`vision_profile` and a short `vision_reason`; and a `note` where something
+stands in for what was asked, as a 3MF's embedded thumbnail does for a model
+too large to draw (the views asked for are then not drawn). A failure is
+reported once on stderr and the rest go on; the exit status is 1. A page,
+sheet, or 3MF part (`--parts`, `--partn`) that the file does not have is such
+a failure, naming what it has: a range past the end makes the pages there are
+and one error for the rest.
 
 ### Text for language models
 
@@ -76,7 +81,11 @@ gloss --glob docs --text --output-dir text ~/Documents
 
 One text goes to stdout; several (inputs, sheets, or pages) go to files with
 `--output-dir`, whose paths are then the answer, or into a `--json` manifest
-with a `text` field each. A PDF page with no text layer, as a scan or a figure
+with a `text` field each. The pictures of a notebook or a Word document are
+inside it: written to `--output` or `--output-dir`, they go as PNGs into a
+folder named after the text (`001-analysis-pictures/`) and its links name
+them there; on stdout or in a manifest they are left out, and a `note` says so.
+A PDF page with no text layer, as a scan or a figure
 has none, is an `error` on that page and never a blank success; the other pages
 are still made and the exit status is 1. Fall back to `--output` for such a
 page. A PDF's pages are bounded as for export (10,000), and a page's text to
@@ -119,7 +128,10 @@ distance. A mesh that is long toward the camera, a plank seen from its end, is
 drawn smaller: in NTCharts3d's orthographic projection distance is also scale,
 and the camera must stand clear of the mesh. Views asked for are lit from over
 the viewer's shoulder, so that the back and the underside show as much as the
-front. With no view asked for, the camera and the light are the viewer's.
+front, and have their edges outlined in a darker shade of the faces: faces
+that look the same way are shaded alike, so that straight on a hole, or the
+floor of a box seen from the top, would vanish into what is behind it. With no
+view asked for, the camera and the light are the viewer's.
 
 ### What a file says about itself
 

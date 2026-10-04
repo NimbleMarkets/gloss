@@ -143,6 +143,10 @@ type Request struct {
 	PaintAll   bool        // Paint every face, not only the plain ones.
 	Stdin      bool        // The file is what stdin was read into: it is shown as "stdin", not by its temporary name.
 	BaseDir    string      // Relative Markdown assets; empty uses the source directory.
+	// Exactly what was asked for: a page or part that is not there is an
+	// error, not the nearest one. The viewer turns pages and keeps within
+	// them; an export or a text must not answer for another page.
+	Strict bool
 }
 
 type Result struct {
@@ -161,7 +165,10 @@ type Result struct {
 	Views       []View         // Export views of a mesh: several make a sheet. None uses the default camera.
 	CPU         bool           // Export a mesh without trying the GPU.
 	Info        []Field        // What the file says about itself, for the info panel.
-	Err         error
+	// What Image is when it stands in for the document, as a 3MF's
+	// thumbnail does for a mesh too large to show: empty otherwise.
+	Standin string
+	Err     error
 }
 
 // Loader serializes PDF access and shutdown. Commands that complete out of
@@ -310,6 +317,9 @@ func (l *Loader) Load(q Request) (out Result) {
 		}
 		// The outputs' pictures are kept beside the Markdown, in memory.
 		out.Markdown, out.Err = loadMarkdownFrom("notebook.md", nb.Markdown, ".", nb.Files)
+		if out.Markdown != nil {
+			out.Markdown.Packaged = true
+		}
 		details = nb.fields
 	case "text":
 		details = func() []Field { return Section("Text", Field{"Format", "Plain text"}) }
@@ -340,6 +350,9 @@ func (l *Loader) Load(q Request) (out Result) {
 		}
 		// Pictures are in the package, beside the document.
 		out.Markdown, out.Err = loadMarkdownFrom("word/document.md", doc.Markdown, "word", doc.pkg.archive)
+		if out.Markdown != nil {
+			out.Markdown.Packaged = true
+		}
 		details = doc.fields
 	case "xlsx":
 		details = func() []Field { return Section("Workbook", Field{"Format", "Excel workbook"}) }
@@ -368,6 +381,13 @@ func (l *Loader) Load(q Request) (out Result) {
 		}
 		shown := ""
 		out.Parts, out.Assemble = model.Parts, model.Assemble
+		if q.Strict && model.limit == nil {
+			if err := q.Parts.Missing(model.Parts); err != nil {
+				out.Err = err
+				details = func() []Field { return model.fields("") }
+				return out
+			}
+		}
 		chosen := q.Parts.Shown(model.Parts)
 		if q.Shown != nil {
 			chosen = q.Shown
@@ -382,7 +402,8 @@ func (l *Loader) Load(q Request) (out Result) {
 		case model.Mesh != nil:
 			out.Mesh = model.Mesh
 		case model.Thumbnail != nil:
-			out.Image, shown = model.Thumbnail, fmt.Sprintf("embedded thumbnail; the limit for a mesh is %s triangles", grouped(maxTriangles))
+			out.Image, shown = model.Thumbnail, "embedded thumbnail; "+model.tooLarge()
+			out.Standin = shown
 		default:
 			out.Err = fmt.Errorf("3MF has %s triangles; the limit is %s", grouped(model.Triangles), grouped(maxTriangles))
 		}
@@ -435,6 +456,9 @@ func renderSVGUnbounded(name string, data []byte, edge int) (image.Image, error)
 }
 
 func (l *Loader) renderPDF(q Request) Result {
+	if err := pastEnd(q, l.pages, "page", "PDF"); err != nil {
+		return Result{Generation: q.Generation, Kind: "pdf", Page: q.Page, Pages: l.pages, Err: err}
+	}
 	page := max(1, min(q.Page, l.pages))
 	dpi := q.DPI
 	if q.MaxEdge > 0 && l.pdfReader != nil {
@@ -470,11 +494,30 @@ func (l *Loader) renderPDF(q Request) Result {
 
 // turnSheet shows one sheet of the open workbook, as renderPDF shows a page.
 func (l *Loader) turnSheet(q Request) Result {
+	unit, of := "sheet", "workbook"
+	if l.bookKind == "grist" {
+		unit, of = "table", "Grist document"
+	}
+	if err := pastEnd(q, len(l.book.Names()), unit, of); err != nil {
+		return Result{Generation: q.Generation, Kind: l.bookKind, Page: q.Page, Pages: len(l.book.Names()), Err: err}
+	}
 	page := max(1, min(q.Page, len(l.book.Names())))
 	sheet, err := l.book.Sheet(page - 1)
 	out := Result{Generation: q.Generation, Kind: l.bookKind, Page: page, Pages: len(l.book.Names()), Sheet: sheet, Err: err}
 	out.Info = append(append([]Field(nil), l.file...), describe(l.book.fields)...)
 	return out
+}
+
+// pastEnd refuses, for a strict request, a page the document does not have.
+func pastEnd(q Request, pages int, unit, of string) error {
+	if !q.Strict || q.Page <= pages {
+		return nil
+	}
+	plural := unit + "s"
+	if pages == 1 {
+		plural = unit
+	}
+	return fmt.Errorf("%s %d is past the end: the %s has %d %s", unit, q.Page, of, pages, plural)
 }
 
 func ReadFile(path string) ([]byte, error) { return readFileFrom(nil, path) }

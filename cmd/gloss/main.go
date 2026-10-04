@@ -29,7 +29,9 @@ var version = "dev"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintf(os.Stderr, "gloss: %v\n", err)
+		if !errors.As(err, new(reported)) {
+			fmt.Fprintf(os.Stderr, "gloss: %v\n", err)
+		}
 		os.Exit(exitCode(err))
 	}
 }

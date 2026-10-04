@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"unicode"
@@ -24,6 +25,51 @@ const maxMarkdownImagePixels = 16 << 20
 type Markdown struct {
 	Source []byte
 	Images []MarkdownImage
+	// The pictures are inside the file, as a notebook's outputs and a Word
+	// document's media are: their links name no file a reader can open.
+	Packaged bool
+}
+
+// Picture is one picture of packaged Markdown, as a file beside its text
+// would hold it.
+type Picture struct {
+	Destination string // The link as the Markdown has it.
+	Name        string // A file name for it, unique among the pictures, ending .png.
+	Image       image.Image
+}
+
+// Pictures lists the pictures of packaged Markdown that could be read, each
+// once; Markdown whose pictures are files beside it has none to list.
+func (md *Markdown) Pictures() []Picture {
+	if md == nil || !md.Packaged {
+		return nil
+	}
+	var out []Picture
+	seen, taken := map[string]bool{}, map[string]bool{}
+	for _, img := range md.Images {
+		if img.Image == nil || seen[img.Destination] {
+			continue
+		}
+		seen[img.Destination] = true
+		stem := strings.TrimSuffix(path.Base(img.Destination), path.Ext(img.Destination))
+		name := stem + ".png"
+		for n := 2; taken[name]; n++ {
+			name = fmt.Sprintf("%s-%d.png", stem, n)
+		}
+		taken[name] = true
+		out = append(out, Picture{Destination: img.Destination, Name: name, Image: img.Image})
+	}
+	return out
+}
+
+// Relink points the links of the Markdown's pictures elsewhere: to, by
+// destination, gives where.
+func (md *Markdown) Relink(to map[string]string) []byte {
+	pairs := make([]string, 0, 2*len(to))
+	for from, where := range to {
+		pairs = append(pairs, "]("+from, "]("+where)
+	}
+	return []byte(strings.NewReplacer(pairs...).Replace(string(md.Source)))
 }
 
 type MarkdownImage struct {

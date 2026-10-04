@@ -78,7 +78,10 @@ in the `error` field with `--json`, never a blank success: fall back to
 `--output` for that page. Other pages are still done and the exit status is 1.
 
 One text goes to stdout; for several inputs or pages use `--output-dir` (paths
-are printed) or `--json`. `--text` needs no terminal.
+are printed) or `--json`. `--text` needs no terminal. Pictures inside a
+notebook or Word document are written, as PNGs, to a `NAME-pictures/` folder
+beside the text when it goes to `--output`/`--output-dir`, and its links name
+them there; on stdout or in `--json` they are left out, and a `note` says so.
 
 ## 2. See a file: PNG export
 
@@ -113,12 +116,17 @@ cat drawing.svg | gloss --output - --max-edge 1024 > diagram.png
   adds `-page-2` or `-sheet-2`.
 - `--page 3`, `--page 2-5`, `--page 1,3`, or `--page all` with `--output-dir`
   exports several pages of a PDF in one call. `--dpi 36..600` raises raster
-  detail for dense pages.
+  detail for dense pages. A page, sheet, or part (`--parts`, `--partn`) that
+  is not there is an error naming what there is, never the last one instead;
+  a range past the end makes the pages there are, then one error entry.
 - `--json` with an export prints a manifest to stdout: one object per file and
   page with `path`, `kind`, `page`, `pages`, `output`, `width`, `height`,
   `max_edge` (the edge it was sized to), and `error` where one failed. When a
   profile was named, `vision_profile` and a short `vision_reason` say what it
-  resolved to. Prefer it over parsing stderr.
+  resolved to. A `note` says when something stands in for what was asked: a
+  3MF too large to draw exports its embedded thumbnail, without the views
+  asked for (stderr says so too); try `--parts`/`--partn` for one part.
+  Prefer the manifest over parsing stderr.
 - SVG and PDF are rasterized at the requested size.
 - `--type image|svg|pdf|stl|3mf|docx|xlsx|grist|csv|json|ipynb|html|text|markdown`
   forces the format for extensionless files or stdin.
@@ -153,7 +161,8 @@ gloss --output head.png --parts head --view iso assembly.3mf
 gloss --output posed.png --camera 20,-120 --projection perspective model.stl
 ```
 
-- `--view` accepts `front,back,left,right,top,bottom,iso`, or `all`.
+- `--view` accepts `front,back,left,right,top,bottom,iso`, or `all`. Named
+  views have their edges outlined, so holes and openings show even straight on.
 - `--parts name,name` / `--partn 2,4-6` isolate parts of a 3MF assembly —
   also the way to see a model too large to render whole.
 - `--color orange` or `#rrggbb` paints plain meshes before export.

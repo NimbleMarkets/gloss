@@ -105,6 +105,37 @@ func (f PartFilter) Shown(parts []Part) []bool {
 	return shown
 }
 
+// Missing says which of the parts the filter names the model does not
+// have: an export asked for those parts, and must not show others instead.
+func (f PartFilter) Missing(parts []Part) error {
+	var missing []string
+	for _, name := range f.Names {
+		found := false
+		for _, part := range parts {
+			found = found || strings.EqualFold(strings.TrimSpace(part.Name), name)
+		}
+		if !found {
+			missing = append(missing, strconv.Quote(name))
+		}
+	}
+	for _, i := range f.Indexes {
+		if i > len(parts) {
+			missing = append(missing, strconv.Itoa(i))
+		}
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	have := fmt.Sprintf("%d parts", len(parts))
+	if len(parts) == 1 {
+		have = "1 part"
+	}
+	if names := partNames(parts, nil); names != "" {
+		have += ": " + names
+	}
+	return fmt.Errorf("no part %s: the model has %s", strings.Join(missing, ", "), have)
+}
+
 func (f ColumnFilter) Empty() bool { return len(f.Names) == 0 && len(f.Indexes) == 0 }
 
 // Hidden marks the columns of s the filter leaves out. Nothing is hidden
