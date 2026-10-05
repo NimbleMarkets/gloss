@@ -11,6 +11,10 @@ function openSample(value, restart = false) {
 }
 for (const button of buttons) button.addEventListener('click', () => openSample(button.dataset.sample));
 document.querySelector('#restart').addEventListener('click', () => openSample(sample, true));
+// On a phone-width screen the menu fills the narrow terminal and shows no
+// picture, so lead with a sample image instead; 760px is the stylesheet's
+// small-screen breakpoint.
+if (window.matchMedia?.('(max-width: 760px)').matches) openSample('landscape.png');
 // A drop that misses the terminal must not replace the page with the file.
 window.addEventListener('dragover', event => event.preventDefault());
 
