@@ -23,7 +23,7 @@ import (
 
 func webPicking(t *testing.T, opts app.Options) *server {
 	t.Helper()
-	s, err := serveWebPick(context.Background(), opts)
+	s, err := serveWebPick(context.Background(), options{Options: opts})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,60 +277,71 @@ func TestDetachedWebPickRoundTrip(t *testing.T) {
 	if out, err := exec.Command("go", "build", "-o", bin, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, out)
 	}
-	cmd := exec.Command(bin, "--pick-web", "--timeout", "20s", "--accept", "image/*")
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout, cmd.Stderr = &stdout, &stderr
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("start: %v %s", err, stderr.String())
-	}
-	var got started
-	if err := json.Unmarshal(stdout.Bytes(), &got); err != nil || !got.Pick || got.ResumeToken == "" {
-		t.Fatalf("startup: %s %v", stdout.String(), err)
-	}
-	t.Cleanup(func() { _ = cancel(options{Cancel: got.ResumeToken}) })
-	// Upload over HTTP to the detached process, with no WebSocket or viewer.
-	code, _ := drop(t, got.URL+"files", nil, upload{"receipt.png", picture(t)})
-	if code != 200 {
-		t.Fatalf("upload: %d", code)
-	}
-	_, body := get(t, got.URL+"files", nil)
-	var list struct{ Files []webPickFile }
-	if err := json.Unmarshal([]byte(body), &list); err != nil || len(list.Files) != 1 {
-		t.Fatalf("list: %s %v", body, err)
-	}
-	if st, err := ask(t, got.ResumeToken); err != nil || st.State != "waiting" {
-		t.Fatalf("status before Send: %+v %v", st, err)
-	}
-	message := "Use this receipt, not the earlier draft.\n東京 ☕ <b>literal text</b>"
-	response, err := http.Post(got.URL+"confirm", "application/json", strings.NewReader(confirmMessage(message, list.Files[0].ID)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	reply, err := io.ReadAll(response.Body)
-	response.Body.Close()
-	if err != nil || response.StatusCode != 200 || !strings.Contains(string(reply), `"state":"picked"`) {
-		t.Fatalf("confirmation response lost at shutdown: %d %s %v", response.StatusCode, reply, err)
-	}
-	stdout.Reset()
-	if err := resume(options{Resume: got.ResumeToken, Timeout: 5 * time.Second}, &stdout, io.Discard); err != nil {
-		t.Fatal(err)
-	}
-	path := strings.TrimSpace(stdout.String())
-	if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, picture(t)) {
-		t.Fatalf("resume returned unreadable file: %q %v", path, err)
-	}
-	if st, err := ask(t, got.ResumeToken); err != nil || st.State != "picked" || !slices.Equal(st.Paths, []string{path}) || st.Message != message {
-		t.Fatalf("status after resume: %+v %v", st, err)
-	}
-	for range 2 {
-		stdout.Reset()
-		if err := resume(options{Resume: got.ResumeToken, JSON: true}, &stdout, io.Discard); err != nil {
-			t.Fatal(err)
-		}
-		var result resumed
-		if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || result.Message != message || !slices.Equal(result.Paths, []string{path}) {
-			t.Fatalf("JSON resume lost message: %+v %v", result, err)
-		}
+	for name, network := range map[string][]string{
+		"default":  nil,
+		"wildcard": {"--listen", "0.0.0.0:0", "--advertise-host", "localhost"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			args := append([]string{"--pick-web", "--timeout", "20s", "--accept", "image/*"}, network...)
+			cmd := exec.Command(bin, args...)
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			if err := cmd.Run(); err != nil {
+				t.Fatalf("start: %v %s", err, stderr.String())
+			}
+			var got started
+			if err := json.Unmarshal(stdout.Bytes(), &got); err != nil || !got.Pick || got.ResumeToken == "" {
+				t.Fatalf("startup: %s %v", stdout.String(), err)
+			}
+			t.Cleanup(func() { _ = cancel(options{Cancel: got.ResumeToken}) })
+			if len(network) > 0 && !strings.HasPrefix(got.URL, "http://localhost:") {
+				t.Fatalf("detached start lost advertised host: %s", got.URL)
+			}
+			// Upload over HTTP to the detached process, with no WebSocket or viewer.
+			code, _ := drop(t, got.URL+"files", nil, upload{"receipt.png", picture(t)})
+			if code != 200 {
+				t.Fatalf("upload: %d", code)
+			}
+			_, body := get(t, got.URL+"files", nil)
+			var list struct{ Files []webPickFile }
+			if err := json.Unmarshal([]byte(body), &list); err != nil || len(list.Files) != 1 {
+				t.Fatalf("list: %s %v", body, err)
+			}
+			if st, err := ask(t, got.ResumeToken); err != nil || st.State != "waiting" {
+				t.Fatalf("status before Send: %+v %v", st, err)
+			}
+			message := "Use this receipt, not the earlier draft.\n東京 ☕ <b>literal text</b>"
+			response, err := http.Post(got.URL+"confirm", "application/json", strings.NewReader(confirmMessage(message, list.Files[0].ID)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			reply, err := io.ReadAll(response.Body)
+			response.Body.Close()
+			if err != nil || response.StatusCode != 200 || !strings.Contains(string(reply), `"state":"picked"`) {
+				t.Fatalf("confirmation response lost at shutdown: %d %s %v", response.StatusCode, reply, err)
+			}
+			stdout.Reset()
+			if err := resume(options{Resume: got.ResumeToken, Timeout: 5 * time.Second}, &stdout, io.Discard); err != nil {
+				t.Fatal(err)
+			}
+			path := strings.TrimSpace(stdout.String())
+			if data, err := os.ReadFile(path); err != nil || !bytes.Equal(data, picture(t)) {
+				t.Fatalf("resume returned unreadable file: %q %v", path, err)
+			}
+			if st, err := ask(t, got.ResumeToken); err != nil || st.State != "picked" || !slices.Equal(st.Paths, []string{path}) || st.Message != message {
+				t.Fatalf("status after resume: %+v %v", st, err)
+			}
+			for range 2 {
+				stdout.Reset()
+				if err := resume(options{Resume: got.ResumeToken, JSON: true}, &stdout, io.Discard); err != nil {
+					t.Fatal(err)
+				}
+				var result resumed
+				if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || result.Message != message || !slices.Equal(result.Paths, []string{path}) {
+					t.Fatalf("JSON resume lost message: %+v %v", result, err)
+				}
+			}
+		})
 	}
 }
 

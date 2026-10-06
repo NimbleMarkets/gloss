@@ -147,28 +147,44 @@ var nextModelID atomic.Int64
 func nextKittyID() int { return 100 + int(nextModelID.Add(1))*1000 }
 
 func New(opts Options) *Model {
-	switch opts.Render {
+	pic, id := terminalPicture(opts.Render, !opts.keptScreen)
+	opts.keptScreen = true
+	m := &Model{opts: opts, meshState: meshState{tint: opts.Color, bg: opts.Background}, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, picID: id, pic: pic, page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
+	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
+		m.screen = screenList
+	}
+	return m
+}
+
+// terminalPicture is shared by the pager and the handoff screen. Capability
+// detection and geometry replies always run through picture's Tea commands.
+func terminalPicture(render string, fresh bool) (picture.Model, int) {
+	switch render {
 	case "kitty":
 		picture.ForceKittyCapability(picture.KittyCapabilitySupported)
 	case "glyph":
 		picture.ForceKittyCapability(picture.KittyCapabilityUnsupported)
 	}
-	if !opts.keptScreen {
+	if fresh {
 		// Pictures left in the scrollback, by -X or by Q, are owned by the
 		// terminal, under their numbers. Every run starts somewhere new, so
 		// that the next gloss does not draw over what the last one left.
-		opts.keptScreen = true
 		nextModelID.Store(rand.Int64N(8000))
 	}
 	id := nextKittyID()
-	m := &Model{opts: opts, meshState: meshState{tint: opts.Color, bg: opts.Background}, loader: &document.Loader{Files: opts.FilesFS}, kittyID: id, picID: id, pic: picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: pictureBackground}), page: opts.Page, pages: 1, autoKitty: opts.Render != "glyph"}
-	if (opts.Menu || opts.Preview) && len(opts.Files) > 0 {
-		m.screen = screenList
+	pic := picture.NewWithConfig(picture.Config{KittyID: id, KittyZ: -1, Background: pictureBackground})
+	if render == "kitty" {
+		pic.Toggle()
 	}
-	if opts.Render == "kitty" {
-		m.pic.Toggle()
+	return pic, id
+}
+
+func updateTerminalPicture(pic *picture.Model, autoKitty bool, msg tea.Msg) tea.Cmd {
+	cmd := pic.Update(msg)
+	if autoKitty && pic.KittySupported() == picture.KittyCapabilitySupported && pic.Mode() != picture.PictureKitty {
+		return tea.Batch(cmd, pic.Toggle())
 	}
-	return m
+	return cmd
 }
 
 func (m *Model) Init() tea.Cmd {
@@ -444,10 +460,7 @@ func (m *Model) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 	}
 	// Picture messages carry image IDs and sequence numbers, so late frames
 	// from an earlier page cannot overwrite the current source.
-	cmds = append(cmds, m.pic.Update(msg))
-	if m.autoKitty && m.pic.KittySupported() == picture.KittyCapabilitySupported && m.pic.Mode() != picture.PictureKitty {
-		cmds = append(cmds, m.pic.Toggle())
-	}
+	cmds = append(cmds, updateTerminalPicture(&m.pic, m.autoKitty, msg))
 	if m.markdown != nil {
 		cmds = append(cmds, m.markdown.update(msg), m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty))
 	}

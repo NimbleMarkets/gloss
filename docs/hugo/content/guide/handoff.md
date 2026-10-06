@@ -96,8 +96,75 @@ available with `--serve --pick`.
 With terminal stdin it opens a browser and waits, printing the confirmed full
 paths; `--no-open` prints the address on stderr instead of opening it. Without
 terminal stdin it detaches, with the same startup JSON, `--status`, `--resume`,
-`--cancel`, exit codes, and cleanup described below. It is still localhost-only:
-this spike adds neither LAN access nor a hosted handoff service.
+`--cancel`, exit codes, and cleanup described below. It listens on localhost
+unless you explicitly select a network address as described next.
+
+### LAN and Tailscale addresses
+
+Only the upload-only `--pick-web` page supports network binding. The full
+`--serve` viewer, including its host-file browser, stays localhost-only.
+
+```sh
+# Replace this example with an IP assigned to the computer running gloss.
+gloss --pick-web --listen 192.168.1.42:0 --no-open --timeout 10m \
+  --prompt "Send a photo and tell me what to look at"
+
+# Listen on all IPv4 addresses, sharing one explicit address with the human.
+gloss --pick-web --listen 0.0.0.0:0 --advertise-host 192.168.1.42 --no-open
+
+# Use a MagicDNS name in the link (the phone must have tailnet access).
+gloss --pick-web --listen 0.0.0.0:0 \
+  --advertise-host laptop.example-tailnet.ts.net --no-open
+```
+
+`--listen` takes a **literal IP and port**, defaulting to `127.0.0.1:0`.
+Port `0` chooses an available port; specify a fixed one if your firewall or
+tailnet policy requires it. IPv6 uses brackets: `--listen '[fd00::42]:0'`.
+`0.0.0.0` listens on all IPv4 addresses; `[::]` listens on all IPv6 addresses.
+Neither is a destination you can put in a browser. Interface names such as
+`en0`, IPv6 zone identifiers, and link-local addresses are not supported.
+Use an assigned unicast address, or an explicit wildcard.
+
+`--advertise-host` takes an IP or ASCII DNS name, without a scheme, port, or
+path. It defaults to a specific listen IP, and is **required for a wildcard**.
+Gloss puts this host, the actual listening port, and the session token in the
+printed URL and detached startup JSON. An advertised IP must match a specific
+listen IP, or have the same address family as a wildcard. Names are not
+resolved by gloss: the browser must resolve them to an address the listener
+accepts. Specifying a name does not configure DNS, a firewall, or a tunnel.
+
+With a specific listener, requests may use its IP or the advertised name;
+loopback listeners also accept `localhost`. With a wildcard, only the
+advertised host is accepted. The actual port must match. An advertised
+Tailscale name does not make a wildcard listener Tailscale-only: it still
+listens on LAN addresses, and an HTTP Host header is not a network firewall.
+Where supported, binding to the computer's Tailscale IP narrows the listening
+address. The phone needs Tailscale connectivity, DNS, and a tailnet policy
+that permits the connection. Prefer the full MagicDNS name for shared links.
+See [MagicDNS](https://tailscale.com/docs/features/magicdns).
+
+The page uses HTTP. The token controls access but does not encrypt LAN
+uploads. Keep the link private and use a network you trust. HTTPS reverse
+proxies (including Tailscale Serve) are not supported by these flags; gloss
+does not trust forwarded host or protocol headers. Use `--no-open` when the
+link is intended for another device. The printed URL is a candidate, not a
+reachability test: check it from that device; Wi-Fi client isolation and
+firewalls can still block it.
+
+When stdin and stderr are terminals, a network request automatically shows
+the URL as a QR code while it waits. This works with `--no-open`: scan the code
+from a device that can reach the advertised address, choose files, add an
+optional message, then press **Send files** on that device. `g` switches Kitty
+graphics and the colored half-block fallback; `q`, `Esc`, or Ctrl-C cancels the
+request. If the whole code cannot fit, enlarge the terminal; gloss never crops
+it or removes its quiet zone. `--render glyph` forces the fallback.
+
+The QR screen closes and restores the terminal after confirmation,
+cancellation, or timeout. It draws on stderr, so stdout contains only the
+answer (paths, or JSON with `--json`). The full URL is printed before the screen
+opens and remains in terminal history. Loopback requests do not show a phone
+QR. Detached starts still print only their startup JSON; redirected stderr
+stays plain text. No terminal UI or escape sequences are added to agent output.
 
 ## Required formats
 
@@ -185,9 +252,10 @@ temporary directory, readable by you alone. If they are the answer to a pick
 they are left there for the program that asked, which must delete them when it
 is done. Otherwise they are removed when gloss exits, and on a timeout.
 
-The server listens on 127.0.0.1 only, on a port chosen at random. The page's
-address carries a token, without which nothing is served, so other programs and
-other pages cannot reach the viewer or drop files on it. `--no-open` prints the
+The full viewer listens on 127.0.0.1 only, on a port chosen at random.
+`--pick-web` uses the same default but supports the explicit LAN settings above.
+The page's address carries a token, without which nothing is served.
+`--no-open` prints the
 address without opening a browser; `--timeout 10m` gives up after that long.
 With `--serve` or `--pick`, standard input is read only when `-` is named.
 

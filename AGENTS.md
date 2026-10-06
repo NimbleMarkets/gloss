@@ -154,8 +154,8 @@ Agent-facing / scriptable surface:
   day past their deadline.
   This is how a non-terminal agent asks a human for a file or shows one.
 - `--pick-web`: experimental upload-only HTML/JS request page; implies
-  `--serve --pick`, with no terminal, WASM, host-file browser, or file-download
-  endpoint. Takes no initial files, `--glob`, or `--fetch`. Choose/drop uploads
+  `--serve --pick`, with no terminal connection, WASM, host-file browser, or
+  file-download endpoint in the page. Takes no initial files, `--glob`, or `--fetch`. Choose/drop uploads
   into the session folder, Remove deletes an upload, Send confirms exact upload
   IDs plus an optional **Message to requester**, and Cancel declines without
   sending the message. Replies are bounded to 2,000 Unicode characters and
@@ -166,7 +166,22 @@ Agent-facing / scriptable surface:
   At most 200 files, 128 MiB each, 1 GiB per session;
   `--accept` applies. Refresh restores completed uploads; closing a tab leaves
   the request waiting until confirmation, cancellation, or timeout. Same
-  detached startup/status/resume protocol and exit codes; still localhost-only.
+  detached startup/status/resume protocol and exit codes. Localhost by default;
+  only this mode accepts `--listen IP:port` (default `127.0.0.1:0`) and
+  `--advertise-host IP-or-DNS-name`. Port 0 is allocated by the OS; wildcards
+  require an explicit advertised host. `0.0.0.0` is IPv4-only, `[::]` IPv6-only.
+  No interface names, link-local addresses, IPv6 zones, automatic DNS discovery,
+  or HTTPS proxies. The shared URL uses the advertised
+  host and actual port. Only configured hosts at that port pass HTTP Host checks;
+  API origins must match the request. Forwarded headers are not trusted.
+  A Tailscale name can be advertised but does not restrict a wildcard to the
+  tailnet. LAN HTTP is unencrypted; network reachability needs a device check.
+  Foreground network requests automatically show the shared URL as a terminal
+  QR when stdin and stderr are terminals; `--no-open` still shows it. The screen
+  reuses the pager's picture capability detection, ID allocation, and the QR
+  component; `g` toggles graphics, `q`/`Esc`/Ctrl-C cancels. Settlement cleans up
+  graphics and restores the terminal before results reach stdout. Loopback,
+  detached sessions, and redirected stderr stay text/JSON-only.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
 
 ## Build, test, verify

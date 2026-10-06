@@ -238,7 +238,12 @@ func (s *server) Discard() {
 
 func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// A page elsewhere can point a name of its own at this machine.
-	if host, _, err := net.SplitHostPort(r.Host); err != nil || (host != "127.0.0.1" && host != "localhost") {
+	host, _, err := net.SplitHostPort(r.Host)
+	allowed := err == nil && (host == "127.0.0.1" || host == "localhost")
+	if s.webPick != nil {
+		allowed = s.webPick.access.allows(r.Host)
+	}
+	if !allowed {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

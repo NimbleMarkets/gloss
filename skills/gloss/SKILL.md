@@ -240,8 +240,46 @@ the tab does not decline; the request waits until Send, Cancel, or timeout.
 Off a terminal it returns the same detached startup object described below;
 use its `resume_token` with `--status`, `--resume`, and `--cancel`. Exit codes
 and cleanup are unchanged. The server stops after confirmation, so check the
-agent-side status if a browser loses the final response. Still localhost-only;
-this is not a hosted or LAN phone handoff. Use `--serve --pick` for the full viewer.
+agent-side status if a browser loses the final response. Use `--serve --pick`
+for the full, localhost-only viewer.
+
+For an explicitly requested LAN handoff, only `--pick-web` supports
+`--listen IP:port` and `--advertise-host IP-or-name`:
+
+```sh
+gloss --pick-web --listen 192.168.1.42:0 --no-open --timeout 10m \
+  --prompt "Send a photo and a note"
+gloss --pick-web --listen 0.0.0.0:0 \
+  --advertise-host laptop.example-tailnet.ts.net --no-open --timeout 10m
+```
+
+Replace example addresses with the host's actual configuration. The default
+is `127.0.0.1:0`; port `0` chooses an available port. A specific IP advertises
+itself unless overridden by a DNS name. Wildcards require an explicit
+advertised host: `0.0.0.0` is IPv4-only and `[::]` IPv6-only. `--listen` accepts
+literal IPs (IPv6 as `[IP]:port`), not interface names, DNS names, or link-local
+addresses. `--advertise-host` accepts an IP or ASCII DNS name, without scheme,
+port, or path. An advertised IP must match the specific listen IP or the
+wildcard's address family. The startup object's `url` already contains the
+chosen host, actual port, and page token; share it intact. Exit codes and the
+status/resume protocol do not change.
+
+A MagicDNS name requires working Tailscale DNS and network access on the
+human's device; gloss does not resolve or provision it. A wildcard remains
+bound to LAN addresses even when its advertised host is a Tailscale name.
+The URL's reachability is not verified by gloss: do not describe a localhost
+URL, wildcard IP, or untested hostname as a working phone handoff. LAN HTTP
+is unencrypted. These flags do not configure a tunnel, HTTPS proxy, or Tailscale
+Serve. Use the full MagicDNS name where possible;
+use a specific listening address when that better matches the intended network.
+
+Foreground network requests show a terminal QR automatically when stdin and
+stderr are terminals, even with `--no-open`. The human scans it, sends files
+from the web page, and the terminal screen closes before the answer is printed
+on stdout. `g` toggles graphics; `q`/`Esc`/Ctrl-C cancels. Loopback requests do
+not present a phone QR. Detached agent starts remain one JSON object with the
+shared `url`; redirected stderr stays plain text. No automatic QR image is
+included in detached JSON.
 
 ### Ask for files: `--pick`
 
@@ -306,7 +344,8 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
 - Off a terminal `--timeout` defaults to 10 minutes; the server never outlives it.
 - On a terminal `--serve --pick` still blocks and opens the browser; `--no-open`
   prints the address (on stderr) instead. Off a terminal that is the default.
-- The server is on 127.0.0.1 only, and nothing is served without the token in
+- The full viewer is on 127.0.0.1 only; the upload-only `--pick-web` page can
+  opt into a network address as above. Nothing is served without the token in
   the `url`; treat the `url` and the resume token as secrets. They are
   different tokens: the `url` lets a browser in, and only `resume_token` works
   with `--resume`, `--status`, and `--cancel`.

@@ -18,7 +18,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/NimbleMarkets/gloss/internal/app"
 	"github.com/NimbleMarkets/gloss/web"
 )
 
@@ -31,6 +30,7 @@ var webPickPage = template.Must(template.ParseFS(web.Page, "pick.html"))
 // All API operations are serialized, including upload and settlement, so Send
 // cannot race an unfinished upload, and cleanup cannot race a disk write.
 type webPick struct {
+	access  pickAccess // Immutable listener/advertised-host policy.
 	mu      sync.Mutex
 	files   []webPickFile
 	state   string
@@ -47,24 +47,38 @@ type webPickFile struct {
 	path string
 }
 
-func serveWebPick(ctx context.Context, opts app.Options) (*server, error) {
+func serveWebPick(ctx context.Context, opts options) (*server, error) {
+	listen := opts.Listen
+	if listen == "" {
+		listen = defaultPickListen
+	}
+	network, err := parsePickNetwork(listen, opts.AdvertiseHost)
+	if err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	token, err := random()
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	// Explicit families keep 0.0.0.0 IPv4-only and :: IPv6-only on every OS.
+	family := "tcp4"
+	if network.listen.Addr().Is6() {
+		family = "tcp6"
+	}
+	listener, err := net.Listen(family, network.listen.String())
 	if err != nil {
 		cancel()
-		return nil, err
+		return nil, fmt.Errorf("--listen %s: %w", listen, err)
 	}
+	access := network.access(listener.Addr().(*net.TCPAddr).Port)
 	s := &server{
 		token: token, prompt: opts.Prompt, accept: opts.Accept, pick: true,
 		cancel: cancel, done: make(chan struct{}),
-		webPick: &webPick{state: statusWaiting, files: []webPickFile{}},
+		webPick: &webPick{access: access, state: statusWaiting, files: []webPickFile{}},
 	}
-	s.URL = "http://" + listener.Addr().String() + "/" + token + "/"
+	s.URL = (&url.URL{Scheme: "http", Host: access.authority, Path: "/" + token + "/"}).String()
 	s.front = &http.Server{
 		Handler: s, ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 2 * time.Minute, IdleTimeout: 30 * time.Second,
@@ -141,12 +155,9 @@ func (s *server) serveWebPick(w http.ResponseWriter, r *http.Request, rest strin
 	}
 	// No CORS: mutations belong to this page, at its exact origin. Missing
 	// Origin is permitted for local clients, which still need the URL token.
-	if origin := r.Header.Get("Origin"); origin != "" {
-		from, err := url.Parse(origin)
-		if err != nil || from.Scheme != "http" || from.Host != r.Host || from.User != nil {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
-		}
+	if !samePickOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
 	}
 	p := s.webPick
 	p.mu.Lock()

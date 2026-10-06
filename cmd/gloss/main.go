@@ -42,6 +42,8 @@ type options struct {
 	app.Options
 	Serve, NoOpen bool
 	PickWeb       bool // Experimental upload-only page, without a terminal viewer.
+	Listen        string
+	AdvertiseHost string
 	Timeout       time.Duration
 	Info, JSON    bool
 	FetchAllowed  bool
@@ -89,6 +91,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.BoolVar(&opts.JSON, "json", false, "with --info, --text, --grep, an export, --pick-web, or --resume, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
 	f.BoolVar(&opts.PickWeb, "pick-web", false, "experimental file request with Choose files and Send buttons, without a terminal; implies --serve --pick; takes no input files")
+	f.StringVar(&opts.Listen, "listen", defaultPickListen, "with --pick-web, listen on IP:port (IPv6: [IP]:port); port 0 chooses a free port; wildcard requires --advertise-host")
+	f.StringVar(&opts.AdvertiseHost, "advertise-host", "", "with --pick-web, use this IP or DNS name in the shared URL (no scheme, port, or path); defaults to the specific listen IP")
 	f.BoolVar(&opts.Serve, "serve", false, "show the viewer on a web page, from a temporary server on this machine")
 	f.BoolVar(&opts.NoOpen, "no-open", false, "with --serve, print the page's address without opening a browser")
 	f.DurationVar(&opts.Timeout, "timeout", 0, "with --serve or --pick, give up after this long (as 90s or 10m)")
@@ -168,10 +172,19 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	if f.Changed("install") {
 		return opts, false, fmt.Errorf("--install goes with --skill: gloss skill install")
 	}
+	if (f.Changed("listen") || f.Changed("advertise-host")) && !opts.PickWeb {
+		return opts, false, fmt.Errorf("--listen and --advertise-host require --pick-web; the full --serve viewer remains localhost-only")
+	}
 	if opts.PickWeb {
 		opts.Serve, opts.Pick = true, true
 		if f.NArg() > 0 || len(opts.Globs) > 0 || opts.FetchAllowed || opts.Menu || opts.Preview {
 			return opts, false, fmt.Errorf("--pick-web accepts browser uploads only: no input files, --glob, --fetch, --menu, or --preview")
+		}
+		if f.Changed("advertise-host") && opts.AdvertiseHost == "" {
+			return opts, false, fmt.Errorf("--advertise-host cannot be empty")
+		}
+		if _, err := parsePickNetwork(opts.Listen, opts.AdvertiseHost); err != nil {
+			return opts, false, err
 		}
 	}
 	if !slices.Contains([]string{"auto", "kitty", "glyph"}, opts.Render) {
@@ -521,11 +534,13 @@ func served(opts options, stdout, stderr io.Writer) error {
 	defer stop()
 	ctx, end := context.WithCancel(ctx)
 	defer end()
-	start := serve
+	var s *server
+	var err error
 	if opts.PickWeb {
-		start = serveWebPick
+		s, err = serveWebPick(ctx, opts)
+	} else {
+		s, err = serve(ctx, opts.Options)
 	}
-	s, err := start(ctx, opts.Options)
 	if err != nil {
 		return err
 	}
@@ -549,7 +564,11 @@ func served(opts options, stdout, stderr io.Writer) error {
 		s.ended.Do(func() { close(s.done) })
 	}()
 	if opts.PickWeb {
-		picked, pickedMessage, err = s.waitWebPick(ctx, opts.Timeout)
+		if pickQRAvailable(opts, stderr) {
+			picked, pickedMessage, err = waitWebPickQR(ctx, s, opts, stderr)
+		} else {
+			picked, pickedMessage, err = s.waitWebPick(ctx, opts.Timeout)
+		}
 		if err != nil {
 			s.Discard()
 			return err

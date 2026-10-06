@@ -260,7 +260,47 @@ unavailable.
 `gloss --pick-web --prompt "Choose a receipt" --timeout 10m` serves the
 experimental HTML/JS upload page, without starting Booba or a terminal model.
 Off a terminal it detaches as usual; open the returned `url`, then use
-`gloss --resume TOKEN` to retrieve the confirmed paths. This remains local-only.
+`gloss --resume TOKEN` to retrieve the confirmed paths. Localhost is the default;
+only this mode supports opt-in network binding.
+
+`cmd/gloss/pick_network.go` separates `--listen IP:port` (default
+`127.0.0.1:0`) from `--advertise-host IP-or-DNS-name`. Validation happens before
+detaching and again at server creation. Listeners use explicit `tcp4`/`tcp6`
+families, so wildcard behavior is consistent across operating systems. A
+wildcard requires an advertised host; a specific IP supplies its own default.
+DNS names are advertised aliases, never resolved for binding or authorization.
+Interface names, scoped/link-local addresses, and reverse proxies are deferred.
+
+After the socket opens, an immutable host policy captures the actual port,
+advertised host, specific bind IP if any, and `localhost` for loopback binds.
+Wildcard listeners accept only the advertised authority, not arbitrary local
+IPs or DNS names. IP literals, DNS case, and HTTP's default port are normalized;
+the API requires Origin to match the requesting authority when present.
+Forwarded headers cannot override either check. Token checking precedes all
+page/API access, and the full viewer retains its localhost policy. Advertising
+a Tailscale name is not an interface or client access restriction. HTTPS proxy
+support needs a separate explicit origin/trust design.
+
+The same URL is announced on stderr and persisted for detached startup JSON.
+No protocol fields or exit codes change. Tests cover wildcard and IPv6 socket
+binding, advertised DNS without external resolution, denied hosts/origins,
+port failures, and default/wildcard detached upload-and-message round trips.
+They cannot prove another device can route to the address: check real LAN and
+Tailscale access manually, including client isolation and firewall policies.
+
+Foreground network picks show a QR on terminal stderr automatically.
+`cmd/gloss/pick_qr.go` selects this only with terminal stdin/stderr, no detached
+token, and a non-loopback listener/advertised host. It runs the server wait
+alongside `internal/app/handoff.go`, a small Bubble Tea screen using the same
+`terminalPicture` setup and update helpers as the pager. The existing QR
+component receives capability/geometry updates and uses the shared image-ID
+allocator. There are no synchronous terminal probes or separate input readers.
+The server owns settlement; its completion closes the screen through Tea so
+ID-specific graphics cleanup runs before quitting. Terminal cancellation
+cancels the server context. OS signals remain owned by `served`, not a second
+Bubble Tea signal handler. Stdout never carries the screen. Tests decode its
+half-block output independently and exercise resizing, graphics toggling, and
+settlement cleanup. The detached startup protocol stays unchanged.
 
 `cmd/gloss/pick_web.go` owns the request state. Under the token URL, `GET files`
 lists completed uploads as `{state, files: [{id, name, size}]}`; `POST files`

@@ -24,7 +24,7 @@ var pumpPatience = 100 * time.Millisecond
 // does not wait on timers such as the cursor's blink. A command that is slow
 // rather than a timer is still heard: while a document is loading, pump waits
 // for the commands it passed over, so a slow machine loads what a fast one does.
-func pump(m *Model, cmd tea.Cmd, depth int) {
+func pump(m tea.Model, cmd tea.Cmd, depth int) {
 	late, waiting := make(chan tea.Msg), 0
 	var run func(tea.Cmd, int)
 	deliver := func(msg tea.Msg, depth int) {
@@ -75,7 +75,8 @@ func pump(m *Model, cmd tea.Cmd, depth int) {
 		}
 	}
 	run(cmd, depth)
-	for deadline := time.After(30 * time.Second); m.loading && waiting > 0; {
+	pager, _ := m.(*Model)
+	for deadline := time.After(30 * time.Second); pager != nil && pager.loading && waiting > 0; {
 		select {
 		case msg := <-late:
 			waiting--

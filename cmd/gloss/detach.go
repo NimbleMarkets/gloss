@@ -75,7 +75,7 @@ type state struct {
 type started struct {
 	Protocol       int    `json:"protocol" const:"1" doc:"Version of this object's shape."`
 	Status         string `json:"status" enum:"waiting" doc:"Always waiting: the session started, nobody has answered yet."`
-	URL            string `json:"url" doc:"The page for the human, on 127.0.0.1. Its token lets a browser in, and nothing else; treat it as a secret."`
+	URL            string `json:"url" doc:"The page for the human: localhost by default, or the advertised host and actual port with --pick-web --listen/--advertise-host. Reachability depends on the network. Its token lets a browser in, and nothing else; treat it as a secret."`
 	Dir            string `json:"dir" doc:"The private folder (mode 0700) where dropped files land."`
 	TimeoutSeconds int    `json:"timeout_seconds" doc:"How long the server lives."`
 	ResumeToken    string `json:"resume_token" doc:"The secret that --resume, --status, and --cancel take; not the token in url."`
