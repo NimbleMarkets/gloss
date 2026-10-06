@@ -31,8 +31,8 @@ it alone does not inspect its contents.
 | `--json` with text, grep, export, or info | JSON array of results, including errors |
 | `--pick` with terminal stdin | Chosen full paths after confirmation |
 | `--pick` / `--serve` without terminal stdin | One JSON object describing the detached session; exit 0 means started, not answered |
-| `--resume TOKEN` | Chosen paths; with `--json`, an object with `protocol`, `status`, `paths`, and `error` |
-| `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `protocol`, `state`, `settled`, and `paths`, `error`, or `seconds_left` as they apply |
+| `--resume TOKEN` | Chosen paths; with `--json`, an object with `protocol`, `status`, `paths`, `error`, and optional user-authored `message` from `--pick-web` |
+| `--status TOKEN` | One JSON object, at once, saying how the detached session stands: `protocol`, `state`, `settled`, and `paths`, `message`, `error`, or `seconds_left` as they apply |
 | `--cancel TOKEN` | Nothing; exit 0 means the session is ended and its folder deleted |
 | `gloss skill schema` | The JSON Schema of every object above |
 
@@ -210,6 +210,39 @@ gloss --info --json a.pdf b.bin | jq '.[] | select(.error == null) | .kind'
 
 ## 4. Involve the human
 
+### Ask with a plain web page: `--pick-web` (experimental)
+
+```sh
+gloss --pick-web --prompt "Choose the March invoice" --accept pdf --timeout 10m
+```
+
+This upload-only spike implies `--serve --pick`. The human uses **Choose files**
+or drops files, checks the list, then presses **Send files**; **Remove** deletes
+an upload and **Cancel** declines. No terminal or WASM is needed in the page,
+and it exposes no host-file browser or download endpoint. Files upload before
+confirmation, but only the confirmed upload IDs become the answer.
+
+The optional **Message to requester** field sends a session-level reply with
+the files (up to 2,000 Unicode characters, with line breaks). At least one file
+is required; Cancel does not send the message. The draft is stored only in the
+browser tab until Send; it survives refresh when session storage is available.
+Read it from `message` in `--status TOKEN` or `--resume TOKEN --json` after
+confirmation. Empty/whitespace-only messages are omitted, and plain-text
+resume output stays paths-only. With terminal stdin, `--pick-web --json` also
+prints the confirmed answer with `message`. The message is user-authored
+context for the handed-over files, separate from the requester's `--prompt`.
+
+It takes no initial files, `--glob`, `--fetch`, `--menu`, or `--preview`. Limits:
+200 files, 128 MiB each, 1 GiB total, two minutes per upload. `--accept` checks
+formats; uploads are not rendered. Refresh restores completed uploads. Closing
+the tab does not decline; the request waits until Send, Cancel, or timeout.
+
+Off a terminal it returns the same detached startup object described below;
+use its `resume_token` with `--status`, `--resume`, and `--cancel`. Exit codes
+and cleanup are unchanged. The server stops after confirmation, so check the
+agent-side status if a browser loses the final response. Still localhost-only;
+this is not a hosted or LAN phone handoff. Use `--serve --pick` for the full viewer.
+
 ### Ask for files: `--pick`
 
 In a terminal, `--pick` blocks until the user hands you files, then prints
@@ -246,7 +279,7 @@ gloss --pick --prompt "The invoice, please" --timeout 10m < /dev/null
    To look without waiting, between other work, `gloss --status <token>` prints
    one JSON object at once and exits 0:
    `{"protocol":1,"state":"waiting","settled":false,"seconds_left":412}`. `state` is
-   `waiting`, `picked` (with `paths`), `declined`, `timeout`, `closed` (a page
+   `waiting`, `picked` (with `paths` and an optional web-pick `message`), `declined`, `timeout`, `closed` (a page
    that only showed something was closed), or `failed` (with `error`, as when
    the server died). It changes nothing: it does not take the answer, end the
    session, or touch the files, so ask as often as you like and then `--resume`

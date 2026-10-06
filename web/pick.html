@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Send files · gloss</title>
+  <link rel="icon" href="data:,">
+  <style>
+    :root { color-scheme: light; font: 16px/1.5 system-ui, sans-serif; color: #292723; background: #f4f1eb; }
+    * { box-sizing: border-box; }
+    body { margin: 0; }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 3px solid #a9381f; outline-offset: 4px; }
+    .shell { max-width: 700px; margin: auto; padding: 28px 22px 48px; }
+    .brand { display: flex; align-items: center; gap: 9px; font-weight: 750; font-size: 21px; letter-spacing: -.8px; }
+    .mark { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 7px; background: #c7482c; color: white; font-size: 19px; }
+    .eyebrow { margin: 46px 0 12px; text-transform: uppercase; letter-spacing: .14em; font-size: 11px; font-weight: 750; color: #9d3a25; }
+    h1 { font-size: clamp(28px, 5vw, 38px); line-height: 1.18; letter-spacing: -1px; margin: 0 0 18px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .intro { color: #68635b; margin: 0 0 26px; max-width: 48ch; }
+    .card { background: #fffcf7; border: 1px solid #ddd6ca; border-radius: 18px; padding: 24px; box-shadow: 0 8px 32px #38271308; }
+    .drop { text-align: center; padding: 28px 16px; border: 1px dashed #c6bcac; border-radius: 10px; background: #f8f5ef; }
+    .drop.over { border-color: #c7482c; background: #fae8e0; }
+    .drop strong { display: block; margin-bottom: 6px; font-size: 17px; }
+    .drop p { margin: 0 0 18px; color: #68635b; font-size: 14px; }
+    .primary, .secondary { min-height: 46px; padding: 10px 20px; border-radius: 8px; font-weight: 650; }
+    .primary { color: white; background: #b33e24; border: 1px solid #b33e24; }
+    .primary:hover:enabled { background: #95331d; }
+    .secondary { background: #fffcf7; color: #332e27; border: 1px solid #c6bcac; }
+    .secondary:hover:enabled { background: #eee8dd; }
+    .limits { font-size: 12px; color: #72695d; margin: 14px 0 0; }
+    ul { list-style: none; padding: 0; margin: 18px 0 0; }
+    li { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid #e7e0d5; }
+    .thumb, .file-icon { width: 48px; height: 48px; flex: none; border-radius: 6px; object-fit: cover; background: #eee8dd; }
+    .file-icon { display: grid; place-items: center; color: #87765e; font-size: 22px; }
+    .details { flex: 1; min-width: 0; }
+    .filename { display: block; font-size: 14px; font-weight: 650; overflow-wrap: anywhere; }
+    .size { font-size: 12px; color: #72695d; }
+    .remove { min-height: 44px; padding: 8px; background: transparent; border: 0; color: #8d3928; font-size: 13px; }
+    .actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 24px; }
+    .reply { margin-top: 24px; }
+    .reply label { display: block; font-weight: 650; margin-bottom: 8px; }
+    .reply label span { font-weight: 400; color: #72695d; font-size: 14px; }
+    textarea { display: block; width: 100%; min-height: 104px; resize: vertical; padding: 10px 12px; color: inherit; background: white; border: 1px solid #c6bcac; border-radius: 8px; }
+    .reply-help { margin: 6px 0 0; color: #72695d; font-size: 12px; }
+    #reply-count.error { color: #9d2b20; }
+    #result-note { white-space: pre-wrap; overflow-wrap: anywhere; text-align: left; }
+    progress { width: 100%; height: 8px; accent-color: #b33e24; margin-top: 20px; }
+    #message { margin: 14px 0 0; color: #68635b; font-size: 14px; overflow-wrap: anywhere; }
+    #message:empty { display: none; }
+    #message.error { color: #9d2b20; }
+    footer { margin-top: 20px; font-size: 12px; color: #72695d; text-align: center; }
+    #result { text-align: center; padding: 36px 12px; }
+    #result h2 { font-size: 25px; letter-spacing: -.5px; }
+    #result p { color: #68635b; }
+    [hidden] { display: none !important; }
+    @media (max-width: 440px) { .shell { padding: 20px 16px 32px; } .card { padding: 18px; } .eyebrow { margin-top: 32px; } }
+    @media (prefers-reduced-motion: no-preference) { button { transition: background .15s; } }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <div class="brand"><span class="mark" aria-hidden="true">▧</span>gloss</div>
+    <header aria-labelledby="request">
+      <p class="eyebrow">File request</p>
+      <h1 id="request">{{if .Prompt}}{{.Prompt}}{{else}}A little handoff.<br>Choose files to send.{{end}}</h1>
+      <p class="intro">Add your files, check the list, then send them back to the person or agent waiting for them.</p>
+    </header>
+    <section class="card" aria-label="Choose and send files">
+      <div id="picker">
+        <div class="drop" id="drop">
+          <strong>Your files, ready to go.</strong>
+          <p>Choose from this device, or drop files here.</p>
+          <button class="secondary" id="choose" type="button" disabled>Choose files</button>
+          <input id="input" type="file" multiple hidden>
+        </div>
+        <p class="limits">Up to 200 files · 128 MiB per file · 1 GiB total{{if .Accept}}<br>Required formats: {{.Accept}}{{end}}</p>
+        <ul id="files" aria-label="Files to send"></ul>
+        <progress id="progress" max="100" value="0" aria-label="Upload progress" hidden></progress>
+        <div class="reply">
+          <label for="reply">Message to requester <span>(optional)</span></label>
+          <textarea id="reply" rows="3" aria-describedby="reply-help reply-count" placeholder="Anything they should know about these files?" disabled></textarea>
+          <p class="reply-help" id="reply-help">Sent with your files when you press Send files.</p>
+          <p class="reply-help" id="reply-count">0 / 2,000 characters</p>
+        </div>
+        <div class="actions">
+          <button class="secondary" id="cancel" type="button" disabled>Cancel</button>
+          <button class="primary" id="send" type="button" disabled>Send files</button>
+        </div>
+      </div>
+      <div id="result" tabindex="-1" hidden>
+        <h2 id="result-title"></h2>
+        <p id="result-detail"></p>
+        <p id="result-note" hidden></p>
+      </div>
+      <p id="message" role="status" aria-live="polite">Connecting to your file request…</p>
+      <noscript>This file request needs JavaScript to upload and send files.</noscript>
+    </section>
+    <footer>Files upload to this computer as you choose them.<br>The request is answered only when you press Send files.</footer>
+  </main>
+  <script type="module" src="pick.mjs"></script>
+</body>
+</html>

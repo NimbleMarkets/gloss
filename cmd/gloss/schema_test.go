@@ -125,13 +125,13 @@ func TestSchemaDescribesWhatGlossWrites(t *testing.T) {
 		func(o options, a, b *bytes.Buffer) error { return describe(o, a, b) }))
 
 	left := 3
-	for _, s := range []sessionStatus{{Protocol: 1, State: "waiting", SecondsLeft: &left}, {Protocol: 1, State: "picked", Settled: true, Paths: []string{"/a"}}, {Protocol: 1, State: "failed", Settled: true, Error: "x"}} {
+	for _, s := range []sessionStatus{{Protocol: 1, State: "waiting", SecondsLeft: &left}, {Protocol: 1, State: "picked", Settled: true, Paths: []string{"/a"}, Message: "The receipt ☕"}, {Protocol: 1, State: "failed", Settled: true, Error: "x"}} {
 		data, _ := json.Marshal(s)
 		check("status", data)
 	}
 	data, _ := json.Marshal(started{Protocol: 1, Status: statusWaiting, URL: "http://127.0.0.1:1/x/", Dir: "/d", TimeoutSeconds: 600, ResumeToken: testToken, Resume: "gloss --resume " + testToken, Pick: true})
 	check("started", data)
-	for _, st := range []state{{Status: statusPicked, Paths: []string{"/a"}}, {Status: statusDeclined}} {
+	for _, st := range []state{{Status: statusPicked, Paths: []string{"/a"}}, {Status: statusPicked, Paths: []string{"/a"}, Message: "The receipt ☕"}, {Status: statusDeclined}} {
 		var b bytes.Buffer
 		_ = answer(st, true, &b)
 		check("resumed", b.Bytes())

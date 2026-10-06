@@ -23,6 +23,7 @@ const (
 	layerColumns // The sheet's column list.
 	layerParts   // The 3MF's part list.
 	layerColor   // The mesh's color picker.
+	layerQR      // The selected table URL, as a QR code.
 )
 
 // listing says whether the file list is on screen, in either style.
@@ -40,6 +41,8 @@ func (m *Model) closeLayer() tea.Cmd {
 	was := m.layer
 	m.layer = layerNone
 	switch was {
+	case layerQR:
+		return m.clearQR()
 	case layerColumns:
 		if m.sheet != nil {
 			m.sheet.picker = nil

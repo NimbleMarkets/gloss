@@ -22,7 +22,7 @@ var schemaShapes = []struct {
 	{"info", "What --info --json prints: one object per file; failed ones carry error.", described{}, true},
 	{"started", "The one object --pick or --serve prints, and exits 0, when standard input is not a terminal.", started{}, false},
 	{"status", "The one object --status prints.", sessionStatus{}, false},
-	{"resumed", "The one object --resume --json prints.", resumed{}, false},
+	{"resumed", "The one object --resume --json prints; also the confirmed answer of --pick-web --json with terminal stdin.", resumed{}, false},
 }
 
 // writeSchema prints the JSON Schema of the shapes, as one document: each in

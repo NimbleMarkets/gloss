@@ -6,3 +6,7 @@ coverage.out
 /web/dist/
 /docs/man/
 /docs/completions/
+/go.work
+/go.work.sum
+/examples/demo/go.work
+/examples/demo/go.work.sum

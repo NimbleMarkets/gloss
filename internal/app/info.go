@@ -113,6 +113,10 @@ var (
 
 // box frames styled lines as a shaded corner box, each padded to the widest.
 func box(lines []string) string {
+	return boxWithPadding(lines, 1)
+}
+
+func boxWithPadding(lines []string, padding int) string {
 	shade, text := boxShade, boxText
 	width := 0
 	for _, line := range lines {
@@ -122,7 +126,7 @@ func box(lines []string) string {
 		lines[i] = line + text.Render(strings.Repeat(" ", width-lipgloss.Width(line)))
 	}
 	return lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(frameColor).BorderBackground(shade).
-		Background(shade).Padding(0, 1).Render(strings.Join(lines, "\n"))
+		Background(shade).Padding(0, padding).Render(strings.Join(lines, "\n"))
 }
 
 // overlay lays box over the right of body, which is w cells wide, top rows

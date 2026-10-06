@@ -67,6 +67,7 @@ type state struct {
 	PID      int       `json:"pid,omitempty"`
 	Deadline time.Time `json:"deadline,omitempty"` // After this a waiting server is taken as timed out.
 	Paths    []string  `json:"paths,omitempty"`
+	Message  string    `json:"message,omitempty"`
 	Error    string    `json:"error,omitempty"`
 }
 
@@ -254,17 +255,17 @@ func announce(token, address string) {
 // conclude records how the detached server ended. What was dropped is
 // kept only for an answer; for anything else the folder goes first, so that
 // whoever reads the state can count on it being gone.
-func conclude(token string, err error, paths []string, pick bool) {
+func conclude(token string, err error, paths []string, pick bool, message string) {
 	dir, file := detachedPaths(token)
 	st, readErr := readState(file)
 	if errors.Is(readErr, fs.ErrNotExist) {
 		os.RemoveAll(dir) // Cancelled: nothing is to be kept, or said.
 		return
 	}
-	st.Dir, st.URL, st.Paths = dir, "", nil
+	st.Dir, st.URL, st.Paths, st.Message = dir, "", nil, ""
 	switch {
 	case err == nil && pick:
-		st.Status, st.Paths = statusPicked, paths
+		st.Status, st.Paths, st.Message = statusPicked, paths, message
 	case err == nil:
 		st.Status = statusClosed
 	case errors.Is(err, errCancelled):
@@ -351,6 +352,7 @@ type sessionStatus struct {
 	State       string   `json:"state" enum:"waiting,picked,declined,timeout,closed,failed" doc:"How the session stands."`
 	Settled     bool     `json:"settled" doc:"False only while waiting."`
 	Paths       []string `json:"paths,omitempty" doc:"The answer, once picked."`
+	Message     string   `json:"message,omitempty" doc:"Optional user-authored message sent with the files by --pick-web (up to 2,000 Unicode characters); present only when picked and nonempty."`
 	Error       string   `json:"error,omitempty" doc:"Why, when failed."`
 	SecondsLeft *int     `json:"seconds_left,omitempty" doc:"About how long the session has, while waiting."`
 }
@@ -375,6 +377,7 @@ func status(opts options, stdout io.Writer) error {
 		out.State = "failed"
 	case statusPicked:
 		out.Paths = st.Paths
+		out.Message = st.Message
 	case statusWaiting:
 		if !st.Deadline.IsZero() {
 			// The deadline allows the server its start-up as well as its run.
@@ -385,11 +388,13 @@ func status(opts options, stdout io.Writer) error {
 	return json.NewEncoder(stdout).Encode(out)
 }
 
-// resumed is what --resume --json prints: the answer, as one object.
+// resumed is what --resume --json prints, also used for a confirmed
+// foreground --pick-web --json answer.
 type resumed struct {
 	Protocol int      `json:"protocol" const:"1" doc:"Version of this object's shape."`
 	Status   string   `json:"status" enum:"picked,declined,timeout,closed,error" doc:"How the session ended."`
 	Paths    []string `json:"paths" doc:"The answer when picked; null otherwise."`
+	Message  string   `json:"message,omitempty" doc:"Optional user-authored message sent with the files by --pick-web (up to 2,000 Unicode characters); omitted when empty."`
 	Error    string   `json:"error" doc:"Why, when status is error; empty otherwise."`
 }
 
@@ -397,8 +402,11 @@ type resumed struct {
 // still says what came of the session, and --resume says it again, until
 // --cancel or pruneSessions removes it.
 func answer(st state, asJSON bool, stdout io.Writer) error {
+	if st.Status != statusPicked {
+		st.Message = ""
+	}
 	if asJSON {
-		_ = json.NewEncoder(stdout).Encode(resumed{Protocol: protocolVersion, Status: st.Status, Paths: st.Paths, Error: st.Error})
+		_ = json.NewEncoder(stdout).Encode(resumed{Protocol: protocolVersion, Status: st.Status, Paths: st.Paths, Message: st.Message, Error: st.Error})
 	}
 	switch st.Status {
 	case statusPicked:

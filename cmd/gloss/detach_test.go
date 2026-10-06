@@ -88,7 +88,7 @@ func TestConcludeAfterCancelWritesNothing(t *testing.T) {
 	dir := settle(t, testToken, state{Status: statusWaiting})
 	_, file := detachedPaths(testToken)
 	os.Remove(file)
-	conclude(testToken, errCancelled, nil, true)
+	conclude(testToken, errCancelled, nil, true, "")
 	if _, err := os.Stat(file); !os.IsNotExist(err) {
 		t.Fatal("conclude brought a cancelled state back")
 	}
@@ -175,7 +175,7 @@ func TestConcludeKeepsFilesOnlyForAnAnswer(t *testing.T) {
 		{errors.New("bad"), true, false, statusError},
 	} {
 		dir := settle(t, testToken, state{Status: statusWaiting})
-		conclude(testToken, tt.err, []string{filepath.Join(dir, "a")}, tt.pick)
+		conclude(testToken, tt.err, []string{filepath.Join(dir, "a")}, tt.pick, "user reply")
 		_, file := detachedPaths(testToken)
 		st, err := readState(file)
 		_, statErr := os.Stat(dir)
@@ -184,6 +184,9 @@ func TestConcludeKeepsFilesOnlyForAnAnswer(t *testing.T) {
 		}
 		if tt.want != statusPicked && len(st.Paths) != 0 {
 			t.Errorf("%s keeps paths: %v", tt.want, st.Paths)
+		}
+		if (st.Message == "user reply") != tt.keeps {
+			t.Errorf("%s retained the wrong message: %q", tt.want, st.Message)
 		}
 	}
 }

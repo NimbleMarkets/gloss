@@ -24,6 +24,11 @@ this file consistent with the code.
   (`testdata/scripts`, `task browse:screens`). Change the
   browser by adding a script first.
 - `internal/document`: bounded loaders, renderers, and vision-image sizing.
+- `internal/app/qr.go`: table URL overlay using the external
+  `github.com/NimbleMarkets/ntcharts-qrcode/qrcode` component. Gloss provides
+  capability, cell geometry, and fresh image IDs. `u` opens, `Esc` closes,
+  and `e` exports. The library owns encoding, the four-module quiet zone,
+  Kitty rendering, direct half-block fallback, fit errors, and image cleanup.
 - `web`: the browser demo site and the page `--serve` shows; has its own
   Node-tested helpers (`node --test web/*.test.mjs`).
 - `examples`: small original runnable fixtures; `examples/demo` is a separate
@@ -138,7 +143,7 @@ Agent-facing / scriptable surface:
   `--resume TOKEN` reads the state file and answers as a pick does (0, 2, 124),
   and leaves the state in place. `--status TOKEN` only looks: it prints one
   JSON object (`protocol`; `state` waiting, picked, declined, timeout, closed,
-  or failed; `settled`; `paths`; `error`; `seconds_left`) and exits 0 whenever
+  or failed; `settled`; `paths`; optional web-pick `message`; `error`; `seconds_left`) and exits 0 whenever
   it reported, 1 for no such session, also after `--resume`. It must change
   nothing, not the state file nor the folder: `observe` in `detach.go` works
   out an overdue or dead waiting state for both, and only `--resume` writes the
@@ -148,6 +153,20 @@ Agent-facing / scriptable surface:
   delete, and are removed on timeout/decline/cancel. A start prunes states a
   day past their deadline.
   This is how a non-terminal agent asks a human for a file or shows one.
+- `--pick-web`: experimental upload-only HTML/JS request page; implies
+  `--serve --pick`, with no terminal, WASM, host-file browser, or file-download
+  endpoint. Takes no initial files, `--glob`, or `--fetch`. Choose/drop uploads
+  into the session folder, Remove deletes an upload, Send confirms exact upload
+  IDs plus an optional **Message to requester**, and Cancel declines without
+  sending the message. Replies are bounded to 2,000 Unicode characters and
+  accompany at least one file. Nonempty messages appear as `message` in picked
+  status/resume JSON and confirmed foreground `--pick-web --json` output;
+  plain text remains paths-only. The unsent draft survives refresh in browser
+  session storage when available; it is cleared on Send/Cancel.
+  At most 200 files, 128 MiB each, 1 GiB per session;
+  `--accept` applies. Refresh restores completed uploads; closing a tab leaves
+  the request waiting until confirmation, cancellation, or timeout. Same
+  detached startup/status/resume protocol and exit codes; still localhost-only.
 - `--type` overrides content detection; `-` reads stdin once into a temp file.
 
 ## Build, test, verify
@@ -157,7 +176,8 @@ Uses [Task](https://taskfile.dev/); without it, `go build -o gloss ./cmd/gloss`.
 - `task build` / `task run -- <args>` / `task install`. `build` is skipped when
   nothing the binary is made of has changed (its `sources` in `Taskfile.yml`:
   the Go of its packages, embedded files, `go.mod`/`go.sum`; and the version
-  asked for); a test (`internal/tools/taskcheck`) fails if a file the binary
+  asked for). With an active Go workspace, it always invokes Go to track
+  changes in sibling modules. A test (`internal/tools/taskcheck`) fails if a file the binary
   uses is missing from them, as when a package outside `internal/` is added.
 - `task test` — `go test ./...`; `task test-race`, `task vet`
 - `task browse:test` / `browse:screens` / `browse:bench` / `browse:gif SCRIPT=name` —

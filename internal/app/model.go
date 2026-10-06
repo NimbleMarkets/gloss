@@ -110,6 +110,7 @@ type Model struct {
 	opts                     Options
 	loader                   *document.Loader
 	pic                      picture.Model
+	qr                       *qrOverlay
 	width, height, index     int
 	page, pages              int
 	generation               uint64
@@ -183,6 +184,9 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Close() error {
+	if m.qr != nil {
+		m.qr.model.Close()
+	}
 	if m.markdown != nil {
 		m.markdown.close()
 	}
@@ -200,14 +204,15 @@ func (m *Model) Err() error { return m.err }
 // quit gives the terminal back. Graphics are taken down with the alternate
 // screen. On the main screen the document is left as it was last seen.
 func (m *Model) quit() tea.Cmd {
+	qrCleanup := m.clearQR()
 	if !m.opts.KeepScreen {
-		return tea.Sequence(tea.Batch(m.clearGraphics(), m.disposePreview()), tea.Quit)
+		return tea.Sequence(tea.Batch(qrCleanup, m.clearGraphics(), m.disposePreview()), tea.Quit)
 	}
 	m.quitting, m.help = true, false
 	if m.browsing() {
 		m.showDocument()
 	}
-	return tea.Quit
+	return tea.Sequence(qrCleanup, tea.Quit)
 }
 
 // IsStdin says whether path is the file standard input was read into.
@@ -285,7 +290,7 @@ func (m *Model) clearChart() tea.Cmd {
 
 func (m *Model) clearGraphics() tea.Cmd {
 	m.sheet = nil
-	return tea.Batch(m.clearChart(), m.clearMarkdown(), m.pic.SetImage(nil))
+	return tea.Batch(m.clearQR(), m.clearChart(), m.clearMarkdown(), m.pic.SetImage(nil))
 }
 
 func (m *Model) clearMarkdown() tea.Cmd {
@@ -324,7 +329,16 @@ func (m *Model) movePage(page int) tea.Cmd {
 	return m.load(false)
 }
 
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *Model) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
+	defer func() {
+		if m.qr != nil {
+			cw, ch := m.pic.CellPixelSize()
+			cmd = tea.Batch(cmd, m.qr.model.SetTerminal(m.pic.Mode() == picture.PictureKitty, cw, ch), m.layoutQR(), m.qr.model.Update(msg))
+		}
+	}()
+	if _, mouse := msg.(tea.MouseMsg); mouse && m.qr != nil {
+		return m, nil
+	}
 	if m.browsing() {
 		if _, ok := msg.(tea.MouseMsg); ok {
 			if m.help || m.opener.find != nil {
@@ -468,7 +482,7 @@ func (m *Model) loaded(v document.Result) tea.Cmd {
 	if v.Err != nil {
 		return m.clearGraphics()
 	}
-	cleanup := tea.Batch(m.clearMarkdown(), m.clearChart())
+	cleanup := tea.Batch(m.clearQR(), m.clearMarkdown(), m.clearChart())
 	m.sheet = nil
 	m.kind, m.page, m.pages = v.Kind, v.Page, v.Pages
 	if v.Sheet != nil {

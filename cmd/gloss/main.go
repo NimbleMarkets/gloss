@@ -41,6 +41,7 @@ func main() {
 type options struct {
 	app.Options
 	Serve, NoOpen bool
+	PickWeb       bool // Experimental upload-only page, without a terminal viewer.
 	Timeout       time.Duration
 	Info, JSON    bool
 	FetchAllowed  bool
@@ -85,8 +86,9 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	f.StringArrayVar(&opts.Globs, "glob", nil, "search the folders named, or the current one, for files: a glob, an extension, or a kind such as images (repeatable)")
 	f.BoolVar(&opts.FetchAllowed, "fetch", false, "allow opening a dropped URL or a table address with Enter; gloss never fetches on its own")
 	f.BoolVar(&opts.Info, "info", false, "print what each file says about itself, and do not open the viewer")
-	f.BoolVar(&opts.JSON, "json", false, "with --info, --text, --grep, an export, or --resume, print JSON")
+	f.BoolVar(&opts.JSON, "json", false, "with --info, --text, --grep, an export, --pick-web, or --resume, print JSON")
 	f.BoolVar(&opts.Pick, "pick", false, "wait for the user to hand over files: Enter prints their paths and quits")
+	f.BoolVar(&opts.PickWeb, "pick-web", false, "experimental file request with Choose files and Send buttons, without a terminal; implies --serve --pick; takes no input files")
 	f.BoolVar(&opts.Serve, "serve", false, "show the viewer on a web page, from a temporary server on this machine")
 	f.BoolVar(&opts.NoOpen, "no-open", false, "with --serve, print the page's address without opening a browser")
 	f.DurationVar(&opts.Timeout, "timeout", 0, "with --serve or --pick, give up after this long (as 90s or 10m)")
@@ -165,6 +167,12 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	}
 	if f.Changed("install") {
 		return opts, false, fmt.Errorf("--install goes with --skill: gloss skill install")
+	}
+	if opts.PickWeb {
+		opts.Serve, opts.Pick = true, true
+		if f.NArg() > 0 || len(opts.Globs) > 0 || opts.FetchAllowed || opts.Menu || opts.Preview {
+			return opts, false, fmt.Errorf("--pick-web accepts browser uploads only: no input files, --glob, --fetch, --menu, or --preview")
+		}
 	}
 	if !slices.Contains([]string{"auto", "kitty", "glyph"}, opts.Render) {
 		return opts, false, fmt.Errorf("--render must be auto, kitty, or glyph")
@@ -260,8 +268,8 @@ func parse(args []string, out io.Writer) (options, bool, error) {
 	switch {
 	case opts.Grep != nil && (opts.Output != "" || opts.OutputDir != "" || opts.Info || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen || opts.FetchAllowed):
 		return opts, false, fmt.Errorf("--grep prints the matches and exits; it cannot be combined with an export, --info, or the viewer's options")
-	case opts.JSON && opts.Grep == nil && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "" && opts.Resume == "":
-		return opts, false, fmt.Errorf("--json goes with --info, --text, --grep, or an export")
+	case opts.JSON && opts.Grep == nil && !opts.Info && !opts.Text && opts.Output == "" && opts.OutputDir == "" && opts.Resume == "" && !opts.PickWeb:
+		return opts, false, fmt.Errorf("--json goes with --info, --text, --grep, an export, --pick-web, or --resume")
 	case opts.Info && (opts.Output != "" || opts.OutputDir != "" || opts.Text || opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen):
 		return opts, false, fmt.Errorf("--info prints and exits; it cannot be combined with the viewer's or export's options")
 	case opts.Text && (opts.Serve || opts.Pick || opts.Menu || opts.Preview || opts.KeepScreen || opts.FetchAllowed):
@@ -337,7 +345,7 @@ func run(args []string) (err error) {
 	}
 	if opts.Detached != "" {
 		// The server of a detached start: it answers through its state.
-		defer func() { conclude(opts.Detached, err, picked, opts.Pick) }()
+		defer func() { conclude(opts.Detached, err, picked, opts.Pick, pickedMessage) }()
 	}
 	stdinTTY := term.IsTerminal(os.Stdin.Fd())
 	opts.MarkdownBase, err = os.Getwd()
@@ -477,6 +485,7 @@ func run(args []string) (err error) {
 
 // What the user picked, which a fetched file may be among.
 var picked []string
+var pickedMessage string // Optional reply from the plain web picker.
 
 // discardFetched empties the folder of fetched files, except for what was
 // picked, and removes the folder once nothing is left in it.
@@ -507,11 +516,16 @@ func arguments(opts options, terminal bool) []string {
 
 // served shows the viewer on a page, and waits for it to be done with.
 func served(opts options, stdout, stderr io.Writer) error {
+	pickedMessage = ""
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	ctx, end := context.WithCancel(ctx)
 	defer end()
-	s, err := serve(ctx, opts.Options)
+	start := serve
+	if opts.PickWeb {
+		start = serveWebPick
+	}
+	s, err := start(ctx, opts.Options)
 	if err != nil {
 		return err
 	}
@@ -534,6 +548,15 @@ func served(opts options, stdout, stderr io.Writer) error {
 		s.Close()
 		s.ended.Do(func() { close(s.done) })
 	}()
+	if opts.PickWeb {
+		picked, pickedMessage, err = s.waitWebPick(ctx, opts.Timeout)
+		if err != nil {
+			s.Discard()
+			return err
+		}
+		discardFetched(s.dir, picked)
+		return answer(state{Status: statusPicked, Paths: picked, Message: pickedMessage}, opts.JSON, stdout)
+	}
 	m, err := s.Wait(opts.Timeout)
 	if err == nil && m == nil {
 		err = errCancelled
@@ -551,6 +574,7 @@ func served(opts options, stdout, stderr io.Writer) error {
 // finish reports what came of the viewer once the screen is given back:
 // what was skipped, and the paths a pick was waiting for.
 func finish(m *app.Model, opts options, stdout, stderr io.Writer) error {
+	pickedMessage = ""
 	picked = m.Picked()
 	for _, line := range m.Skipped() {
 		fmt.Fprintln(stderr, line)

@@ -62,6 +62,7 @@ type server struct {
 	pick    bool
 	fetch   bool
 	accept  document.AcceptFilter
+	webPick *webPick // Present only for the experimental upload-only page.
 
 	token, secret string
 	cancel        context.CancelFunc
@@ -248,6 +249,10 @@ func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
+	if s.webPick != nil {
+		s.serveWebPick(w, r, rest)
+		return
+	}
 	switch {
 	case rest == "":
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -321,7 +326,7 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		if part.FileName() == "" || name == "." || name == ".." || name == "/" || !usableName(name) {
 			continue
 		}
-		if len(paths) == maxDrops {
+		if len(paths) == maxDrops || (s.webPick != nil && len(s.webPick.files)+len(paths) >= maxWebPickFiles) {
 			fail(http.StatusRequestEntityTooLarge, "too many files")
 			return
 		}
@@ -358,6 +363,12 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(paths) == 0 {
 		fail(http.StatusBadRequest, "nothing in the drop could be used")
+		return
+	}
+	if s.webPick != nil {
+		if err := s.webPick.add(w, paths); err != nil {
+			fail(http.StatusInternalServerError, "could not register uploads")
+		}
 		return
 	}
 	select {

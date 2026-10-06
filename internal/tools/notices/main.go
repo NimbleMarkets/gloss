@@ -113,7 +113,7 @@ NTCharts3d software renderer, whose license is among those below.
 			missing = append(missing, p)
 			continue
 		}
-		section(&b, m.path+" "+m.version, "", bytes.Join(texts, []byte("\n\n")))
+		section(&b, strings.TrimSpace(m.path+" "+m.version), "", bytes.Join(texts, []byte("\n\n")))
 	}
 	if len(missing) > 0 {
 		return fmt.Errorf("no license file in: %s", strings.Join(missing, ", "))

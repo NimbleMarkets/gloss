@@ -33,7 +33,7 @@ func (m *Model) key(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 		}
 		return nil, true
 	}
-	if (k == "o" || k == "O") && m.layer != layerColumns && m.layer != layerParts && m.layer != layerColor {
+	if (k == "o" || k == "O") && m.layer != layerColumns && m.layer != layerParts && m.layer != layerColor && m.layer != layerQR {
 		return m.openBrowser(), true
 	}
 	if m.listing() {
@@ -110,6 +110,9 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 		}
 	}
 	if m.sheet != nil {
+		if k == "u" && m.sheet.url() != "" {
+			return m.openQR(m.sheet.url()), true
+		}
 		if k == "c" {
 			m.sheet.picker = &columnPicker{at: m.sheet.column()}
 			m.layer = layerColumns
@@ -209,6 +212,17 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 // it took the key. Esc closes it.
 func (m *Model) layerKey(k string) (tea.Cmd, bool) {
 	switch m.layer {
+	case layerQR:
+		switch k {
+		case "esc", "u":
+			return m.closeLayer(), true
+		case "g":
+			m.autoKitty = false
+			return m.pic.Toggle(), true
+		case "e":
+			return m.exportQR(), true
+		}
+		return nil, true
 	case layerNone:
 		return nil, false
 	case layerInfo:

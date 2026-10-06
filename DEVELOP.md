@@ -53,16 +53,73 @@ separate browser-demo module:
 
 - `cmd/gloss`: CLI flags, stdin handling, export orchestration, and the
   temporary server behind `--serve`.
-- `web`: the demo site, and the page `--serve` shows.
+- `web`: the demo site, the page `--serve` shows, and the experimental plain-JS
+  `--pick-web` request page (`pick.html`, `pick.mjs`, `pick-api.mjs`).
 - `internal/app`: terminal pager, selection menu, and Markdown layout.
 - `internal/browse`: the file chooser behind the `o` browser, a Bubble Tea
   component of its own (see below); `internal/browse/browsetest` is its test
   harness.
 - `internal/document`: bounded loaders, renderers, and vision image sizing.
+- `internal/app/qr.go`: table URL overlay using the external ntcharts-qrcode component.
 - `examples`: small runnable fixtures.
 - `scripts`: site building and fixture generation.
 - `docs/hugo`: the documentation site, published at `/docs/` beside the demo.
 - `skills/gloss`: the agent skill the binary carries (`gloss skill`).
+
+## QR component
+
+The reusable encoder and terminal component live in
+[ntcharts-qrcode](https://github.com/NimbleMarkets/ntcharts-qrcode), imported as
+`github.com/NimbleMarkets/ntcharts-qrcode/qrcode`. Gloss pins a repository
+revision in `go.mod`; there is no local replacement or copied implementation.
+The library owns module/image generation, quiet zones, Kitty and half-block
+rendering, bounds, fit errors, and image cleanup. Its decoder and lifecycle
+unit tests live with the component. See its README and DEVELOP for the API,
+encoder assessment, and NTCharts exact-size rendering contract.
+
+The updated local library uses `piglig/go-qr` for optimized QR segments and
+explicit UTF-8 encoding. Gloss uses the default options: the smallest fitting
+symbol with at least medium correction, raised when a stronger level fits the
+same size. We do not pin a symbol version; long URLs retain the full available
+capacity. Until that library revision is published, the committed module pin
+still selects the initial encoder; use the local workspaces below to adopt
+the updated code without publishing or adding filesystem replacements.
+
+`internal/app/qr.go` owns the overlay, selected table URL, and export through
+gloss's existing non-overwriting save hook. The app supplies `nextKittyID`,
+its detected graphics mode and cell geometry, and space inside the overlay.
+It forwards event-loop messages and executes commands from every setter,
+`Update`, and `Close`. `internal/app/qr_test.go` retains the host integration
+checks for keys, layout, removal/replacement cleanup, and PNG export decoding.
+
+Try `./gloss examples/qr-links.csv`, select a URL (Down), and press `u`.
+`e` exports `qr.png`. The compact overlay shows a single URL footer, ellipsized
+when needed; closing it returns to the original table cell. The complete code
+and four-module quiet zone are preserved. No URL is fetched by displaying it,
+and localhost URLs do not become reachable from another device.
+
+For joint local development with sibling checkouts, run:
+
+```sh
+go work init . ../ntcharts-qrcode
+(cd examples/demo && go work init . ../.. ../../../ntcharts-qrcode)
+```
+
+If a workspace already exists, use `go work use` to add the same paths.
+Both `go.work` files and their sums are ignored. The separate demo workspace
+keeps its Bubble Tea WASM replacement out of the native build. Ordinary
+`task build`, `task ci`, and `task demo-check` then use the local library.
+With an active workspace, `task build` always invokes Go so edits in sibling
+modules cannot leave a stale binary. Go's own incremental cache still applies.
+`task notices` records the dependencies actually linked by that workspace;
+regenerate notices after switching it on or off. `GOWORK=off` selects the
+published module pins. Once the new revision is published, update both module
+pins, remove the local workspaces, and regenerate notices. Do not commit a
+filesystem `replace` into either module.
+
+The standalone library's `examples/qrcode` demonstrates two components and
+has native and WASM builds. Real terminal/font/tmux and phone-camera checks
+remain manual acceptance checks; automated decoders do not replace them.
 
 ## The file browser
 
@@ -197,6 +254,38 @@ packages, and SHA-256 checksums go to a GitHub Release, and a cask to the
 `task release` produces the same in `dist/` as a snapshot, without publishing.
 Release binaries use software STL rendering when native GPU support is
 unavailable.
+
+## Plain web pick spike
+
+`gloss --pick-web --prompt "Choose a receipt" --timeout 10m` serves the
+experimental HTML/JS upload page, without starting Booba or a terminal model.
+Off a terminal it detaches as usual; open the returned `url`, then use
+`gloss --resume TOKEN` to retrieve the confirmed paths. This remains local-only.
+
+`cmd/gloss/pick_web.go` owns the request state. Under the token URL, `GET files`
+lists completed uploads as `{state, files: [{id, name, size}]}`; `POST files`
+accepts multipart uploads and returns the new file entries; `DELETE files/ID`
+removes one; `POST confirm` takes `{ids: [...], message?: "..."}`;
+`POST decline` declines. Message text is bounded to 2,000 Unicode code points,
+with a 32 KiB confirmation-body cap allowing JSON escapes and 200 upload IDs.
+Whitespace-only text becomes absent; other whitespace and Unicode are preserved.
+An accepted confirmation can only be retried with the same paths and message.
+Only IDs name uploads across this boundary. The page cannot read host paths or
+download files. `pick-api.mjs` is the frontend boundary a hosted prototype could
+replace; no hosted service or deployment is included here.
+
+API operations serialize upload, removal, and confirmation. The existing
+bounded receiver stores files; settlement drains the HTTP response before
+shutdown and removes unconfirmed uploads. Refresh recovers completed uploads;
+the final result remains in detached status/resume state, not at the page URL.
+The page keeps the unsent message in session storage scoped to the token URL,
+clearing it on Send/Cancel. Storage failures do not prevent sending. Accepted
+messages are persisted with the detached answer and exposed only in JSON;
+ordinary stdout stays paths-only. The protocol remains version 1: the optional
+`message` field is an additive change. The reflected schema documents it.
+There is no durable browser receipt or interrupted-upload resumption in this
+spike. Request tests cover the detached round trip, token/origin checks,
+confirmation IDs, cleanup, and limits; `task web-check` tests the JS adapter.
 
 ## The browser demo
 

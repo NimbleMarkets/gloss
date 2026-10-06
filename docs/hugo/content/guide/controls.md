@@ -22,6 +22,7 @@ bookToC: false
 | `x`, `X` | Hide the column under the cursor / show every column |
 | `c` | List the columns, to show and hide them: `Space` toggles, `a` all, `n` none |
 | `Enter` | With `--fetch`, open the web address under the cursor |
+| `u` | Show a QR code for the selected table URL; `Esc` or `u` closes it, `g` switches graphics, `e` exports the QR |
 | `Esc` | Close a fetched file and return to its cell |
 | `+`, `-` | Zoom in / out |
 | Arrows, `h j k l` | Pan zoomed images; orbit meshes |
@@ -115,6 +116,29 @@ render it, honors `--max-edge`, and is named after the file
 number instead. The browser demo, and a page shown with `--serve`, offer the
 PNG as a download instead: what is saved goes where the browser saves, not
 where gloss runs.
+
+In a table, select a cell containing an http(s) URL and press `u` to show its QR
+code. This does not fetch the URL and needs no `--fetch`. The original cell
+stays unchanged; the overlay shows up to two lines of the address. `Esc` or `u`
+returns to the table. While the QR is open, `e` saves it as `qr.png` (numbering
+the name if it exists), or offers a download in the browser. This export uses
+eight pixels per module and includes the white border.
+
+QR codes use black on white, at least medium error correction, and a four-module
+quiet zone. Correction increases when it fits without making the code larger.
+The compact overlay keeps a single URL footer (ellipsized if needed);
+the full text remains in the table, and the status bar shows the available keys.
+They use Kitty graphics when available, with a direct Unicode half-block
+fallback. If the whole code cannot fit, gloss reports that instead of cropping
+it; enlarge the terminal or export the PNG. Glyph rendering assumes a 1:2 cell
+ratio until the terminal reports its size. It allows slightly rectangular
+modules (up to 12.5% side-length difference) to fit ordinary font proportions;
+Kitty and PNG modules are exactly square. Unusual fonts may still need more
+space. Camera readability still depends on the
+terminal, font, display size, and camera. A QR code does not make a local or
+private URL reachable from another device; it is not a phone-upload handoff.
+
+Try `gloss examples/qr-links.csv` from the repository, then Down and `u`.
 
 Press `i` for what a file says about itself. Every format shows its path, size,
 and modification time, followed by:

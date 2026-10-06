@@ -48,6 +48,57 @@ fetched from an address in a table or a dropped URL can be picked too; it is the
 | 2 | Nothing was chosen |
 | 124 | `--timeout` ran out |
 
+## Plain web picker (experimental)
+
+```sh
+gloss --pick-web --prompt "Choose the March invoice" --accept pdf --timeout 10m
+```
+
+`--pick-web` is an upload-only alternative to the terminal viewer. It implies
+`--serve --pick` and shows an ordinary HTML/JavaScript page with **Choose files**,
+upload progress, a file list, **Remove**, **Send files**, and **Cancel**. It needs
+no terminal connection or WASM. Small browser-supported images get local
+thumbnails; other files show their names and sizes. It does not browse the
+server's folders or provide downloads of its files.
+
+Files upload to the computer running gloss as you choose or drop them. They
+become the answer only when you press **Send files**. **Remove** deletes an
+upload, and **Cancel** declines the request and removes its uploads. Refreshing
+the page recovers completed uploads (names and sizes; local thumbnails are not
+retained). Closing the tab leaves the request waiting; use `--timeout` to bound
+its lifetime. A confirmation ends the server, so the finished link is not a
+lasting receipt; the requester can check `--status` or `--resume`.
+
+**Message to requester** is an optional reply sent with the selected files.
+It accepts up to 2,000 Unicode characters, including line breaks. At least one
+file is still required. The draft stays in this browser tab and survives a
+refresh when browser session storage is available; it is sent only with
+**Send files**, never with **Cancel**. A successful send or cancel clears it.
+
+Use `gloss --resume TOKEN --json` to collect both paths and the message:
+
+```json
+{"protocol":1,"status":"picked","paths":["/tmp/gloss-pick-…/receipt.pdf"],"message":"Page 2 is missing.","error":""}
+```
+
+`--status TOKEN` also includes `message` once picked. Empty or whitespace-only
+messages are omitted. Repeated status/resume calls retain the same message;
+plain-text output remains file paths only. With terminal stdin,
+`--pick-web --json` prints the same object on confirmation. This is a message
+from the person sending files, distinct from the requester's `--prompt`.
+
+The spike accepts at most 200 files, 128 MiB per file, and 1 GiB total. Uploads
+have a two-minute deadline. `--accept` checks content formats; this page does
+not run document renderers to validate or preview uploads. It takes no initial
+files, `--glob`, `--fetch`, `--menu`, or `--preview`. The existing viewer remains
+available with `--serve --pick`.
+
+With terminal stdin it opens a browser and waits, printing the confirmed full
+paths; `--no-open` prints the address on stderr instead of opening it. Without
+terminal stdin it detaches, with the same startup JSON, `--status`, `--resume`,
+`--cancel`, exit codes, and cleanup described below. It is still localhost-only:
+this spike adds neither LAN access nor a hosted handoff service.
+
 ## Required formats
 
 Use `--accept 'image/*'` for images (including SVG), or a comma-separated list

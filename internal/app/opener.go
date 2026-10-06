@@ -332,7 +332,7 @@ func (m *Model) browseFrom(dir string) tea.Cmd {
 	m.opener.resize(m.width, m.bodyHeight())
 	m.screen, m.help = screenBrowser, false
 	m.keepLayer()
-	return m.opener.picker.Init()
+	return tea.Batch(m.clearQR(), m.opener.picker.Init())
 }
 
 func (m *Model) browse(msg tea.Msg) tea.Cmd {

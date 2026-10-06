@@ -18,6 +18,7 @@ require (
 	github.com/NimbleMarkets/booba-shim v0.1.0 // indirect
 	github.com/NimbleMarkets/go-gpuimage v0.1.0 // indirect
 	github.com/NimbleMarkets/ntcharts-pdf v0.3.1 // indirect
+	github.com/NimbleMarkets/ntcharts-qrcode v0.0.0-20261005213812-74d99c6f0981 // indirect
 	github.com/NimbleMarkets/ntcharts-svg v0.3.0 // indirect
 	github.com/NimbleMarkets/ntcharts/v2 v2.4.0 // indirect
 	github.com/NimbleMarkets/ntcharts3d v0.2.1 // indirect
@@ -57,6 +58,7 @@ require (
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/neomantra/sqlittle v0.0.0-20261001025832-4a4bc3e212fa // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/tetratelabs/wazero v1.12.0 // indirect
 	github.com/xo/terminfo v1.2.0 // indirect

@@ -101,7 +101,7 @@ const helpText = "gloss — a visual pager\n\n" +
 	"n / p / Space  next / previous PDF page (or file)\n" +
 	"Home / End     first / last PDF page\n" +
 	"+ / -          zoom\nh j k l / arrows  pan image / orbit mesh\n" +
-	"f / 0          fit / reset view\ng              toggle Kitty / glyph\n" +
+	"f / 0          fit / reset view\ng              toggle Kitty / glyph; tables: u QR of URL\n" +
 	"R              reload file\n" +
 	"e / i          export as PNG / file details\n" +
 	"r              auto-rotate mesh (reload other files)\n" +
@@ -177,6 +177,8 @@ func (m *Model) layered(body string, w, h int) string {
 		return body
 	}
 	switch m.layer {
+	case layerQR:
+		return overlay(body, m.qrView(w, h), w, 0)
 	case layerInfo:
 		// The mesh view keeps its own title on the first row.
 		top := 0
@@ -345,6 +347,8 @@ func (m *Model) hints() string {
 	}
 	// A layer takes the keys while it is up.
 	switch m.layer {
+	case layerQR:
+		return " Esc/u close QR · g graphics · e export QR · q quit"
 	case layerColumns:
 		return " ↑/↓ select · Space show/hide · a all · n none · Esc close"
 	case layerParts:
@@ -366,6 +370,9 @@ func (m *Model) hints() string {
 		}
 		if m.sheet.url() != "" && m.opts.Fetch != nil {
 			keys = " Enter open address ·" + strings.TrimPrefix(keys, " q quit ·")
+		}
+		if m.sheet.url() != "" {
+			keys = " u QR of address ·" + strings.TrimPrefix(keys, " q quit ·")
 		}
 	case m.chart != nil && m.mesh != nil:
 		keys = " q quit · ? help · m files · [/] files · e export · i info · C color · B bg-color"
