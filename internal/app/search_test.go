@@ -73,7 +73,7 @@ func TestDocumentSearchInputAndNavigation(t *testing.T) {
 		t.Fatal("cancel lost committed query")
 	}
 	m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
-	if m.search != nil || m.markdown.search != nil || m.screen != screenDocument {
+	if m.search != nil || m.markdown.highlights != nil || m.screen != screenDocument {
 		t.Fatal("Esc did not clear only search")
 	}
 	queryDocument(t, m, "missing")

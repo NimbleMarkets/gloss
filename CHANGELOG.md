@@ -4,11 +4,16 @@
 
   * **Document text search**
     * `/` opens a Unicode-aware literal, case-insensitive query; `n`/`N` visit
-      matching lines/cells/pages and `Esc` clears it
+      text occurrences/cells/pages and `Esc` clears it
     * Highlight displayed text and visible-column table cells; PDF text search
       jumps to matching pages with excerpts, reporting pages without text
     * Bounded asynchronous searches cancel on reload or leaving the document,
       reject stale results, and reindex after layout/source/column changes
+    * Search logical text before wrapping: long words and phrases match across
+      screen rows, highlights span their fragments, and resizing preserves the
+      selected occurrence and result count
+    * Markdown table cells and headers wrap independently; very narrow layouts
+      stack cells instead of losing right-hand columns
 
   * **Animated GIFs**
     * Automatic playback in Kitty and glyph modes with frame transparency,

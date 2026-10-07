@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -26,11 +27,12 @@ const (
 
 type searchPattern = regexp.Regexp
 
-// A match is one displayed line, visible-column cell, or PDF page. Every
-// occurrence on the line/cell is highlighted; PDF results carry an excerpt.
+// Text matches retain logical byte offsets across reflow. Tables and PDFs
+// continue to group results by cell and page respectively.
 type textMatch struct {
-	row, col, page int
-	excerpt        string
+	row, col, page   int
+	unit, start, end int
+	excerpt          string
 }
 
 type searchWorker struct{ sync.Mutex }
@@ -50,6 +52,8 @@ type textSearch struct {
 	layout           uint64
 	sheet            *sheetView
 	columns          []int
+	content          *markdownContent
+	anchor           *textMatch
 }
 
 type searchResult struct {
@@ -78,7 +82,7 @@ func (m *Model) clearSearch() {
 		m.search.cancel()
 	}
 	if m.markdown != nil {
-		m.markdown.search = nil
+		m.markdown.highlights = nil
 	}
 	if m.sheet != nil {
 		m.sheet.search = nil
@@ -115,6 +119,8 @@ func (m *Model) searchKey(msg tea.KeyPressMsg) tea.Cmd {
 			m.clearSearch()
 		}
 	case "enter":
+		s.anchor = nil
+		s.matches = nil
 		s.editing, s.query = false, string(s.draft)
 		if s.query == "" {
 			m.clearSearch()
@@ -187,6 +193,14 @@ func (m *Model) syncSearch() tea.Cmd {
 
 func (m *Model) startSearch() tea.Cmd {
 	s := m.search
+	if m.markdown != nil && m.markdown == s.markdown && m.markdown.content == s.content {
+		if s.at >= 0 && s.at < len(s.matches) {
+			hit := s.matches[s.at]
+			s.anchor = &hit
+		}
+	} else {
+		s.anchor = nil
+	}
 	if s.cancel != nil {
 		s.cancel()
 	}
@@ -195,14 +209,15 @@ func (m *Model) startSearch() tea.Cmd {
 	s.revision++
 	s.running, s.matches, s.at, s.note = true, nil, -1, ""
 	s.markdown, s.sheet = m.markdown, m.sheet
-	var lines []markdownLine
+	var content *markdownContent
 	var sheet *document.Sheet
 	var columns []int
 	if m.markdown != nil {
 		s.layout = m.markdown.layoutVersion
-		m.markdown.search = s.pattern
-		lines, s.unit = m.markdown.lines, "lines"
+		content, s.unit = m.markdown.content, "matches"
+		m.markdown.highlights = nil
 	}
+	s.content = content
 	if m.sheet != nil {
 		m.sheet.search = s.pattern
 		sheet = m.sheet.sheet
@@ -247,7 +262,16 @@ func (m *Model) startSearch() tea.Cmd {
 				}
 			}
 			used += len(text)
-			if loc := pattern.FindStringIndex(text); loc != nil {
+			count := 1
+			if content != nil {
+				count = maxSearchHits - len(out.matches) + 1
+			}
+			for _, loc := range pattern.FindAllStringIndex(text, count) {
+				if len(out.matches) == maxSearchHits {
+					out.note = "partial results: search limit reached"
+					break
+				}
+				hit.start, hit.end = loc[0], loc[1]
 				hit.excerpt = searchExcerpt(text, loc[0], loc[1])
 				out.matches = append(out.matches, hit)
 			}
@@ -257,14 +281,12 @@ func (m *Model) startSearch() tea.Cmd {
 			}
 		}
 		switch {
-		case lines != nil:
-			for row, line := range lines {
+		case content != nil:
+			for id, unit := range content.units {
 				if stopped() {
 					break
 				}
-				if line.image < 0 {
-					add(ansi.Strip(line.text), textMatch{row: row})
-				}
+				add(unit.plain, textMatch{unit: id})
 			}
 		case sheet != nil:
 		rows:
@@ -316,6 +338,17 @@ func (m *Model) searched(result searchResult) tea.Cmd {
 		return nil
 	}
 	s.matches, s.note, s.running = result.matches, result.note, false
+	if m.markdown != nil {
+		m.markdown.projectMatches(s.matches)
+		if s.anchor != nil {
+			for i, hit := range s.matches {
+				if hit.unit == s.anchor.unit && hit.start == s.anchor.start {
+					s.at = i - 1
+					return m.nextMatch(1)
+				}
+			}
+		}
+	}
 	// Start at the current reading position, wrapping if it has no later hit.
 	for i, hit := range s.matches {
 		if (m.markdown != nil && hit.row >= m.markdown.offset) ||
@@ -409,7 +442,58 @@ func highlightSearch(text string, pattern *searchPattern) string {
 	if pattern == nil {
 		return text
 	}
-	hits := pattern.FindAllStringIndex(ansi.Strip(text), -1)
+	var hits [][2]int
+	for _, loc := range pattern.FindAllStringIndex(ansi.Strip(text), -1) {
+		hits = append(hits, [2]int{loc[0], loc[1]})
+	}
+	return highlightRanges(text, hits)
+}
+
+// Project logical matches onto screen fragments. A phrase can span any number
+// of wrapped rows, but never pick up a neighboring Markdown table cell.
+func (m *markdownView) projectMatches(matches []textMatch) {
+	type fragment struct {
+		textSpan
+		row int
+	}
+	fragments := map[int][]fragment{}
+	for _, hit := range matches {
+		fragments[hit.unit] = nil
+	}
+	for row, line := range m.lines {
+		for _, span := range line.spans {
+			if _, wanted := fragments[span.unit]; wanted {
+				fragments[span.unit] = append(fragments[span.unit], fragment{span, row})
+			}
+		}
+	}
+	m.highlights = map[int][][2]int{}
+	for i := range matches {
+		hit := &matches[i]
+		parts := fragments[hit.unit]
+		at := sort.Search(len(parts), func(i int) bool { return parts[i].end > hit.start })
+		if at == len(parts) {
+			at = max(0, len(parts)-1)
+		}
+		if len(parts) > 0 {
+			hit.row = parts[at].row
+		}
+		for ; at < len(parts) && parts[at].start < hit.end; at++ {
+			p := parts[at]
+			start, end := max(hit.start, p.start), min(hit.end, p.end)
+			if start < end {
+				m.highlights[p.row] = append(m.highlights[p.row], [2]int{p.offset + start - p.start, p.offset + end - p.start})
+			}
+		}
+	}
+	// Different cells in one physical row are visited in logical cell order.
+	for row, hits := range m.highlights {
+		slices.SortFunc(hits, func(a, b [2]int) int { return a[0] - b[0] })
+		m.highlights[row] = hits
+	}
+}
+
+func highlightRanges(text string, hits [][2]int) string {
 	if len(hits) == 0 {
 		return text
 	}

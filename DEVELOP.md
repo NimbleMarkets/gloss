@@ -74,8 +74,18 @@ existing key/paste routing and event loop, without a clipboard dependency, so
 the same component builds in the WASM demo. The folder browser's independent
 `/` glob search is unchanged.
 
-Workers search immutable snapshots of Markdown layout lines or sheet rows and
-visible columns. PDF searches own a separate text-only `document.Loader` and
+`internal/app/markdown_text.go` caches unwrapped Glamour text separately from
+screen rows. Each row carries UTF-8 byte spans into logical text; wrapped spaces
+and generated continuation indentation are accounted for during layout. Search
+results retain logical offsets, and projection highlights every displayed
+fragment while keeping the selected occurrence stable across resize. Markdown
+table cells are rendered independently by Glamour and composed within bounded
+column widths; this avoids unbounded natural-width table padding and preserves
+cell boundaries, alignment, hyperlinks, and inline image placement. Source and
+rendered caches are separate and immutable for the lifetime of the document.
+
+Workers search these logical text snapshots or sheet rows and visible columns.
+PDF searches own a separate text-only `document.Loader` and
 close it on completion; raster loading remains independent. Queries are literal
 RE2 expressions with Unicode case folding. Work is serialized per model, even
 across canceled query replacements, to avoid accumulating concurrent PDF
@@ -83,10 +93,11 @@ parsers. Cancellation and owner/revision checks discard late replies. Layout
 versions and column snapshots trigger reindexing after resize/source/visibility
 changes. Reload, navigation away, and shutdown cancel outstanding work.
 
-Bounds: 256 query runes, 1,000 matching lines/cells/pages, 16 MiB searched text,
+Bounds: 256 query runes, 1,000 text occurrences/cells/pages, 16 MiB searched text,
 and a 30-second context checked between units. Existing PDF extraction deadlines
 still bound an in-flight page; cancellation does not interrupt that parser.
-Text matches do not cross displayed lines or cells. PDFs navigate by page and
+Text matches cross soft wraps but not logical line/paragraph/cell boundaries.
+PDFs navigate by page and
 show excerpts, without raster highlights or OCR. The guide's Controls page
 documents these scopes and the temporary `n`/`N` bindings.
 

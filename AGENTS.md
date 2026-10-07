@@ -110,13 +110,16 @@ color picker (`C`, `--color`), background color picker (`B`), reload (`R`;
 `r` for non-mesh documents), and mesh auto-rotation (`r`).
 
 `/` starts literal, case-insensitive document search; `Enter` submits, `n`/`N`
-visit matching displayed lines, visible-column cells in the current sheet, or
+visit text occurrences, visible-column cells in the current sheet, or
 PDF pages, and `Esc` cancels editing or clears results before leaving the
 document. Text highlights follow the rendered/source layout, excluding inline
-image pixels; queries do not span displayed lines or cells. Search is bounded
+image pixels. Text search uses logical text before wrapping: phrases can span
+screen rows, resizing preserves matches and the selected occurrence, and
+highlights follow each fragment. Hard source/code line breaks, paragraph
+boundaries, and Markdown table cells remain separate. Search is bounded
 to 256 query runes, 1,000 results, 16 MiB of searchable text, and 30 seconds
 checked between extraction units. Partial/skipped PDF results are reported.
-Resizing, source toggles, and column changes reindex; leaving the document,
+Source toggles and column changes reindex; leaving the document,
 changing files, or reloading cancels. Images and meshes have no text search.
 
 Agent-facing / scriptable surface:

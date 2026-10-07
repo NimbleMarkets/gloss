@@ -57,11 +57,12 @@ the search before its usual back-to-list action, and restores `n`'s usual page
 or file navigation. `/` edits the current query; canceling that edit keeps the
 previous search, while submitting an empty query clears it.
 
-- Markdown, text/source, JSON, notebooks, HTML, and Word: search the displayed
-  text, including lines outside the viewport. Matching lines are highlighted;
-  image pixels are excluded. `s` switches between rendered and source text and
-  reruns the search. Queries do not cross displayed line boundaries, so wrapping
-  can affect matches; resizing reindexes the new layout.
+- Markdown, text/source, JSON, notebooks, HTML, and Word: search logical text,
+  including content outside the viewport. Phrases and long words can span
+  wrapped screen rows; each fragment is highlighted. Resizing preserves the
+  matches and selected occurrence. Paragraphs, explicit source/code line breaks,
+  and Markdown table cells stay separate. Image pixels are excluded. `s` switches
+  between rendered and source text and reruns the search.
 - CSV/TSV, Excel, and Grist: search full cell values in visible columns of the
   current sheet or table, including off-screen cells. Results select the cell,
   highlight visible matches, and include an excerpt for truncated values.
@@ -74,10 +75,10 @@ previous search, while submitting an empty query clears it.
   highlighting. Extraction errors are reported with any partial results.
 - Images, SVGs, GIFs, and meshes do not offer text search.
 
-Text results count matching displayed lines; table results count matching cells.
+Text results count individual occurrences; grid results count matching cells.
 The query is limited to 256 Unicode characters. Each search stops at 1,000
 results, 16 MiB of searchable text, or a 30-second deadline checked between
-lines, cells, and PDF page extractions. A running page extraction can finish
+logical text units, cells, and PDF page extractions. A running page extraction can finish
 after cancellation; its obsolete result is ignored. The footer reports partial
 results when a limit is reached. Search does not fetch content or change files.
 
@@ -85,6 +86,10 @@ The query editor supports arrows, Home/End (Ctrl-A/Ctrl-E), Backspace/Delete,
 Ctrl-U to clear, and Ctrl-W to delete a word. Pasted text goes into the query;
 it does not open a path or URL. The input scrolls to keep the cursor visible.
 Opening the file menu/browser, changing files, or reloading clears the search.
+
+Markdown table cells wrap independently, including headers. When the terminal
+cannot fit even one character per column with separators, cells are stacked in
+row order. This keeps their content available at narrow widths.
 
 ## File menu and drops
 
