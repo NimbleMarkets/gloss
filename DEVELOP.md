@@ -113,6 +113,8 @@ Tests cover composition, offsets, background/previous disposal, delays, finite
 and infinite loops, immutable snapshots, pre-decode bounds, cancellation,
 stale work, export, and Kitty pacing/cleanup. `examples/motion.gif` is an
 original generated fixture; `scripts/gen-assets/gif.go` regenerates it.
+GIF lifecycle tests pause playback and drain finite render commands to completion;
+they must not use the generic test pump's timer heuristic to discard slow renders.
 
 ## QR component
 

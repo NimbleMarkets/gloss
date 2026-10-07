@@ -21,6 +21,49 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+// drainAnimation runs finite render/cleanup commands to completion, including
+// the ordered APC, grid, and presentation messages. These tests pause playback
+// (or leave the document) first and drive timers explicitly. Unlike pump, this
+// helper never guesses that a slow encoder is a timer and drops its result.
+func drainAnimation(t *testing.T, m *Model, cmd tea.Cmd) {
+	t.Helper()
+	remaining := 1000
+	var run func(tea.Cmd)
+	run = func(cmd tea.Cmd) {
+		if cmd == nil {
+			return
+		}
+		if a := m.animation; a != nil && m.animationVisible() && !a.paused && !a.finished {
+			t.Fatal("pause playback before draining animation commands")
+		}
+		remaining--
+		if remaining < 0 {
+			t.Fatal("animation command loop did not settle")
+		}
+		msg := cmd()
+		if msg == nil {
+			return
+		}
+		if batch, ok := msg.(tea.BatchMsg); ok {
+			for _, next := range batch {
+				run(next)
+			}
+			return
+		}
+		// Bubble Tea's sequence message is an unexported []tea.Cmd type.
+		v := reflect.ValueOf(msg)
+		if v.Kind() == reflect.Slice && v.Type().Elem() == reflect.TypeOf(tea.Cmd(nil)) {
+			for i := 0; i < v.Len(); i++ {
+				run(v.Index(i).Interface().(tea.Cmd))
+			}
+			return
+		}
+		_, next := m.Update(msg)
+		run(next)
+	}
+	run(cmd)
+}
+
 func animated(t *testing.T, render string, loop int) *Model {
 	t.Helper()
 	palette := color.Palette{color.RGBA{255, 0, 0, 255}, color.RGBA{0, 255, 0, 255}}
@@ -42,7 +85,7 @@ func animated(t *testing.T, render string, loop int) *Model {
 	}
 	// Drain only rendering commands: tests drive time explicitly below.
 	m.animation.paused = true
-	pump(m, cmd, 0)
+	drainAnimation(t, m, cmd)
 	m.animation.paused = false
 	return m
 }
@@ -187,12 +230,12 @@ func TestGIFKittyBackpressureResizeAndCleanup(t *testing.T) {
 		t.Fatal("Kitty failed to wait for its fresh frame")
 	}
 	a.paused = true
-	pump(m, draw, 0)
+	drainAnimation(t, m, draw)
 	if a.awaiting {
 		t.Fatal("transmission did not acknowledge presentation")
 	}
 	_, resize := m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
-	pump(m, resize, 0)
+	drainAnimation(t, m, resize)
 	if m.pic.Mode() != picture.PictureKitty {
 		t.Fatal("resize lost renderer")
 	}
@@ -214,7 +257,7 @@ func TestGIFKittyBackpressureResizeAndCleanup(t *testing.T) {
 	if flight.active.Load() {
 		t.Fatal("old placement still active")
 	}
-	pump(m, cleanup, 0)
+	drainAnimation(t, m, cleanup)
 	// Extract the sequence's final command to verify late cleanup is ID-specific.
 	// The generic runner handles all nested picture transmission commands too.
 	var raw string
@@ -336,11 +379,11 @@ func TestGIFKittyKeepsFrontUntilReplacementIsPresented(t *testing.T) {
 	if obsolete.active.Load() || m.animationFront != front || m.pictureView() != front.view {
 		t.Fatal("zoom discarded the front or retained the obsolete back")
 	}
-	pump(m, draw, 0)
+	drainAnimation(t, m, draw)
 	if m.animationFront != front || m.pictureView() != front.view {
 		t.Fatal("obsolete frame was displayed")
 	}
-	pump(m, zoom, 0)
+	drainAnimation(t, m, zoom)
 	if m.animationFront == front || m.animationFront.id != m.picID || glyphs(m.pictureView()) || front.flight.active.Load() {
 		t.Fatal("replacement failed to swap Kitty grids and retire the old image")
 	}
@@ -380,8 +423,12 @@ func TestGIFPendingKittyFrameCleanupAndKeepScreen(t *testing.T) {
 			if pending.active.Load() {
 				t.Fatal("unfinished image was not retired")
 			}
-			pump(m, cleanup, 0)
-			pump(m, draw, 0) // Late render cannot restore a discarded image or old front.
+			if m.animation != nil {
+				m.animation.paused = true
+				m.animation.cancelPending()
+			}
+			drainAnimation(t, m, cleanup)
+			drainAnimation(t, m, draw) // Late render cannot restore a discarded image or old front.
 			if action == "glyph" {
 				if m.animationFront != nil || !glyphs(m.pictureView()) {
 					t.Fatal("explicit glyph mode did not take effect")
@@ -391,7 +438,7 @@ func TestGIFPendingKittyFrameCleanupAndKeepScreen(t *testing.T) {
 				if glyphs(m.pictureView()) {
 					t.Fatal("switch to Kitty exposed a transitional glyph frame")
 				}
-				pump(m, cmd, 0)
+				drainAnimation(t, m, cmd)
 				if m.animationFront == nil || glyphs(m.pictureView()) {
 					t.Fatal("switch back to Kitty did not present an image")
 				}
@@ -461,15 +508,15 @@ func TestGIFKittyResizeBurstRejectsOldPresentations(t *testing.T) {
 			t.Fatal("unchanged dimensions restarted rendering")
 		}
 	}
-	pump(m, accepted, 0)
+	drainAnimation(t, m, accepted)
 	if m.animationFront != front || !a.awaiting {
 		t.Fatal("old presentation acknowledged the new geometry")
 	}
 	// Newest completes first; older encodes then arrive out of order.
-	pump(m, renders[len(renders)-1], 0)
+	drainAnimation(t, m, renders[len(renders)-1])
 	current := m.animationFront
 	for i := len(renders) - 2; i >= 0; i-- {
-		pump(m, renders[i], 0)
+		drainAnimation(t, m, renders[i])
 		if flights[i].active.Load() || m.animationFront != current {
 			t.Fatal("obsolete resize survived or replaced the latest frame")
 		}
@@ -490,6 +537,13 @@ func TestGIFKittyFontResizeCancelsPendingComposition(t *testing.T) {
 	tick := animationTick{a, a.epoch}
 	composed := m.animationTick(tick)()
 	_, resize := m.Update(uv.CellSizeEvent{Width: 11, Height: 23})
+	// Simulate a loaded CI runner: a valid render may take longer than the
+	// general pump helper's 100 ms timer heuristic and must still be delivered.
+	fastResize := resize
+	resize = func() tea.Msg {
+		time.Sleep(200 * time.Millisecond)
+		return fastResize()
+	}
 	if m.picID == front.id || a.epoch == tick.epoch || !a.awaiting {
 		t.Fatal("font resize reused the old placement or composition")
 	}
@@ -498,7 +552,7 @@ func TestGIFKittyFontResizeCancelsPendingComposition(t *testing.T) {
 		t.Fatal("old composition advanced playback during resize")
 	}
 	a.paused = true
-	pump(m, resize, 0)
+	drainAnimation(t, m, resize)
 	if w, h := m.pic.CellPixelSize(); w != 11 || h != 23 {
 		t.Fatalf("lost font geometry: %dx%d", w, h)
 	}
@@ -544,9 +598,9 @@ func TestGIFSpeedKeysAndDelays(t *testing.T) {
 				t.Fatalf("fast short frame: %v", a.delay())
 			}
 			_, cmd := m.Update(press("+"))
-			pump(m, cmd, 0)
+			drainAnimation(t, m, cmd)
 			_, cmd = m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
-			pump(m, cmd, 0)
+			drainAnimation(t, m, cmd)
 			if a.rate() != 4 || !a.paused || m.zoom != 1 {
 				t.Fatal("zoom/resize changed playback settings")
 			}
@@ -554,7 +608,7 @@ func TestGIFSpeedKeysAndDelays(t *testing.T) {
 			m.load(true)
 			cmd = m.loaded(m.loader.Load(m.request(true)))
 			m.animation.paused = true
-			pump(m, cmd, 0)
+			drainAnimation(t, m, cmd)
 			if m.animation.rate() != 1 {
 				t.Fatal("new playback inherited speed from the previous session")
 			}
@@ -577,7 +631,7 @@ func TestGIFSpeedChangeCancelsTimerAndStaleComposition(t *testing.T) {
 		t.Fatal("obsolete composition advanced at the previous speed")
 	}
 	m.Update(press("space"))
-	pump(m, replacement, 0) // The replaced long timer must now be cancelled too.
+	drainAnimation(t, m, replacement) // The replaced long timer must now be cancelled too.
 	if !a.paused || a.pending {
 		t.Fatal("pause failed after speed change")
 	}
@@ -592,7 +646,7 @@ func TestGIFSpeedPreservesKittyBackpressureAndFinitePlayback(t *testing.T) {
 		t.Fatal("speed change bypassed Kitty backpressure")
 	}
 	a.paused = true
-	pump(m, draw, 0)
+	drainAnimation(t, m, draw)
 	a.paused = false
 	stepAnimation(t, m)
 	if !a.finished {
@@ -606,7 +660,7 @@ func TestGIFSpeedPreservesKittyBackpressureAndFinitePlayback(t *testing.T) {
 	restart := m.toggleAnimation()
 	draw = m.animationFrame(restart().(animationFrame))
 	a.paused = true
-	pump(m, draw, 0)
+	drainAnimation(t, m, draw)
 	if a.rate() != .5 || a.finished || a.player.Frame() != 1 {
 		t.Fatal("restart lost the selected speed")
 	}
