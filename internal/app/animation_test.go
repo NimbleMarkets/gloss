@@ -507,3 +507,107 @@ func TestGIFKittyFontResizeCancelsPendingComposition(t *testing.T) {
 	}
 	assertAnimationFits(t, m)
 }
+
+func TestGIFSpeedKeysAndDelays(t *testing.T) {
+	for _, render := range []string{"glyph", "kitty"} {
+		t.Run(render, func(t *testing.T) {
+			m := animated(t, render, 0)
+			a := m.animation
+			a.paused = true
+			if a.rate() != 1 || a.delay() != 655350*time.Millisecond {
+				t.Fatal("new GIF does not start at its original speed")
+			}
+			for _, tt := range []struct {
+				key  string
+				rate float64
+			}{
+				{"<", .5}, {"<", .25}, {"<", .25},
+				{">", .5}, {">", 1}, {">", 2}, {">", 4}, {">", 4},
+				{"backspace", 1},
+			} {
+				before, id := m.source, m.picID
+				m.Update(press(tt.key))
+				if a.rate() != tt.rate || !a.paused || a.pending || m.source != before || m.picID != id {
+					t.Fatalf("%s: rate %g, paused %v, pending %v", tt.key, a.rate(), a.paused, a.pending)
+				}
+				want := time.Duration(float64(655350*time.Millisecond) / tt.rate)
+				if a.delay() != want || !strings.Contains(m.detail(120, 40), fmt.Sprintf("%g× speed", tt.rate)) {
+					t.Fatalf("wrong delay or speed display at %g×", tt.rate)
+				}
+			}
+			// A 20 ms encoded delay can run at 5 ms; it is not renormalized to
+			// 100 ms after scaling. Zoom and layout do not change playback speed.
+			a.player, _ = a.player.Next()
+			m.Update(press(">"))
+			m.Update(press(">"))
+			if a.delay() != 5*time.Millisecond {
+				t.Fatalf("fast short frame: %v", a.delay())
+			}
+			_, cmd := m.Update(press("+"))
+			pump(m, cmd, 0)
+			_, cmd = m.Update(tea.WindowSizeMsg{Width: 30, Height: 10})
+			pump(m, cmd, 0)
+			if a.rate() != 4 || !a.paused || m.zoom != 1 {
+				t.Fatal("zoom/resize changed playback settings")
+			}
+			// Reload and file navigation create a new playback session at 1×.
+			m.load(true)
+			cmd = m.loaded(m.loader.Load(m.request(true)))
+			m.animation.paused = true
+			pump(m, cmd, 0)
+			if m.animation.rate() != 1 {
+				t.Fatal("new playback inherited speed from the previous session")
+			}
+		})
+	}
+}
+
+func TestGIFSpeedChangeCancelsTimerAndStaleComposition(t *testing.T) {
+	m := animated(t, "glyph", 0)
+	a := m.animation
+	timer := m.scheduleAnimation()
+	tick := animationTick{a, a.epoch}
+	composed := m.animationTick(tick)()
+	_, replacement := m.Update(press(">"))
+	if timer() != nil || a.epoch == tick.epoch || !a.pending || replacement == nil {
+		t.Fatal("speed change did not replace the current delay")
+	}
+	m.Update(composed)
+	if a.player.Frame() != 1 || a.rate() != 2 {
+		t.Fatal("obsolete composition advanced at the previous speed")
+	}
+	m.Update(press("space"))
+	pump(m, replacement, 0) // The replaced long timer must now be cancelled too.
+	if !a.paused || a.pending {
+		t.Fatal("pause failed after speed change")
+	}
+}
+
+func TestGIFSpeedPreservesKittyBackpressureAndFinitePlayback(t *testing.T) {
+	m := animated(t, "kitty", -1)
+	a := m.animation
+	draw := stepAnimation(t, m)
+	m.Update(press(">"))
+	if !a.awaiting || a.pending || m.scheduleAnimation() != nil {
+		t.Fatal("speed change bypassed Kitty backpressure")
+	}
+	a.paused = true
+	pump(m, draw, 0)
+	a.paused = false
+	stepAnimation(t, m)
+	if !a.finished {
+		t.Fatal("finite playback did not finish")
+	}
+	m.Update(press("<"))
+	if !a.finished || a.pending || a.rate() != 1 {
+		t.Fatal("speed change restarted finished playback")
+	}
+	m.Update(press("<"))
+	restart := m.toggleAnimation()
+	draw = m.animationFrame(restart().(animationFrame))
+	a.paused = true
+	pump(m, draw, 0)
+	if a.rate() != .5 || a.finished || a.player.Frame() != 1 {
+		t.Fatal("restart lost the selected speed")
+	}
+}

@@ -52,7 +52,8 @@ limits" page, `docs/hugo/content/guide/formats.md`):
 - **Images**: PNG, JPEG, WebP, BMP, TIFF (first frame, up to 32 MP) and
   HEIC/HEIF via a pure-Go HEVC decoder — no CGO or external converters.
 - **GIF**: automatic animation; Space pauses/resumes or restarts a finished
-  loop sequence, `r`/`R` reloads, `e` exports the current full frame. Honors
+  loop sequence, `<`/`>` slow down/speed up (0.25×–4×), Backspace resets to 1×,
+  `r`/`R` reloads, `e` exports the current full frame. Honors
   transparency, frame rectangles, disposal, and loop counts. Canvas up to
   32 MP, at most 1,000 frames and 64 Mi total decoded frame pixels, checked
   before DecodeAll. Delays under 20 ms use 100 ms. Previews, inline images,

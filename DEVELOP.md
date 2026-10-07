@@ -82,6 +82,12 @@ once, 0 repeats forever, and positive values count additional repetitions.
 A disposal-previous snapshot is kept only while needed. Render and PNG export
 commands can retain previous images without concurrent mutation. Sub-20-ms
 delays use 100 ms to avoid busy playback; other frame delays are preserved.
+The viewer applies its 0.25×–4× speed multiplier after that normalization,
+keeping the minimum playback delay at 5 ms. A speed change cancels the current
+timer/composition epoch and starts a full new delay for the current frame;
+pause, finished playback, and Kitty transmission backpressure still apply.
+Speed belongs to the loaded animation: resize/zoom and Space restart retain it;
+reload or loading another file starts at 1×. Headless output is unaffected.
 
 `internal/app/animation.go` owns cancellable timers and off-loop composition.
 Messages carry a playback owner and epoch, so pause, reload, navigation, and

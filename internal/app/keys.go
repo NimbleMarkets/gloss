@@ -94,8 +94,20 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 		}
 		return nil, true
 	}
-	if k == "space" && m.animation != nil {
-		return m.toggleAnimation(), true
+	if a := m.animation; a != nil {
+		switch k {
+		case "space":
+			return m.toggleAnimation(), true
+		case "<":
+			a.setSpeed(a.speed - 1)
+			return nil, true
+		case ">":
+			a.setSpeed(a.speed + 1)
+			return nil, true
+		case "backspace":
+			a.setSpeed(0)
+			return nil, true
+		}
 	}
 	if m.chart != nil && m.mesh != nil && (k == "C" || k == "B") {
 		m.openColorPicker(k == "B")

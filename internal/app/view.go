@@ -108,7 +108,8 @@ const helpText = "gloss — a visual pager\n\n" +
 	"C / B          mesh color / background color\n" +
 	"Drop files on the terminal to add them\n" +
 	"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
-	"Markdown: arrows/wheel scroll, Space/b page, s source\n\n"
+	"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
+	"GIFs: Space pause/play, < slower, > faster, Backspace 1×\n"
 
 // DocsURL is the documentation site.
 const DocsURL = "https://nimblemarkets.github.io/gloss/docs/"
@@ -295,7 +296,7 @@ func (m *Model) detail(w, h int) string {
 		} else if m.animation.finished {
 			state = "finished"
 		}
-		detail += fmt.Sprintf(" · frame %d/%d · %s", m.animation.player.Frame(), m.animation.player.Frames(), state)
+		detail += fmt.Sprintf(" · %g× speed · frame %d/%d · %s", m.animation.rate(), m.animation.player.Frame(), m.animation.player.Frames(), state)
 	}
 	if m.kind == "pdf" {
 		detail += fmt.Sprintf(" · page %d/%d", m.page, m.pages)
@@ -368,7 +369,7 @@ func (m *Model) hints() string {
 	keys := " q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info"
 	switch {
 	case m.animation != nil:
-		keys = " Space pause/play · n/p files · +/- zoom · e export frame · r restart · i info · q quit"
+		keys = " Space pause/play · </> speed · Backspace 1× · +/- zoom · e export frame · ? help · q quit"
 	case m.markdown != nil:
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	case m.sheet != nil:

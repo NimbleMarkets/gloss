@@ -19,6 +19,26 @@ type animation struct {
 	epoch                               uint64
 	paused, finished, pending, awaiting bool
 	id, remaining                       int
+	speed                               int // Powers of two: -2..2, default 0 = 1×.
+}
+
+func (a *animation) rate() float64 { return float64(int(1)<<uint(a.speed+2)) / 4 }
+
+func (a *animation) delay() time.Duration {
+	// GIFPlayer has already normalized tiny/zero delays. Even at 4× the
+	// shortest delay is 5 ms, and the largest at 0.25× fits time.Duration.
+	return time.Duration(float64(a.player.Delay()) / a.rate())
+}
+
+func (a *animation) setSpeed(speed int) {
+	speed = max(-2, min(2, speed))
+	if speed == a.speed {
+		return
+	}
+	a.cancelPending()
+	a.speed = speed
+	// The Update defer schedules the current frame's new delay. Paused,
+	// finished, hidden, and still-transmitting animations remain stopped.
 }
 
 type animationTick struct {
@@ -177,7 +197,7 @@ func (m *Model) scheduleAnimation() tea.Cmd {
 	tick := animationTick{a, a.epoch}
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelTimer = cancel
-	delay := a.player.Delay()
+	delay := a.delay()
 	return func() tea.Msg {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()

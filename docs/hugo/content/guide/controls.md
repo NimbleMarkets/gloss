@@ -118,7 +118,12 @@ PNG as a download instead: what is saved goes where the browser saves, not
 where gloss runs.
 
 Animated GIFs play automatically. **Space** pauses or resumes; after a finite
-animation finishes, Space starts it again. `r` or `R` reloads from the start.
+animation finishes, Space starts it again. **`<` / `>`** slow down or speed up
+through **0.25×, 0.5×, 1×, 2×, and 4×**; **Backspace** restores 1×. The status
+bar shows playback speed separately from zoom. Changing speed preserves pause
+and restarts the current frame's delay; it does not skip frames or restart a
+finished animation. Space restart retains speed. `r` or `R` reloads from the
+start at 1×; opening another GIF also starts at 1×.
 `n`/`p` and `[`/`]` still switch files. Zoom and pan apply to every frame, and
 `e` saves the displayed full frame as PNG. Help and the file browser suspend
 playback; list previews and inline images remain still. Large/slow frames play

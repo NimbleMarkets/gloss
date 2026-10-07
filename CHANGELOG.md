@@ -6,6 +6,8 @@
     * Automatic playback in Kitty and glyph modes with frame transparency,
       disposal, delays, and loop counts; Space pauses/resumes and restarts a
       finished animation
+    * `<`/`>` adjust playback speed through 0.25×, 0.5×, 1×, 2×, and 4×;
+      Backspace restores 1×, and the status bar shows the selected speed
     * Kitty playback retains the previous image until its replacement is ready,
       avoiding glyph flashes between frames
     * Window/font resizing keeps the retained frame within the viewport and

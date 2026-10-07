@@ -44,7 +44,7 @@ cat drawing.svg | gloss                # read from a pipe
 | `i` | Details about the file |
 | `e` | Export what you see as a PNG |
 | `u` | Show a selected table URL as a QR code |
-| Space on a GIF | Pause / resume animation |
+| Space, `<` / `>` on a GIF | Pause / resume; slower / faster playback |
 
 Pictures use Kitty graphics where the terminal has them, and colored half-blocks
 where it does not. Drag files onto the terminal to open them; add `--fetch`
