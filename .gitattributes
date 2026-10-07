@@ -1,5 +1,6 @@
 *.pdf binary
 *.png binary
+*.gif binary
 *.heic binary
 *.grist binary
 *.sqlite binary

@@ -46,6 +46,46 @@ Grist's layout rather than saved from Grist.
 GitHub Actions runs `task ci` on Linux and macOS for pushes and pull requests. Windows is only
 cross-compiled and vetted (`task cross-windows`), not tested.
 
+## Recording the showcase
+
+`scripts/gloss-demo.tape` is a VHS-language showcase recorded by
+[sigmamax](https://github.com/NimbleMarkets/sigmamax), including actual Kitty
+graphics, GIF playback, PDF paging, mesh rotation, Markdown search, tables, and
+the URL QR overlay. It uses only the original fixtures in this repository and
+does not fetch files or start a handoff server.
+
+Run from the repository root:
+
+```sh
+GOWORK=off task build
+env -u NO_COLOR sigmamax validate scripts/gloss-demo.tape
+env -u NO_COLOR sigmamax scripts/gloss-demo.tape
+# With the sibling development checkout, use ../sigmamax/bin/sigmamax instead.
+```
+
+The tape writes `dist/gloss-demo.gif`, a text transcript, and scene screenshots.
+These generated assets are ignored and are not embedded in the binary. Recording
+again replaces them, so copy aside any take you want to keep. Use realtime mode
+(the default): deterministic mode does not advance application animation timers.
+The tape waits for loaded views and hides startup/loading time. It uses Menlo,
+included with macOS; elsewhere set `FontFamily` to an installed monospace font
+with box-drawing glyphs, or to sigmamax's bundled `Go Mono`. Keep `NO_COLOR` unset
+so Kitty placeholder colors survive. The mesh uses software rendering and does
+not require a GPU.
+
+The README uses `docs/assets/gloss-demo.gif`, a losslessly optimized copy of the
+recording. After reviewing a new take, install `gifsicle` and update that asset:
+
+```sh
+gifsicle -O3 dist/gloss-demo.gif -o docs/assets/gloss-demo.gif
+```
+
+This preserves resolution, colors, and timing while storing changed regions
+instead of whole frames. Keep the raw recording in `dist/`; only the optimized
+README asset is tracked, and neither is embedded in gloss. Avoid lossy
+optimization of terminal text and QR codes. For video, add an MP4 `Output` to
+the tape and record directly rather than converting the already quantized GIF.
+
 ## Layout
 
 The layout follows NTCharts' conventions, with one module for the CLI and a

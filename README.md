@@ -6,7 +6,10 @@ and CSV files.
 
 [**Try gloss in your browser →**](https://nimblemarkets.github.io/gloss/) — starts with a sample image, including on phone-width screens.
 
-[![Embedded landscape sample — open the live gloss demo](examples/landscape.png)](https://nimblemarkets.github.io/gloss/)
+[![gloss showing images, GIF playback, PDFs, 3D meshes, Markdown search, tables, and QR codes](docs/assets/gloss-demo.gif)](https://nimblemarkets.github.io/gloss/)
+
+Recorded with [sigmamax](https://github.com/NimbleMarkets/sigmamax), including real
+Kitty graphics. [Demo tape](scripts/gloss-demo.tape).
 
 ## Install
 
