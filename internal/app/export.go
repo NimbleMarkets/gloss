@@ -29,7 +29,7 @@ func (r exportResult) note() string {
 // parts and paint, at export size.
 func (m *Model) exportRequest() document.Request {
 	q := m.request(false)
-	q.Preview, q.MaxEdge = false, m.opts.MaxEdge
+	q.Preview, q.Animate, q.MaxEdge = false, false, m.opts.MaxEdge
 	if q.MaxEdge == 0 {
 		q.MaxEdge = 1536
 	}
@@ -61,9 +61,22 @@ func (m *Model) export() tea.Cmd {
 		camera := m.chart.Camera()
 		view.Camera = &camera
 	}
+	var frame image.Image
+	if m.animation != nil {
+		frame = m.source
+		if m.animationFront != nil {
+			frame = m.animationFront.source
+		}
+	}
+	loader := m.loader
 	m.note = "exporting…"
 	return func() tea.Msg {
-		r := m.loader.Load(q)
+		var r document.Result
+		if frame != nil {
+			r.Image = frame
+		} else {
+			r = loader.Load(q)
+		}
 		r.Camera, r.CPU = view.Camera, view.CPU
 		img, err := document.ExportImage(r, edge)
 		if err != nil {

@@ -6,8 +6,18 @@ bookToC: false
 
 # Formats and limits
 
-- PNG, JPEG, GIF, WebP, BMP, TIFF: first frame/page, up to 32 megapixels. Animated
-  playback and AVIF aren't supported.
+- PNG, JPEG, WebP, BMP, TIFF: first frame/page, up to 32 megapixels.
+  Animated WebP and AVIF aren't supported.
+- GIF: automatic playback with transparency, partial frames, disposal, and the
+  file's loop count. **Space** pauses/resumes (or restarts after the last loop);
+  `r` reloads from the beginning. The status bar shows the frame and playback
+  state. `e` exports the current full frame as PNG; zoom/pan still work.
+  Canvas size is limited to 32 MP, animation to 1,000 frames and 64 Mi decoded
+  frame pixels in total. Limits are checked before decoding all frames.
+  Delays below 20 ms play at 100 ms; other delays are preserved. Rendering can
+  slow playback on large images or slow terminals; frames are not queued up.
+  File-list previews, inline Markdown/notebook images, and headless `--output`
+  use the first frame on the full logical canvas. GIF frames are not `--page`s.
 - HEIC/HEIF: primary still image, up to 32 megapixels, with container rotation
   and mirroring. Uses the [pure-Go h265 decoder](https://github.com/gen2brain/h265),
   without CGO or external converters. Unsupported HEVC features report decoder

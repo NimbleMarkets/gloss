@@ -117,6 +117,13 @@ number instead. The browser demo, and a page shown with `--serve`, offer the
 PNG as a download instead: what is saved goes where the browser saves, not
 where gloss runs.
 
+Animated GIFs play automatically. **Space** pauses or resumes; after a finite
+animation finishes, Space starts it again. `r` or `R` reloads from the start.
+`n`/`p` and `[`/`]` still switch files. Zoom and pan apply to every frame, and
+`e` saves the displayed full frame as PNG. Help and the file browser suspend
+playback; list previews and inline images remain still. Large/slow frames play
+more slowly rather than building a rendering backlog.
+
 In a table, select a cell containing an http(s) URL and press `u` to show its QR
 code. This does not fetch the URL and needs no `--fetch`. The original cell
 stays unchanged; the overlay shows a single address footer. `Esc` or `u`

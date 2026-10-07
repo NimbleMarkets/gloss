@@ -24,6 +24,9 @@ this file consistent with the code.
   (`testdata/scripts`, `task browse:screens`). Change the
   browser by adding a script first.
 - `internal/document`: bounded loaders, renderers, and vision-image sizing.
+  `gif.go` preflights GIF allocations and supplies immutable playback positions;
+  `internal/app/animation.go` owns cancellable timers and asynchronous composition
+  in the existing event loop, including Kitty transmission pacing and cleanup.
 - `internal/app/qr.go`: table URL overlay using the external
   `github.com/NimbleMarkets/ntcharts-qrcode/qrcode` component. Gloss provides
   capability, cell geometry, and fresh image IDs. `u` opens, `Esc` closes,
@@ -46,8 +49,15 @@ this file consistent with the code.
 Supported inputs (with per-format limits detailed in the guide's "Formats and
 limits" page, `docs/hugo/content/guide/formats.md`):
 
-- **Images**: PNG, JPEG, GIF, WebP, BMP, TIFF (first frame, up to 32 MP) and
+- **Images**: PNG, JPEG, WebP, BMP, TIFF (first frame, up to 32 MP) and
   HEIC/HEIF via a pure-Go HEVC decoder — no CGO or external converters.
+- **GIF**: automatic animation; Space pauses/resumes or restarts a finished
+  loop sequence, `r`/`R` reloads, `e` exports the current full frame. Honors
+  transparency, frame rectangles, disposal, and loop counts. Canvas up to
+  32 MP, at most 1,000 frames and 64 Mi total decoded frame pixels, checked
+  before DecodeAll. Delays under 20 ms use 100 ms. Previews, inline images,
+  and headless PNG exports stay on the first composited frame. Frames are not
+  pages; file navigation is unchanged except Space while an animation is open.
 - **SVG**: rasterized by NTCharts' pure-Go renderer (oksvg feature set), up to
   a 2400-pixel edge.
 - **PDF**: PDFium over embedded WebAssembly; pages at 150 DPI default

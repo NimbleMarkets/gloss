@@ -94,6 +94,9 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 		}
 		return nil, true
 	}
+	if k == "space" && m.animation != nil {
+		return m.toggleAnimation(), true
+	}
 	if m.chart != nil && m.mesh != nil && (k == "C" || k == "B") {
 		m.openColorPicker(k == "B")
 		m.layer = layerColor
@@ -177,7 +180,16 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 	case "g":
 		m.autoKitty = false
 		if m.chart == nil {
+			old := m.pic
 			cmd := m.pic.Toggle()
+			if m.animation != nil {
+				if m.pic.Mode() == picture.PictureKitty {
+					return m.refreshImage(), true
+				}
+				cleanup := old.SetImage(nil)
+				m.retireAnimationPicture(cleanup)
+				return tea.Batch(cmd, cleanup), true
+			}
 			if m.markdown != nil {
 				cmd = tea.Batch(cmd, m.markdown.setKitty(m.pic.Mode() == picture.PictureKitty))
 			}

@@ -66,6 +66,48 @@ separate browser-demo module:
 - `docs/hugo`: the documentation site, published at `/docs/` beside the demo.
 - `skills/gloss`: the agent skill the binary carries (`gloss skill`).
 
+## Animated GIFs
+
+`internal/document/gif.go` scans GIF blocks before `image/gif.DecodeAll` to
+bound the logical canvas (32 MP), frame count (1,000), and aggregate paletted
+frame pixels (64 Mi). The standard library decodes LZW and palettes. Static
+loads decode only the first frame and composite it onto the logical canvas;
+previews, inline images, and headless exports do not enable animation.
+
+`GIFPlayer` holds immutable decoded frames and a playback position. `Next`
+returns a fresh composed canvas, honoring transparency and the
+[GIF89a disposal rules](https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
+It uses [Go's loop-count semantics](https://pkg.go.dev/image/gif#GIF): -1 plays
+once, 0 repeats forever, and positive values count additional repetitions.
+A disposal-previous snapshot is kept only while needed. Render and PNG export
+commands can retain previous images without concurrent mutation. Sub-20-ms
+delays use 100 ms to avoid busy playback; other frame delays are preserved.
+
+`internal/app/animation.go` owns cancellable timers and off-loop composition.
+Messages carry a playback owner and epoch, so pause, reload, navigation, and
+quit invalidate late work. Hidden documents cancel timers. Kitty waits for
+transmission before starting the next delay; it never builds a frame backlog.
+The last transmitted Kitty picture stays visible while its replacement encodes.
+Only after transmission does the view swap grids and delete the old image, so
+picture's transitional glyph fallback never flashes between animation frames.
+Window and font-size changes cancel pending composition and render into a fresh
+placement at the new geometry. Until it is ready, the old placeholder grid is
+clipped to the viewport so it cannot wrap or displace the status bar. Obsolete
+resize completions cannot present over the latest layout; pause is preserved.
+At most a visible front picture and a pending replacement are retained; leaving
+or explicitly choosing glyphs cleans up both. Keep-screen quit retains the
+visible frame, and PNG export snapshots that frame even during encoding.
+Fresh image IDs avoid ghostty-web's texture cache, consuming the slots inside
+blocks already reserved by `nextKittyID`. Retired placements receive a second
+ID-specific cleanup if an accepted transmission completes late. Glyphs use
+the same picture pipeline as static images. `e` captures the immutable current
+frame before its asynchronous export; it never reloads the first frame.
+
+Tests cover composition, offsets, background/previous disposal, delays, finite
+and infinite loops, immutable snapshots, pre-decode bounds, cancellation,
+stale work, export, and Kitty pacing/cleanup. `examples/motion.gif` is an
+original generated fixture; `scripts/gen-assets/gif.go` regenerates it.
+
 ## QR component
 
 The reusable encoder and terminal component live in

@@ -32,6 +32,7 @@ func main() {
 			img.SetNRGBA(x, y, c)
 		}
 	}
+	write("examples/motion.gif", func(b *bytes.Buffer) error { return motionGIF(b) })
 	write("examples/landscape.png", func(b *bytes.Buffer) error { return png.Encode(b, img) })
 	write("examples/landscape.heic", func(b *bytes.Buffer) error { return heic.Encode(b, desert(), heic.EncodeOptions{Quality: 85}) })
 	if err := os.WriteFile("examples/field-guide.pdf", pdf(), 0644); err != nil {

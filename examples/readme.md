@@ -9,6 +9,8 @@ Use `j` / `k` to scroll and `s` to toggle source. Press `m` for the file menu.
 
 ## Raster images
 
+Open `motion.gif` from the gallery for an animated orbit; Space pauses or resumes it.
+
 Two original landscapes, decoded locally: blue hills at dusk in PNG and a sunny desert in HEIC.
 
 ![Layered hills at dusk](landscape.png)

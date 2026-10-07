@@ -76,7 +76,7 @@ func (m *Model) body(w, h int) (string, tea.MouseMode) {
 	case m.sheet != nil:
 		body, mouse, plain = m.sheet.view(w, h), tea.MouseModeCellMotion, false
 	default:
-		body, plain = m.pic.View().Content, false
+		body, plain = m.pictureView(), false
 	}
 	if plain {
 		lines := strings.Split(body, "\n")
@@ -98,7 +98,7 @@ const helpText = "gloss — a visual pager\n\n" +
 	"] / [ / Tab    next / previous file\n" +
 	"m              file menu (v toggles preview)\n" +
 	"o              browse for a file to open\n" +
-	"n / p / Space  next / previous PDF page (or file)\n" +
+	"n / p / Space  next / previous page or file; GIF: Space pauses\n" +
 	"Home / End     first / last PDF page\n" +
 	"+ / -          zoom\nh j k l / arrows  pan image / orbit mesh\n" +
 	"f / 0          fit / reset view\ng              toggle Kitty / glyph; tables: u QR of URL\n" +
@@ -288,6 +288,15 @@ func (m *Model) documentStatus(w, h int) (bar, hint string) {
 // renderer and the transport, is the info box's to say.
 func (m *Model) detail(w, h int) string {
 	detail := fmt.Sprintf("%s · %dx", m.kind, 1<<m.zoom)
+	if m.animation != nil {
+		state := "playing"
+		if m.animation.paused {
+			state = "paused"
+		} else if m.animation.finished {
+			state = "finished"
+		}
+		detail += fmt.Sprintf(" · frame %d/%d · %s", m.animation.player.Frame(), m.animation.player.Frames(), state)
+	}
 	if m.kind == "pdf" {
 		detail += fmt.Sprintf(" · page %d/%d", m.page, m.pages)
 	}
@@ -358,6 +367,8 @@ func (m *Model) hints() string {
 	}
 	keys := " q quit · ? help · m files · [/] files · n/p pages · +/- zoom · e export · i info"
 	switch {
+	case m.animation != nil:
+		keys = " Space pause/play · n/p files · +/- zoom · e export frame · r restart · i info · q quit"
 	case m.markdown != nil:
 		keys = " q quit · m files · ↑/↓ scroll · Space/b page · s source · g graphics"
 	case m.sheet != nil:

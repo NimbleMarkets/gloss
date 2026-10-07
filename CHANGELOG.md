@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+  * **Animated GIFs**
+    * Automatic playback in Kitty and glyph modes with frame transparency,
+      disposal, delays, and loop counts; Space pauses/resumes and restarts a
+      finished animation
+    * Kitty playback retains the previous image until its replacement is ready,
+      avoiding glyph flashes between frames
+    * Window/font resizing keeps the retained frame within the viewport and
+      rejects obsolete placements without interrupting the user's pause state
+    * Zoom/pan follow playback; `e` exports the displayed frame. Previews,
+      inline images, and headless PNG export keep the first frame
+    * Bounded decoding checks canvas size, frame count, and total frame pixels
+      before allocation; hidden/closed documents cancel playback work
+    * An original `examples/motion.gif` fixture is also in the browser gallery
+
+
   * **File handoff and QR codes**
     * Experimental `--pick-web` offers a plain HTML/JS upload page with
       Choose files, Remove, Send files, and Cancel; no WASM or terminal needed

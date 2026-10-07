@@ -25,6 +25,7 @@ source.
 
 ```sh
 gloss photo.png report.pdf model.stl   # page through them
+gloss animation.gif                  # plays automatically; Space pauses
 gloss --menu *.png                     # choose from a menu
 gloss --preview ~/Documents/*          # a menu with a preview pane
 gloss ~/Pictures                       # browse a folder
@@ -43,6 +44,7 @@ cat drawing.svg | gloss                # read from a pipe
 | `i` | Details about the file |
 | `e` | Export what you see as a PNG |
 | `u` | Show a selected table URL as a QR code |
+| Space on a GIF | Pause / resume animation |
 
 Pictures use Kitty graphics where the terminal has them, and colored half-blocks
 where it does not. Drag files onto the terminal to open them; add `--fetch`

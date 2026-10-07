@@ -392,6 +392,10 @@ anywhere. Say that when you send the link.
   `--pick`, or `--serve`) without a user's terminal: it will fail or hang. The
   four headless modes above are your whole interface; `--pick` and `--serve`
   are headless when stdin is not a terminal, and return at once.
+- GIFs animate in the viewer (Space pauses/resumes). `--output` exports the
+  first composited frame; GIF frames are not selectable with `--page`.
+  Interactive `e` exports the displayed frame. Animation is limited to 1,000
+  frames and 64 Mi decoded frame pixels total, with the same 32 MP canvas cap.
 - Input files and stdin are limited to 128 MiB; images to 32 MP; PDFs to
   10,000 pages. `--info` reports these failures cleanly.
 - gloss never fetches the network on its own. `--fetch` is an interactive
