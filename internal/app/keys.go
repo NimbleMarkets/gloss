@@ -14,6 +14,9 @@ func (m *Model) key(msg tea.KeyPressMsg) (tea.Cmd, bool) {
 	if m.screen == screenBrowser {
 		return m.browserKey(msg), true
 	}
+	if m.search != nil && m.search.editing {
+		return m.searchKey(msg), true
+	}
 	// Keys over any screen but the browser, whose filter takes letters.
 	switch k {
 	case "q", "ctrl+c":
@@ -82,6 +85,23 @@ func (m *Model) documentKey(k string) (tea.Cmd, bool) {
 	}
 	if cmd, handled := m.layerKey(k); handled {
 		return cmd, true
+	}
+	if m.layer == layerNone {
+		if k == "/" && m.searchable() {
+			m.editSearch()
+			return nil, true
+		}
+		if m.search != nil {
+			switch k {
+			case "esc":
+				m.clearSearch()
+				return nil, true
+			case "n":
+				return m.nextMatch(1), true
+			case "N":
+				return m.nextMatch(-1), true
+			}
+		}
 	}
 	if k == "esc" {
 		if cmd, ok := m.closeFetched(); ok {

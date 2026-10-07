@@ -63,7 +63,8 @@ limits" page, `docs/hugo/content/guide/formats.md`):
   a 2400-pixel edge.
 - **PDF**: PDFium over embedded WebAssembly; pages at 150 DPI default
   (`--dpi 36..600`), 32 MP budget, 10,000-page limit, no password-protected
-  files, no text search in the viewer. `--text` extracts a page's text layer
+  files. `/` searches extractable text, jumping to matching pages with excerpts
+  (no OCR or on-image highlighting). `--text` extracts a page's text layer
   without rasterizing (16 MiB per page); a page with none is an error.
 - **STL**: ASCII and binary, up to 932,067 faces, flat-shaded; GPU rendering
   falls back to software and then wireframe (`--3d software|wireframe`).
@@ -107,6 +108,16 @@ bracketed-paste path input, zoom/pan, per-format info box (`i`), PNG export of
 the current view (`e`), mesh orbit/pan/zoom, ortho/perspective toggle, mesh
 color picker (`C`, `--color`), background color picker (`B`), reload (`R`;
 `r` for non-mesh documents), and mesh auto-rotation (`r`).
+
+`/` starts literal, case-insensitive document search; `Enter` submits, `n`/`N`
+visit matching displayed lines, visible-column cells in the current sheet, or
+PDF pages, and `Esc` cancels editing or clears results before leaving the
+document. Text highlights follow the rendered/source layout, excluding inline
+image pixels; queries do not span displayed lines or cells. Search is bounded
+to 256 query runes, 1,000 results, 16 MiB of searchable text, and 30 seconds
+checked between extraction units. Partial/skipped PDF results are reported.
+Resizing, source toggles, and column changes reindex; leaving the document,
+changing files, or reloading cancels. Images and meshes have no text search.
 
 Agent-facing / scriptable surface:
 

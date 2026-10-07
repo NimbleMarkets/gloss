@@ -23,6 +23,7 @@ const (
 // Columns can be hidden: cols lists those shown, and the corner and cursor
 // hold places in cols, not columns of the sheet.
 type sheetView struct {
+	search   *searchPattern
 	sheet    *document.Sheet
 	row, col int    // The cell in the top-left corner: a row and a place in cols.
 	at       [2]int // The cell under the cursor: a row and a place in cols.
@@ -215,6 +216,7 @@ func (v *sheetView) view(w, h int) string {
 				cell = linked(v.sheet, r, c, safe(row[c]))
 			}
 			cell = fit(cell, v.widths[c])
+			cell = highlightSearch(cell, v.search)
 			if r == v.at[0] && v.col+p == v.at[1] {
 				cell = mark.Render(cell)
 			}

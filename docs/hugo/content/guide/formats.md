@@ -29,7 +29,8 @@ bookToC: false
 - PDF: PDFium via embedded WebAssembly; no Poppler, MuPDF, CGO, or external
   runtime installation. Pages render at 150 DPI by default (`--dpi 36..600`),
   with a 32-megapixel raster budget and a 10,000-page limit. Password-protected
-  PDFs aren't supported. This version provides visual paging, without text search.
+  PDFs aren't supported. `/` searches the text layer and jumps to matching
+  pages with excerpts; it does not highlight the raster or perform OCR.
 - STL: ASCII and binary, flat-shaded triangles, up to 932,067 faces: as many as
   NTCharts3d draws, which is as many as any GPU is sure to hold. Normals are recomputed from vertex winding. GPU
   rendering falls back to software and then wireframe. Software draws at full

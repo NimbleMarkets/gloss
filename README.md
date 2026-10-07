@@ -38,6 +38,7 @@ cat drawing.svg | gloss                # read from a pipe
 | `?` | Help |
 | `q` | Quit |
 | `n` / `p` | Next / previous page, or file |
+| `/`, `n` / `N` | Search text; next / previous result (`Esc` clears) |
 | `[` / `]` | Previous / next file |
 | `m` / `o` | File menu / browse for a file |
 | `+` / `-`, arrows | Zoom and pan; orbit a mesh |

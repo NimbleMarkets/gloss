@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+  * **Document text search**
+    * `/` opens a Unicode-aware literal, case-insensitive query; `n`/`N` visit
+      matching lines/cells/pages and `Esc` clears it
+    * Highlight displayed text and visible-column table cells; PDF text search
+      jumps to matching pages with excerpts, reporting pages without text
+    * Bounded asynchronous searches cancel on reload or leaving the document,
+      reject stale results, and reindex after layout/source/column changes
+
   * **Animated GIFs**
     * Automatic playback in Kitty and glyph modes with frame transparency,
       disposal, delays, and loop counts; Space pauses/resumes and restarts a

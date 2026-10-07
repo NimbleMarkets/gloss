@@ -80,6 +80,8 @@ type meshState struct {
 // textState is what the model keeps for a Markdown or sheet document, and the
 // view to return to when a fetched file closes.
 type textState struct {
+	search        *textSearch
+	searchWorker  *searchWorker
 	markdown      *markdownView
 	savedMarkdown *markdownView
 	sheet         *sheetView
@@ -203,6 +205,7 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) Close() error {
+	m.clearSearch()
 	m.stopAnimation()
 	m.clearAnimationFront()
 	m.retireAnimationPicture(m.pic.SetImage(nil))
@@ -226,6 +229,7 @@ func (m *Model) Err() error { return m.err }
 // quit gives the terminal back. Graphics are taken down with the alternate
 // screen. On the main screen the document is left as it was last seen.
 func (m *Model) quit() tea.Cmd {
+	m.clearSearch()
 	m.stopAnimation()
 	qrCleanup := m.clearQR()
 	if !m.opts.KeepScreen {
@@ -252,6 +256,9 @@ func (m *Model) request(reload bool) document.Request {
 }
 
 func (m *Model) load(reload bool) tea.Cmd {
+	if reload {
+		m.clearSearch()
+	}
 	if len(m.opts.Files) == 0 {
 		return nil
 	}
@@ -286,6 +293,7 @@ func (m *Model) switchFile(delta int) tea.Cmd {
 
 // show loads the file at i afresh: its page, zoom, and camera start over.
 func (m *Model) show(i int) tea.Cmd {
+	m.clearSearch()
 	m.index, m.page, m.pages, m.kind = i, 1, 1, ""
 	m.source, m.zoom, m.panX, m.panY = nil, 0, 0, 0
 	m.savedCamera, m.savedMarkdown, m.fields = nil, nil, nil
@@ -359,6 +367,7 @@ func (m *Model) movePage(page int) tea.Cmd {
 
 func (m *Model) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 	defer func() {
+		cmd = tea.Batch(cmd, m.syncSearch())
 		if m.pic.Mode() != picture.PictureKitty {
 			cmd = tea.Batch(cmd, m.clearAnimationFront())
 		}
@@ -398,6 +407,8 @@ func (m *Model) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 		}
 	}
 	switch v := msg.(type) {
+	case searchResult:
+		return m, m.searched(v)
 	case animationTick:
 		return m, m.animationTick(v)
 	case animationFrame:
@@ -431,6 +442,10 @@ func (m *Model) Update(msg tea.Msg) (model tea.Model, cmd tea.Cmd) {
 		}
 		return m, cmd
 	case tea.PasteMsg:
+		if m.search != nil && m.search.editing {
+			m.search.insert(v.Content)
+			return m, nil
+		}
 		// Terminals deliver dropped files as a bracketed paste of their paths.
 		if m.isPreview || m.opts.FilesFS != nil {
 			return m, nil

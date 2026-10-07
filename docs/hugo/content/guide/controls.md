@@ -17,6 +17,8 @@ bookToC: false
 | `o`, `O` | Browse folders for a file to open |
 | `]`, `Tab` / `[`, `Shift-Tab` | Next / previous file |
 | `n`, `Space`, `PageDown` / `p`, `b`, `PageUp` | Next / previous PDF page, sheet, or Grist table; next / previous file for other formats |
+| `/` | Search text in the current document; `Enter` submits, `Esc` cancels editing |
+| `n` / `N`, while searching | Next / previous result, wrapping at the ends; `Esc` clears the search |
 | `Home` / `End`, `G` | First / last PDF page |
 | Arrows, `h j k l` | Move about a spreadsheet by row and column |
 | `x`, `X` | Hide the column under the cursor / show every column |
@@ -44,6 +46,47 @@ bookToC: false
 At a PDF boundary, page navigation stays on that page. Use `[` and `]` to change
 files. Loading and rendering run asynchronously; errors appear in the viewer
 with retry and next-file controls.
+
+## Document text search
+
+Press `/`, type a literal query, and press `Enter`. Matching ignores case,
+including Unicode case variants; punctuation has no regular-expression meaning.
+`n` and `N` visit the next and previous result, wrapping at the ends. The first
+result is at or after the current reading position when possible. `Esc` clears
+the search before its usual back-to-list action, and restores `n`'s usual page
+or file navigation. `/` edits the current query; canceling that edit keeps the
+previous search, while submitting an empty query clears it.
+
+- Markdown, text/source, JSON, notebooks, HTML, and Word: search the displayed
+  text, including lines outside the viewport. Matching lines are highlighted;
+  image pixels are excluded. `s` switches between rendered and source text and
+  reruns the search. Queries do not cross displayed line boundaries, so wrapping
+  can affect matches; resizing reindexes the new layout.
+- CSV/TSV, Excel, and Grist: search full cell values in visible columns of the
+  current sheet or table, including off-screen cells. Results select the cell,
+  highlight visible matches, and include an excerpt for truncated values.
+  Hiding/showing columns or changing sheets reruns the query. Queries do not
+  span cells. `PageDown`/`PageUp` retain their table scrolling behavior;
+  clear search to restore `n` for changing sheets.
+- PDF: search extractable text across pages, jump to matching pages, and show
+  excerpts. Results count matching pages, not individual occurrences. Scanned
+  pages without text are skipped and counted; there is no OCR or on-image
+  highlighting. Extraction errors are reported with any partial results.
+- Images, SVGs, GIFs, and meshes do not offer text search.
+
+Text results count matching displayed lines; table results count matching cells.
+The query is limited to 256 Unicode characters. Each search stops at 1,000
+results, 16 MiB of searchable text, or a 30-second deadline checked between
+lines, cells, and PDF page extractions. A running page extraction can finish
+after cancellation; its obsolete result is ignored. The footer reports partial
+results when a limit is reached. Search does not fetch content or change files.
+
+The query editor supports arrows, Home/End (Ctrl-A/Ctrl-E), Backspace/Delete,
+Ctrl-U to clear, and Ctrl-W to delete a word. Pasted text goes into the query;
+it does not open a path or URL. The input scrolls to keep the cursor visible.
+Opening the file menu/browser, changing files, or reloading clears the search.
+
+## File menu and drops
 
 The file menu preserves argument order and marks the active file with `*`.
 Use arrows or `j`/`k` to select, `Enter` to open, and `Esc` to cancel without

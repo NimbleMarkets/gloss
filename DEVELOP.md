@@ -66,6 +66,30 @@ separate browser-demo module:
 - `docs/hugo`: the documentation site, published at `/docs/` beside the demo.
 - `skills/gloss`: the agent skill the binary carries (`gloss skill`).
 
+## Document search
+
+`internal/app/search.go` owns the viewer's `/` query editor, bounded search
+commands, navigation, and ANSI-preserving highlighting. It uses Bubble Tea's
+existing key/paste routing and event loop, without a clipboard dependency, so
+the same component builds in the WASM demo. The folder browser's independent
+`/` glob search is unchanged.
+
+Workers search immutable snapshots of Markdown layout lines or sheet rows and
+visible columns. PDF searches own a separate text-only `document.Loader` and
+close it on completion; raster loading remains independent. Queries are literal
+RE2 expressions with Unicode case folding. Work is serialized per model, even
+across canceled query replacements, to avoid accumulating concurrent PDF
+parsers. Cancellation and owner/revision checks discard late replies. Layout
+versions and column snapshots trigger reindexing after resize/source/visibility
+changes. Reload, navigation away, and shutdown cancel outstanding work.
+
+Bounds: 256 query runes, 1,000 matching lines/cells/pages, 16 MiB searched text,
+and a 30-second context checked between units. Existing PDF extraction deadlines
+still bound an in-flight page; cancellation does not interrupt that parser.
+Text matches do not cross displayed lines or cells. PDFs navigate by page and
+show excerpts, without raster highlights or OCR. The guide's Controls page
+documents these scopes and the temporary `n`/`N` bindings.
+
 ## Animated GIFs
 
 `internal/document/gif.go` scans GIF blocks before `image/gif.DecodeAll` to

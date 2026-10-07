@@ -25,6 +25,9 @@ func (m *Model) View() tea.View {
 	}
 	body = m.layered(body, w, h)
 	bar, hint := m.statusLine(w, h)
+	if m.search != nil && m.screen == screenDocument && !m.help && m.layer == layerNone {
+		hint = ansi.Truncate(m.search.status(w), w, "…")
+	}
 	body = m.framed(body)
 	content := body + "\n" + bar + "\n" + hint
 	if m.quitting {
@@ -106,7 +109,7 @@ const helpText = "gloss — a visual pager\n\n" +
 	"e / i          export as PNG / file details\n" +
 	"r              auto-rotate mesh (reload other files)\n" +
 	"C / B          mesh color / background color\n" +
-	"Drop files on the terminal to add them\n" +
+	"Drop files to open · / search · n/N next/prev match · Esc clear\n" +
 	"Meshes: drag to orbit, Shift-drag to pan, wheel to zoom, 5 orthographic\n" +
 	"Markdown: arrows/wheel scroll, Space/b page, s source\n" +
 	"GIFs: Space pause/play, < slower, > faster, Backspace 1×\n"
@@ -394,6 +397,9 @@ func (m *Model) hints() string {
 	}
 	if m.isFetched() {
 		keys = " Esc close ·" + strings.TrimPrefix(keys, " q quit ·")
+	}
+	if m.searchable() {
+		keys = " / search ·" + keys
 	}
 	if m.canBrowse() {
 		keys += " · o browse"

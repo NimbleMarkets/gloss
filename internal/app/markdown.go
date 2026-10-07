@@ -25,6 +25,8 @@ type markdownLine struct {
 }
 
 type markdownView struct {
+	search                *searchPattern
+	layoutVersion         uint64
 	doc                   *document.Markdown
 	pictures              []picture.Model
 	lines                 []markdownLine
@@ -69,6 +71,7 @@ func (m *markdownView) setKitty(kitty bool) tea.Cmd {
 func (m *markdownView) layout(width, height, cw, ch int) tea.Cmd {
 	m.width, m.height = max(1, width), max(1, height)
 	m.lines = nil
+	m.layoutVersion++
 	addText := func(s string) {
 		m.lines = append(m.lines, markdownLine{text: ansi.Truncate(s, m.width, ""), image: -1})
 	}
@@ -194,7 +197,7 @@ func (m *markdownView) view() string {
 	for i := m.offset; i < min(len(m.lines), m.offset+m.height); i++ {
 		line := m.lines[i]
 		if line.image < 0 {
-			lines = append(lines, line.text)
+			lines = append(lines, highlightSearch(line.text, m.search))
 			continue
 		}
 		rows, ok := cache[line.image]
