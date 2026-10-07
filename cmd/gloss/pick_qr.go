@@ -36,6 +36,15 @@ type webPickResult struct {
 }
 
 func waitWebPickQR(ctx context.Context, s *server, opts options, stderr io.Writer) ([]string, string, error) {
+	return runWebPickQR(ctx, s, opts, stderr, func(m tea.Model) error {
+		_, err := tea.NewProgram(m, tea.WithOutput(stderr), tea.WithoutSignalHandler()).Run()
+		return err
+	})
+}
+
+// Inject only the terminal runner so tests exercise the same server settlement
+// and exit-code mapping without owning stdin or a real terminal.
+func runWebPickQR(ctx context.Context, s *server, opts options, stderr io.Writer, run func(tea.Model) error) ([]string, string, error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	done := make(chan struct{})
@@ -54,7 +63,7 @@ func waitWebPickQR(ctx context.Context, s *server, opts options, stderr io.Write
 	}()
 	// served owns OS signals. Its cancellation settles the server, which lets
 	// the screen execute its image cleanup before Bubble Tea restores the TTY.
-	_, screenErr := tea.NewProgram(m, tea.WithOutput(stderr), tea.WithoutSignalHandler()).Run()
+	screenErr := run(m)
 	cancel()
 	r := <-result
 	if screenErr != nil && r.err != nil {

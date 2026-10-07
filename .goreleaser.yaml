@@ -6,6 +6,9 @@
 
 version: 2
 
+env:
+  - GOWORK=off
+
 metadata:
   mod_timestamp: "{{ .CommitTimestamp }}"
 

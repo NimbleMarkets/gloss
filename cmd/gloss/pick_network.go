@@ -39,6 +39,10 @@ func parsePickNetwork(listen, advertised string) (pickNetwork, error) {
 	if err != nil {
 		return pickNetwork{}, fmt.Errorf("--advertise-host: %w", err)
 	}
+	ip, ipErr := netip.ParseAddr(host)
+	if addr.Addr().IsUnspecified() && (host == "localhost" || (ipErr == nil && ip.IsLoopback())) {
+		return pickNetwork{}, fmt.Errorf("a wildcard --listen cannot advertise loopback; use a reachable LAN IP or DNS name, or bind loopback explicitly")
+	}
 	if ip, err := netip.ParseAddr(host); err == nil {
 		if ip.Is4() != addr.Addr().Is4() || (!addr.Addr().IsUnspecified() && ip != addr.Addr()) {
 			return pickNetwork{}, fmt.Errorf("--advertise-host IP must match --listen, or its address family for a wildcard listener")

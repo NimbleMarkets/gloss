@@ -4,7 +4,7 @@ A visual pager for the terminal: like `less`, for images, SVGs, PDFs, STL and 3M
 meshes, Markdown, HTML, plain text, JSON, Jupyter notebooks, Word, Excel, Grist,
 and CSV files.
 
-[**Try gloss in your browser →**](https://nimblemarkets.github.io/gloss/)
+[**Try gloss in your browser →**](https://nimblemarkets.github.io/gloss/) — starts with a sample image, including on phone-width screens.
 
 [![Embedded landscape sample — open the live gloss demo](examples/landscape.png)](https://nimblemarkets.github.io/gloss/)
 
@@ -42,6 +42,7 @@ cat drawing.svg | gloss                # read from a pipe
 | `+` / `-`, arrows | Zoom and pan; orbit a mesh |
 | `i` | Details about the file |
 | `e` | Export what you see as a PNG |
+| `u` | Show a selected table URL as a QR code |
 
 Pictures use Kitty graphics where the terminal has them, and colored half-blocks
 where it does not. Drag files onto the terminal to open them; add `--fetch`
@@ -59,6 +60,7 @@ gloss --text report.docx                      # Markdown on stdout
 gloss --grep '(?i)total' report.pdf           # the PDF pages that match, and where
 gloss --info --json model.3mf                 # what a file says about itself
 gloss --serve --pick                          # ask the user for a file in a browser
+gloss --pick-web --prompt "Send a photo and a note" # simple upload page
 ```
 
 Without a terminal on stdin, `--serve` and `--pick` return session JSON
@@ -67,6 +69,12 @@ looks without waiting, and `--cancel` ends the session. `gloss skill schema`
 prints the JSON Schema of everything gloss writes as JSON. Add
 `--accept 'image/*'` to require images, including SVG. See
 [handing files over](https://nimblemarkets.github.io/gloss/docs/guide/handoff/).
+
+`--pick-web` lets a person send files and an optional reply (`message` in
+status/resume JSON). Add `--listen IP:port` and, for a wildcard bind,
+`--advertise-host IP-or-name` to pick from another device; foreground terminal
+sessions show a QR code. LAN mode is opt-in, plain HTTP, and token-guarded:
+keep the link private and use a trusted network. See the handoff guide above.
 
 gloss also carries a skill that teaches an agent all of this, in the order it
 needs it: read a file's text, see a page or model as a PNG sized for its vision

@@ -77,13 +77,12 @@ rendering, bounds, fit errors, and image cleanup. Its decoder and lifecycle
 unit tests live with the component. See its README and DEVELOP for the API,
 encoder assessment, and NTCharts exact-size rendering contract.
 
-The updated local library uses `piglig/go-qr` for optimized QR segments and
-explicit UTF-8 encoding. Gloss uses the default options: the smallest fitting
-symbol with at least medium correction, raised when a stronger level fits the
-same size. We do not pin a symbol version; long URLs retain the full available
-capacity. Until that library revision is published, the committed module pin
-still selects the initial encoder; use the local workspaces below to adopt
-the updated code without publishing or adding filesystem replacements.
+The pinned revision (`v0.0.0-20261005213812-74d99c6f0981`) uses
+`skip2/go-qrcode`. Gloss uses its fixed Medium error-correction default
+(approximately 15% recovery). It selects a symbol that fits the encoded
+content; it does not automatically raise the correction level. The API accepts
+valid UTF-8, but this revision does not add explicit UTF-8 ECI segments.
+Do not assume a local workspace's encoder or segment behavior ships in a release.
 
 `internal/app/qr.go` owns the overlay, selected table URL, and export through
 gloss's existing non-overwriting save hook. The app supplies `nextKittyID`,
@@ -108,13 +107,16 @@ go work init . ../ntcharts-qrcode
 If a workspace already exists, use `go work use` to add the same paths.
 Both `go.work` files and their sums are ignored. The separate demo workspace
 keeps its Bubble Tea WASM replacement out of the native build. Ordinary
-`task build`, `task ci`, and `task demo-check` then use the local library.
+`task build` and `task demo-check` then use the local library.
 With an active workspace, `task build` always invokes Go so edits in sibling
 modules cannot leave a stale binary. Go's own incremental cache still applies.
-`task notices` records the dependencies actually linked by that workspace;
-regenerate notices after switching it on or off. `GOWORK=off` selects the
-published module pins. Once the new revision is published, update both module
-pins, remove the local workspaces, and regenerate notices. Do not commit a
+`task ci`, `task notices`, `task notices-check`, and `task release` always set
+`GOWORK=off`: release checks and notices must describe the committed module
+pins, not sibling checkouts. CI also forces a build so an earlier workspace
+binary cannot be reused. GoReleaser disables workspaces as well.
+Run `GOWORK=off task ci` and `GOWORK=off task demo-check` before tagging.
+When updating the library, update both module pins (prefer a published tag),
+regenerate notices, and validate with workspaces disabled. Do not commit a
 filesystem `replace` into either module.
 
 The standalone library's `examples/qrcode` demonstrates two components and
@@ -255,7 +257,7 @@ packages, and SHA-256 checksums go to a GitHub Release, and a cask to the
 Release binaries use software STL rendering when native GPU support is
 unavailable.
 
-## Plain web pick spike
+## Plain web picker
 
 `gloss --pick-web --prompt "Choose a receipt" --timeout 10m` serves the
 experimental HTML/JS upload page, without starting Booba or a terminal model.
@@ -267,7 +269,8 @@ only this mode supports opt-in network binding.
 `127.0.0.1:0`) from `--advertise-host IP-or-DNS-name`. Validation happens before
 detaching and again at server creation. Listeners use explicit `tcp4`/`tcp6`
 families, so wildcard behavior is consistent across operating systems. A
-wildcard requires an advertised host; a specific IP supplies its own default.
+wildcard requires a non-loopback advertised host; a specific IP supplies its
+own default.
 DNS names are advertised aliases, never resolved for binding or authorization.
 Interface names, scoped/link-local addresses, and reverse proxies are deferred.
 
@@ -324,8 +327,16 @@ messages are persisted with the detached answer and exposed only in JSON;
 ordinary stdout stays paths-only. The protocol remains version 1: the optional
 `message` field is an additive change. The reflected schema documents it.
 There is no durable browser receipt or interrupted-upload resumption in this
-spike. Request tests cover the detached round trip, token/origin checks,
-confirmation IDs, cleanup, and limits; `task web-check` tests the JS adapter.
+picker. Request tests cover the detached round trip, token/origin checks,
+confirmation IDs, CSP and other security headers, 200/201-file boundaries,
+255-byte filename limits, concurrent uploads and removal/confirmation races,
+and QR wait exit codes. `task ci` exercises these under the race detector;
+`task web-check` tests the JS adapter.
+
+Uploads have a fixed two-minute total deadline in both `http.Server.ReadTimeout`
+and `web/pick-api.mjs`, not an idle timeout. A 128 MiB file needs about 9 Mbps
+of uplink before overhead; slower links must send smaller files. `--timeout`
+controls the session lifetime and does not extend this per-upload deadline.
 
 ## The browser demo
 

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+  * **File handoff and QR codes**
+    * Experimental `--pick-web` offers a plain HTML/JS upload page with
+      Choose files, Remove, Send files, and Cancel; no WASM or terminal needed
+    * An optional reply message accompanies files in `--status` and
+      `--resume --json`, and foreground `--pick-web --json` answers
+    * `--listen` and `--advertise-host` support LAN and Tailscale addresses
+      for the upload-only picker. LAN binding is opt-in, plain HTTP, and
+      token-guarded; the full `--serve` viewer remains localhost-only
+    * Foreground LAN picks show a terminal QR until confirmation, cancellation,
+      or timeout, preserving stdout for paths or JSON
+    * `u` shows a selected table URL as a QR overlay with Kitty graphics or
+      half-block fallback; `e` exports its PNG, and the original text remains
+      available in the table
+    * The browser demo starts with a sample image on phone-width screens
+
+
   * **The file browser**
     * A rebuilt chooser (`o`) with three layouts: list, file-manager columns,
       and columns with a sidebar of common and recently visited folders.

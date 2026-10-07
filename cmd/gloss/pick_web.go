@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"io"
 	"io/fs"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -82,6 +83,7 @@ func serveWebPick(ctx context.Context, opts options) (*server, error) {
 	s.front = &http.Server{
 		Handler: s, ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout: 2 * time.Minute, IdleTimeout: 30 * time.Second,
+		ErrorLog: log.New(io.Discard, "", 0),
 	}
 	go s.front.Serve(listener)
 	go func() {

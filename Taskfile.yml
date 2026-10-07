@@ -176,27 +176,30 @@ tasks:
     desc: Check the modules linked for known vulnerabilities
     cmds: [go run golang.org/x/vuln/cmd/govulncheck@latest ./...]
   ci:
-    desc: Run the same checks as GitHub Actions
+    desc: Check the pinned release dependencies, ignoring local workspaces
+    env:
+      GOWORK: 'off'
+    # A subprocess carries this environment into every child task. Task's
+    # direct task references do not inherit their parent's task-level env.
     cmds:
-      - task: fmt-check
-      - task: go-tidy-check
-      - task: go-verify
-      - task: test-race
-      - task: vet
-      - task: cross-windows
-      - task: staticcheck
-      - task: vulncheck
-      - task: build
-      - task: notices-check
-      - task: docs-check
+      - task fmt-check go-tidy-check go-verify test-race vet cross-windows staticcheck vulncheck
+      # A preceding workspace build may have the same sources and version.
+      - task --force build
+      - task notices-check docs-check
   notices:
+    env:
+      GOWORK: 'off'
     desc: Regenerate THIRD_PARTY_NOTICES.md from the modules linked
     cmds: ['go run ./internal/tools/notices > THIRD_PARTY_NOTICES.md']
   notices-check:
+    env:
+      GOWORK: 'off'
     desc: Fail when THIRD_PARTY_NOTICES.md is not what the modules linked say
     cmds:
       - 'go run ./internal/tools/notices | cmp -s - THIRD_PARTY_NOTICES.md || (echo "THIRD_PARTY_NOTICES.md is stale: run task notices" >&2; exit 1)'
   release:
+    env:
+      GOWORK: 'off'
     desc: Package a snapshot release into dist with GoReleaser, publishing nothing
     cmds: [goreleaser release --snapshot --clean]
   release-check:

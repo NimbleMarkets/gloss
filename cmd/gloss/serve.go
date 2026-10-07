@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
@@ -297,11 +298,9 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "POST a drop", http.StatusMethodNotAllowed)
 		return
 	}
-	if origin := r.Header.Get("Origin"); origin != "" {
-		if from, err := url.Parse(origin); err != nil || from.Host != r.Host {
-			http.Error(w, "forbidden", http.StatusForbidden)
-			return
-		}
+	if !samePickOrigin(r) {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
 	}
 	form, err := r.MultipartReader()
 	if err != nil {
@@ -335,6 +334,10 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 			fail(http.StatusRequestEntityTooLarge, "too many files")
 			return
 		}
+		if len(name) > 255 {
+			fail(http.StatusBadRequest, "filename exceeds 255 bytes")
+			return
+		}
 		// One file may be 128 MiB, and the session has only so much to give.
 		room := min(document.MaxFileBytes, maxSessionBytes-s.stored.Load())
 		if room <= 0 {
@@ -343,6 +346,9 @@ func (s *server) receive(w http.ResponseWriter, r *http.Request) {
 		}
 		kept, size, err := s.keep(name, io.LimitReader(part, room+1))
 		switch {
+		case errors.Is(err, syscall.ENAMETOOLONG):
+			fail(http.StatusBadRequest, "filename is too long (including any duplicate-name suffix)")
+			return
 		case err != nil:
 			fail(http.StatusInternalServerError, "the drop could not be kept")
 			return

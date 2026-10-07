@@ -119,13 +119,13 @@ where gloss runs.
 
 In a table, select a cell containing an http(s) URL and press `u` to show its QR
 code. This does not fetch the URL and needs no `--fetch`. The original cell
-stays unchanged; the overlay shows up to two lines of the address. `Esc` or `u`
+stays unchanged; the overlay shows a single address footer. `Esc` or `u`
 returns to the table. While the QR is open, `e` saves it as `qr.png` (numbering
 the name if it exists), or offers a download in the browser. This export uses
 eight pixels per module and includes the white border.
 
-QR codes use black on white, at least medium error correction, and a four-module
-quiet zone. Correction increases when it fits without making the code larger.
+QR codes use black on white, fixed Medium error correction (approximately 15%
+recovery), and a four-module quiet zone.
 The compact overlay keeps a single URL footer (ellipsized if needed);
 the full text remains in the table, and the status bar shows the available keys.
 They use Kitty graphics when available, with a direct Unicode half-block

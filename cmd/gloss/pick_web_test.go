@@ -7,8 +7,10 @@ import (
 	"errors"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -279,7 +281,7 @@ func TestDetachedWebPickRoundTrip(t *testing.T) {
 	}
 	for name, network := range map[string][]string{
 		"default":  nil,
-		"wildcard": {"--listen", "0.0.0.0:0", "--advertise-host", "localhost"},
+		"wildcard": {"--listen", "0.0.0.0:0", "--advertise-host", "handoff.example"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			args := append([]string{"--pick-web", "--timeout", "20s", "--accept", "image/*"}, network...)
@@ -294,15 +296,27 @@ func TestDetachedWebPickRoundTrip(t *testing.T) {
 				t.Fatalf("startup: %s %v", stdout.String(), err)
 			}
 			t.Cleanup(func() { _ = cancel(options{Cancel: got.ResumeToken}) })
-			if len(network) > 0 && !strings.HasPrefix(got.URL, "http://localhost:") {
+			if len(network) > 0 && !strings.HasPrefix(got.URL, "http://handoff.example:") {
 				t.Fatalf("detached start lost advertised host: %s", got.URL)
 			}
+			// Dial locally but retain the advertised authority and browser Origin.
+			u, err := url.Parse(got.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			authority := u.Host
+			u.Host = net.JoinHostPort("127.0.0.1", u.Port())
+			endpoint := u.String()
+			browser := func(r *http.Request) {
+				r.Host = authority
+				r.Header.Set("Origin", "http://"+authority)
+			}
 			// Upload over HTTP to the detached process, with no WebSocket or viewer.
-			code, _ := drop(t, got.URL+"files", nil, upload{"receipt.png", picture(t)})
+			code, _ := drop(t, endpoint+"files", browser, upload{"receipt.png", picture(t)})
 			if code != 200 {
 				t.Fatalf("upload: %d", code)
 			}
-			_, body := get(t, got.URL+"files", nil)
+			_, body := get(t, endpoint+"files", browser)
 			var list struct{ Files []webPickFile }
 			if err := json.Unmarshal([]byte(body), &list); err != nil || len(list.Files) != 1 {
 				t.Fatalf("list: %s %v", body, err)
@@ -311,7 +325,13 @@ func TestDetachedWebPickRoundTrip(t *testing.T) {
 				t.Fatalf("status before Send: %+v %v", st, err)
 			}
 			message := "Use this receipt, not the earlier draft.\n東京 ☕ <b>literal text</b>"
-			response, err := http.Post(got.URL+"confirm", "application/json", strings.NewReader(confirmMessage(message, list.Files[0].ID)))
+			request, err := http.NewRequest("POST", endpoint+"confirm", strings.NewReader(confirmMessage(message, list.Files[0].ID)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			browser(request)
+			request.Header.Set("Content-Type", "application/json")
+			response, err := http.DefaultClient.Do(request)
 			if err != nil {
 				t.Fatal(err)
 			}

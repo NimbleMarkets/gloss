@@ -40,6 +40,10 @@ func TestPickNetworkFlags(t *testing.T) {
 		{"--listen", "[::]:0", "--advertise-host", "192.168.1.42"},
 		{"--listen", "0.0.0.0:0", "--advertise-host", "::1"},
 		{"--listen", "192.168.1.42:0", "--advertise-host", "192.168.1.43"},
+		{"--listen", "0.0.0.0:0", "--advertise-host", "127.0.0.1"},
+		{"--listen", "0.0.0.0:0", "--advertise-host", "127.0.0.2"},
+		{"--listen", "0.0.0.0:0", "--advertise-host", "LOCALHOST."},
+		{"--listen", "[::]:0", "--advertise-host", "::1"},
 	} {
 		if _, _, err := parse(append([]string{"--pick-web"}, args...), io.Discard); err == nil {
 			t.Errorf("accepted %v", args)
