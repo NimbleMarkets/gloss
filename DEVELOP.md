@@ -127,12 +127,12 @@ rendering, bounds, fit errors, and image cleanup. Its decoder and lifecycle
 unit tests live with the component. See its README and DEVELOP for the API,
 encoder assessment, and NTCharts exact-size rendering contract.
 
-The pinned revision (`v0.0.0-20261005213812-74d99c6f0981`) uses
-`skip2/go-qrcode`. Gloss uses its fixed Medium error-correction default
-(approximately 15% recovery). It selects a symbol that fits the encoded
-content; it does not automatically raise the correction level. The API accepts
-valid UTF-8, but this revision does not add explicit UTF-8 ECI segments.
-Do not assume a local workspace's encoder or segment behavior ships in a release.
+The pinned release (`v0.1.1`) uses `piglig/go-qr/v2 v2.3.0`. Gloss uses the
+default options: medium error correction or higher, boosted when a stronger
+level fits without increasing the symbol version. Numeric, alphanumeric, byte,
+and Kanji segments are optimized to fit the content. Non-ASCII payloads include
+UTF-8 ECI; ambiguous Kanji mappings stay in UTF-8 byte segments to preserve the
+exact text. Both the native module and browser demo pin this release.
 
 `internal/app/qr.go` owns the overlay, selected table URL, and export through
 gloss's existing non-overwriting save hook. The app supplies `nextKittyID`,

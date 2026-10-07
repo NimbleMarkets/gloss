@@ -20,6 +20,9 @@
 
 
   * **File handoff and QR codes**
+    * Pin native and browser builds to `ntcharts-qrcode v0.1.1`, using
+      `piglig/go-qr/v2 v2.3.0` with optimized text segments, explicit UTF-8,
+      and automatic error-correction boosting
     * Experimental `--pick-web` offers a plain HTML/JS upload page with
       Choose files, Remove, Send files, and Cancel; no WASM or terminal needed
     * An optional reply message accompanies files in `--status` and

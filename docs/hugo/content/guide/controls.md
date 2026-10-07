@@ -136,8 +136,10 @@ returns to the table. While the QR is open, `e` saves it as `qr.png` (numbering
 the name if it exists), or offers a download in the browser. This export uses
 eight pixels per module and includes the white border.
 
-QR codes use black on white, fixed Medium error correction (approximately 15%
-recovery), and a four-module quiet zone.
+QR codes use black on white, at least Medium error correction (approximately
+15% recovery), and a four-module quiet zone. Correction increases when a
+stronger level fits without making the code larger. Text segments are optimized
+for size, with explicit UTF-8 encoding for non-ASCII text.
 The compact overlay keeps a single URL footer (ellipsized if needed);
 the full text remains in the table, and the status bar shows the available keys.
 They use Kitty graphics when available, with a direct Unicode half-block

@@ -20,8 +20,8 @@ github.com/NimbleMarkets/go-gpuimage v0.1.0 h1:2GRyaKxM+OO7riNcLV6uTX9DRXijkCWL9
 github.com/NimbleMarkets/go-gpuimage v0.1.0/go.mod h1:eWkNxvLkZkQQdwtUHbbULnM69mLS53iIXQEfce667N8=
 github.com/NimbleMarkets/ntcharts-pdf v0.3.1 h1:gm5EDfcNVLz7HVlZKP9NnATwL6xJ1gOdu4gJHmjo1qg=
 github.com/NimbleMarkets/ntcharts-pdf v0.3.1/go.mod h1:T3VEhsT/AOPiVjIWKeApPAX57ZOBb4Q2VMr+1VYKwUk=
-github.com/NimbleMarkets/ntcharts-qrcode v0.0.0-20261005213812-74d99c6f0981 h1:aaA0biECVEbsnRgrapkzDC2yV7LdMSAHv0fQKnQFPkU=
-github.com/NimbleMarkets/ntcharts-qrcode v0.0.0-20261005213812-74d99c6f0981/go.mod h1:tapjMO3ceEFcVEmtnXj/qUhmNfR2s+fRAFQvbbeSbKE=
+github.com/NimbleMarkets/ntcharts-qrcode v0.1.1 h1:LM1f33OIkfL92BE5i5ls7f7h5aEWcw8XdM/HE3P06vg=
+github.com/NimbleMarkets/ntcharts-qrcode v0.1.1/go.mod h1:5QV9u+nM1wsJj63Qf09wggn9AEWcMJUCqznE+8ovIsU=
 github.com/NimbleMarkets/ntcharts-svg v0.3.0 h1:Ze/WdOprbwBqJfQdZbOixPyVRnQpIVrDES0hwXqsM9E=
 github.com/NimbleMarkets/ntcharts-svg v0.3.0/go.mod h1:BeJEiD5rCp0ikAsNe+HKtJiadNgqTvEZGmAB1LLM5vY=
 github.com/NimbleMarkets/ntcharts/v2 v2.4.0 h1:E0RY4O+XF6UGaaHPjPksNQ05ns4X0aC0o/Y1y8Hvd24=
@@ -139,6 +139,8 @@ github.com/onsi/ginkgo/v2 v2.33.0 h1:C8gBA6Uc2ZEubiV+SXiu5tZnMTwEmXHgkJwGozKtZf8
 github.com/onsi/ginkgo/v2 v2.33.0/go.mod h1:+aXOY+vzZ5mu2iI2HpTZUPmM//oQfsNFX6gU9kNcA44=
 github.com/onsi/gomega v1.43.1 h1:vGIPFuYrIO6/0Z09s0I0QQQgFchiX4+tb1re3MScJYo=
 github.com/onsi/gomega v1.43.1/go.mod h1:e/C2HwaZ1DhvjzXXuFhcR7hY7Sh9pl7MmoWKEjzwcdA=
+github.com/piglig/go-qr/v2 v2.3.0 h1:uIim1GndFwN7F0ig97dUjOA541ljTkN2Yx6p85dF99I=
+github.com/piglig/go-qr/v2 v2.3.0/go.mod h1:MmOJawPWUOpQbp7w9SIrYEGyK1usDHNTuEGqFdxPdNI=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/quic-go/go-ossfuzz-seeds v0.1.0 h1:APacT+iIaNF6fd8AGEiN3bT/Jtkd2jz4v4TzM7MFjy0=
@@ -155,8 +157,6 @@ github.com/sebdah/goldie/v2 v2.8.0 h1:dZb9wR8q5++oplmEiJT+U/5KyotVD+HNGCAc5gNr8r
 github.com/sebdah/goldie/v2 v2.8.0/go.mod h1:oZ9fp0+se1eapSRjfYbsV/0Hqhbuu3bJVvKI/NNtssI=
 github.com/sergi/go-diff v1.4.0 h1:n/SP9D5ad1fORl+llWyN+D6qoUETXNZARKjyY2/KVCw=
 github.com/sergi/go-diff v1.4.0/go.mod h1:A0bzQcvG0E7Rwjx0REVgAGH58e96+X0MeOfepqsbeW4=
-github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e h1:MRM5ITcdelLK2j1vwZ3Je0FKVCfqOLp5zO6trqMLYs0=
-github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e/go.mod h1:XV66xRDqSt+GTGFMVlhk3ULuV0y9ZmzeVGR4mloJI3M=
 github.com/spf13/pflag v1.0.10 h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=
 github.com/spf13/pflag v1.0.10/go.mod h1:McXfInJRrz4CZXVZOBLb0bTZqETkiAhM9Iw0y3An2Bg=
 github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef h1:Ch6Q+AZUxDBCVqdkI8FSpFyZDtCVBc2VmejdNrm5rRQ=
