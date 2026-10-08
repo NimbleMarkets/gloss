@@ -24,8 +24,8 @@ github.com/NimbleMarkets/ntcharts-qrcode v0.1.1 h1:LM1f33OIkfL92BE5i5ls7f7h5aEWc
 github.com/NimbleMarkets/ntcharts-qrcode v0.1.1/go.mod h1:5QV9u+nM1wsJj63Qf09wggn9AEWcMJUCqznE+8ovIsU=
 github.com/NimbleMarkets/ntcharts-svg v0.3.0 h1:Ze/WdOprbwBqJfQdZbOixPyVRnQpIVrDES0hwXqsM9E=
 github.com/NimbleMarkets/ntcharts-svg v0.3.0/go.mod h1:BeJEiD5rCp0ikAsNe+HKtJiadNgqTvEZGmAB1LLM5vY=
-github.com/NimbleMarkets/ntcharts/v2 v2.4.0 h1:E0RY4O+XF6UGaaHPjPksNQ05ns4X0aC0o/Y1y8Hvd24=
-github.com/NimbleMarkets/ntcharts/v2 v2.4.0/go.mod h1:w+5yLPICduptuEeOk8ogPi2gYU9qmaim1Elol3TUI1k=
+github.com/NimbleMarkets/ntcharts/v2 v2.7.0 h1:sOCinwfnS/vhBFXJ/7PkwUStzXHnnSuqw8bMa8LUAvs=
+github.com/NimbleMarkets/ntcharts/v2 v2.7.0/go.mod h1:w+5yLPICduptuEeOk8ogPi2gYU9qmaim1Elol3TUI1k=
 github.com/NimbleMarkets/ntcharts3d v0.2.1 h1:d10mICYUmAWMo8fJrz1ziciDw8xZ8CZonHGd5EXEjG4=
 github.com/NimbleMarkets/ntcharts3d v0.2.1/go.mod h1:mG1448Di7U0kBgaTZkIM2Qc4WBLLh4tQgbrxwXhDW64=
 github.com/NimbleMarkets/oksvg v0.1.1 h1:ryK0nmpe6rTO/VybmE3HY7dnxLFh6V3iJeDO6cZcZoA=
