@@ -26,7 +26,7 @@ require (
 	github.com/neomantra/sqlittle v0.0.0-20261001025832-4a4bc3e212fa
 	github.com/rivo/uniseg v0.4.7
 	github.com/spf13/pflag v1.0.10
-	github.com/yuin/goldmark v1.8.2
+	github.com/yuin/goldmark v1.8.6
 	golang.org/x/image v0.46.0
 	golang.org/x/net v0.59.0
 )
